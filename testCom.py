@@ -19,35 +19,45 @@ from pygazebo.msg import quaternion_pb2
 from pygazebo.msg import joint_cmd_pb2
 logging.basicConfig()
 
-
 @trollius.coroutine
 def test():
     print "test"
     manager = yield From(pygazebo.connect(('127.0.0.1', 11345)))
 
-    manager.subscribe('/gazebo/default/model/info',
+    manager.subscribe('/gazebo/default/model/modify',
                   'gazebo.msgs.Model',
                   callback)
                   
     publisher = yield From(
-                  manager.advertise('/gazebo/default/unit_sphere_1/joint_cmd',
-                  'gazebo.msgs.JointCmd'))
+                manager.advertise('/gazebo/default/model/modify',
+                  'gazebo.msgs.Model'))
+#                  manager.advertise('/gazebo/default/unit_sphere_1/joint_cmd',
+#                  'gazebo.msgs.JointCmd'))
+#                manager.advertise('/gazebo/default/pioneer2dx::right_wheel/joint_cmd',
+#                          'gazebo.msgs.JointCmd'))
 
-    message = pygazebo.msg.joint_cmd_pb2.JointCmd()
-#    message = model_pb2.Model()
-#    message.name = "unit_sphere_1"
-    message.position.x = 1.5
-    message.position.y = -1
-    message.position.z = 1.5
-#    orientation = quaternion_pb2.Quaternion()
-#    orientation.x = 0.5
-#    orientation.y = -1
-#    orientation.z = 1.5
-#    orientation.w = 1
+#    message = pygazebo.msg.joint_cmd_pb2.JointCmd()
+    message = model_pb2.Model()
+    message.name = "unit_box_1"
+    message.id = 9
+    message.is_static = 1
+#    message.axis = 0
+#    message.force = 0.0
+    message.pose.position.x = 1
+    message.pose.position.y = -1
+    message.pose.position.z = 1.5
+#    message.scale.x = 2
+#    message.position.x = 1.5
+#    message.position.y = -1
+#    message.position.z = 1.5
+    message.pose.orientation.x = 0.5
+    message.pose.orientation.y = -1
+    message.pose.orientation.z = 1.5
+    message.pose.orientation.w = 1
     
     while True:
         yield From(publisher.publish(message))
-        yield From(trollius.sleep(1.0))
+        yield From(trollius.sleep(0.1))
 
 
 def callback(data):

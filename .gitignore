@@ -2,6 +2,11 @@
 __pycache__/
 *.py[cod]
 
+
+#Additionals
+pip-*
+*~
+
 # C extensions
 *.so
 
@@ -9,6 +14,9 @@ __pycache__/
 .Python
 env/
 build/
+bin/
+include/
+local/
 develop-eggs/
 dist/
 downloads/

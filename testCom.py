@@ -17,16 +17,21 @@ from pygazebo.msg import vector3d_pb2
 from pygazebo.msg import model_pb2
 from pygazebo.msg import quaternion_pb2
 from pygazebo.msg import joint_cmd_pb2
+from pygazebo.msg import poses_stamped_pb2
 logging.basicConfig()
+
 
 @trollius.coroutine
 def test():
     print "test"
     manager = yield From(pygazebo.connect(('127.0.0.1', 11345)))
 
-    manager.subscribe('/gazebo/default/model/modify',
+    manager.subscribe('/gazebo/default/model/info',
                   'gazebo.msgs.Model',
-                  callback)
+                  modelCallback)
+    manager.subscribe('/gazebo/default/pose/info',
+                      'gazebo.msgs.PosesStamped',
+                      poseCallback)
                   
     publisher = yield From(
                 manager.advertise('/gazebo/default/model/modify',
@@ -41,29 +46,27 @@ def test():
     message.name = "unit_box_1"
     message.id = 9
     message.is_static = 1
-#    message.axis = 0
-#    message.force = 0.0
     message.pose.position.x = 1
     message.pose.position.y = -1
     message.pose.position.z = 1.5
-#    message.scale.x = 2
-#    message.position.x = 1.5
-#    message.position.y = -1
-#    message.position.z = 1.5
     message.pose.orientation.x = 0.5
     message.pose.orientation.y = -1
     message.pose.orientation.z = 1.5
     message.pose.orientation.w = 1
     
     while True:
-        yield From(publisher.publish(message))
+#        yield From(publisher.publish(message))
         yield From(trollius.sleep(0.1))
 
+def poseCallback(data):
+#    message = pygazebo.msg.gz_string_pb2.GzString.FromString(data)#
+    message = poses_stamped_pb2.PosesStamped.FromString(data)
+    print 'Received pose message:', str(message)
 
-def callback(data):
+def modelCallback(data):
 #    message = pygazebo.msg.gz_string_pb2.GzString.FromString(data)
     message = model_pb2.Model.FromString(data)
-    print('Received message:', message.pose.position.x)
+    print 'Received model message:', str(message)
 #print pygazebo.msg.camera_cmd_pb2
 loop = trollius.get_event_loop()
 loop.run_until_complete(test())

@@ -1,11 +1,40 @@
 <sdf version='1.4'>
   <world name='default'>
+    <plugin name="gripperPlugin" filename="libgripperPluginWorld.so"/>  
     <include>
       <uri>model://ground_plane</uri>
     </include>
     <include>
       <uri>model://sun</uri>
     </include>
+    <model name='gripper'>
+      <pose>0.5 -2 1.5 -1.5 0 0</pose>
+      <link name='link'>
+        <collision name='collision'>
+          <geometry>
+            <cylinder>
+              <radius>0.05</radius>
+              <length>0.5</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <cylinder>
+              <radius>0.05</radius>
+              <length>0.5</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <script>
+              <uri>file://media/materials/scripts/gazebo.material</uri>
+              <name>Gazebo/Grey</name>
+            </script>
+          </material>
+        </visual>
+      </link>
+      <static>1</static>
+    </model>
     <model name='table'>
       <static>1</static>
       <pose>0.5 -1.5 0.5 0 0 0</pose>
@@ -111,6 +140,6 @@
           </material>
       </link>
       <static>0</static>
-    </model>
+    </model>    
   </world>
 </sdf>

@@ -20,7 +20,12 @@ from pygazebo.msg import joint_cmd_pb2
 from pygazebo.msg import poses_stamped_pb2
 from pygazebo.msg import world_stats_pb2
 from pygazebo.msg import contacts_pb2
+from pygazebo.msg import gripperCommand_pb2
 logging.basicConfig()
+
+MOVE = 0
+GRAB = 1
+RELEASE = 2
 
 
 @trollius.coroutine
@@ -48,15 +53,18 @@ def test():
                   
     publisher = yield From(
                 manager.advertise('/gazebo/default/gripperMsg',
-                    'gazebo.msgs.GzString'))                  
+                    'gazeboPlugins.msgs.GripperCommand'))                  
 #                  manager.advertise('/gazebo/default/unit_sphere_1/joint_cmd',
 #                  'gazebo.msgs.JointCmd'))
 #                manager.advertise('/gazebo/default/pioneer2dx::right_wheel/joint_cmd',
 #                          'gazebo.msgs.JointCmd'))
                     
     yield From(publisher.wait_for_listener())
-    msg = pygazebo.msg.gz_string_pb2.GzString()
-    msg.data = "blockC"
+    msg = pygazebo.msg.gripperCommand_pb2.GripperCommand()
+    msg.cmd = MOVE
+    msg.direction.x = 1
+    msg.direction.y = 0
+    msg.direction.z = 0
 
 
 #    message = pygazebo.msg.joint_cmd_pb2.JointCmd()

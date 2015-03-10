@@ -3,11 +3,11 @@ import "vector3d.proto";
 
 message GripperCommand
 {
-  enum COMMAND {
+  enum Command {
     MOVE = 0;
     GRAB = 1;
     RELEASE = 2;
   }
-  required COMMAND cmd = 1;
-  optional gazebo.msgs.Vector3d   direction = 2; 
+  required Command cmd = 1;
+  optional gazebo.msgs.Vector3d   direction = 2;
 }

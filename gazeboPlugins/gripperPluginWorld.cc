@@ -5,6 +5,7 @@
 #include <gazebo/msgs/msgs.hh>
 #include <gazebo/gazebo.hh>
 #include "gripperCommand.pb.h"
+#include <gazebo/sensors/sensors.hh>
 
 #include <iostream>
 #include <stdio.h>
@@ -18,11 +19,16 @@ namespace gazebo
     private: physics::ModelPtr gripper;
     //Pointer to the world
     private: physics::WorldPtr world;
-    // Pointer to the gripper
+    // Pointer to the target
     private: physics::ModelPtr target;
 
+    private: gazeboPlugins::msgs::GripperCommand::Command curCmd;
+    private: math::Vector3 curDir;
+
+    private: sensors::ContactSensorPtr contactSensor;
     // Pointer to the update event connection
     private: event::ConnectionPtr updateConnection;
+    private: event::ConnectionPtr contactConnection;
     private: transport::SubscriberPtr msgSubscriber;
 
     private: bool hasTarget;
@@ -32,9 +38,11 @@ namespace gazebo
     void cb(CmdPtr &_msg)
     {
       // Dump the message contents to stdout.
-      std::cout << _msg->cmd();
+      std::cout << gazeboPlugins::msgs::GripperCommand::Command_Name(_msg->cmd()) << std::endl;
+      curCmd = _msg->cmd();
       std::cout << "Recieving \n";
-      std::cout << math::Vector3(_msg->direction().x(),_msg->direction().y(),_msg->direction().z())  ;// << _msg->direction().y << ", " << _msg->direction().z;
+      curDir = math::Vector3(_msg->direction().x(),_msg->direction().y(),_msg->direction().z());
+      std::cout << curDir << std::endl; // << _msg->direction().y << ", " << _msg->direction().z;
     }
 
     public: void Load(physics::WorldPtr _parent, sdf::ElementPtr /*_sdf*/)
@@ -43,6 +51,7 @@ namespace gazebo
       // Store the pointer to the model
       this->world = _parent;
       this->gripper = this->world->GetModel("gripper");
+      this->contactSensor = boost::dynamic_pointer_cast<sensors::ContactSensor>(sensors::get_sensor("gripperContact"));
       this->hasTarget = false;
       // Create our node for communication
       gazebo::transport::NodePtr node(new gazebo::transport::Node());
@@ -54,6 +63,10 @@ namespace gazebo
       // simulation iteration.
       this->updateConnection = event::Events::ConnectWorldUpdateBegin(
           boost::bind(&GripperPlugin::OnUpdate, this, _1));
+      this->contactConnection = this->contactSensor->ConnectUpdated(
+      boost::bind(&GripperPlugin::OnContact, this));
+      // Make sure the parent sensor is active.
+      this->contactSensor->SetActive(true);
     }
 
 
@@ -62,14 +75,50 @@ namespace gazebo
     public: void OnUpdate(const common::UpdateInfo & /*_info*/)
     {
       // Apply a small linear velocity to the model.
-      if (this->hasTarget and not this->targetReached){
-        math::Pose targetPose = this->target->GetWorldPose();
-        targetPose.rot = this->gripper->GetWorldPose().rot;
-        this->gripper->GetChildLink("finger")->SetWorldPose(targetPose);
+      if (not this->isGripperMovementOk()) {
+        std::cout << "Gripper OFB" << std::endl;
+        this->curDir = math::Vector3(0.0,0.0,0.0);
       }
+      this->gripper->SetLinearVel(this->curDir);
+      this->gripper->SetAngularVel(math::Vector3(0.0,0.0,0.0));
+    }
 
+    public: void OnContact()
+    {
+
+        msgs::Contacts contacts;
+        contacts = this->contactSensor->GetContacts();
+        if (contacts.contact_size() > 0)
+        {
+            std::cout << "onContact" << std::endl;
+        }
+        for (unsigned int i = 0; i < contacts.contact_size(); ++i)
+          {
+            std::cout << "Collision between[" << contacts.contact(i).collision1()
+                      << "] and [" << contacts.contact(i).collision2() << "]\n";
+
+            for (unsigned int j = 0; j < contacts.contact(i).position_size(); ++j)
+            {
+              std::cout << j << "  Position:"
+                        << contacts.contact(i).position(j).x() << " "
+                        << contacts.contact(i).position(j).y() << " "
+                        << contacts.contact(i).position(j).z() << "\n";
+              std::cout << "   Normal:"
+                        << contacts.contact(i).normal(j).x() << " "
+                        << contacts.contact(i).normal(j).y() << " "
+                        << contacts.contact(i).normal(j).z() << "\n";
+              std::cout << "   Depth:" << contacts.contact(i).depth(j) << "\n";
+            }
+          }
 
     }
+
+
+    private: bool isGripperMovementOk()
+    {
+        return ((this->gripper->GetWorldPose().pos+this->curDir).Distance(0.0,0.0,1.0) <= 2.5);
+    }
+
 
 
   };

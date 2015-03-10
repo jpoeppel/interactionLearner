@@ -1,6 +1,6 @@
 <sdf version='1.4'>
   <world name='default'>
-    <plugin name="gripperPlugin" filename="libgripperPluginWorld.so"/>  
+    <plugin name="gripperPlugin" filename="libgripperPluginWorld.so"/>
     <include>
       <uri>model://ground_plane</uri>
     </include>
@@ -8,9 +8,9 @@
       <uri>model://sun</uri>
     </include>
     <model name='gripper'>
+      <pose>0.0 0.0 1.5 0 0 0</pose>
       <link name='finger'>
-        <pose>0.5 -1.7 1.5 0 0 0</pose>
-        <collision name='collision'>
+        <collision name='finger_collision'>
           <geometry>
             <sphere>
               <radius>0.025</radius>
@@ -30,12 +30,18 @@
             </script>
           </material>
         </visual>
+        <gravity>0</gravity>
+        <sensor name='gripperContact' type='contact'>
+          <contact>
+            <collision>finger_collision</collision>
+          </contact>
+        </sensor>
       </link>
-      <static>1</static>
+      <static>0</static>
     </model>
     <model name='table'>
       <static>1</static>
-      <pose>0.5 -1.5 0.5 0 0 0</pose>
+      <pose>0 0.5 0.5 0 0 0</pose>
       <link name='link'>
         <collision name='collision'>
           <geometry>
@@ -60,7 +66,7 @@
       </link>
     </model>
     <model name='blockA'>
-      <pose>0 -1.5 1 0 0 0</pose>
+      <pose>-0.5 0.5 1 0 0 0</pose>
       <link name='link'>
         <collision name='collision'>
           <geometry>
@@ -87,7 +93,7 @@
       <static>0</static>
     </model>
     <model name='blockB'>
-      <pose>0.5 -1.5 1 0 0 0</pose>
+      <pose>0.0 0.5 1 0 0 0</pose>
       <link name='link'>
         <collision name='collision'>
           <geometry>
@@ -115,7 +121,7 @@
       <static>0</static>
     </model>
     <model name='blockC'>
-      <pose>1.0 -1.5 1 0 0 0</pose>
+      <pose>0.5 0.5 1 0 0 0</pose>
       <link name='link'>
         <collision name='collision'>
           <geometry>
@@ -138,6 +144,6 @@
           </material>
       </link>
       <static>0</static>
-    </model>    
+    </model>
   </world>
 </sdf>

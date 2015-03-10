@@ -62,8 +62,8 @@ def test():
     yield From(publisher.wait_for_listener())
     msg = pygazebo.msg.gripperCommand_pb2.GripperCommand()
     msg.cmd = MOVE
-    msg.direction.x = 1
-    msg.direction.y = 0
+    msg.direction.x = 0
+    msg.direction.y = 1
     msg.direction.z = 0
 
 

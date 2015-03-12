@@ -30,6 +30,7 @@ namespace gazebo
     private: event::ConnectionPtr updateConnection;
     private: event::ConnectionPtr contactConnection;
     private: transport::SubscriberPtr msgSubscriber;
+    private: transport::PublisherPtr worldStatePub;
 
     private: bool hasTarget;
     private: bool targetReached;
@@ -43,6 +44,13 @@ namespace gazebo
       std::cout << "Recieving \n";
       curDir = math::Vector3(_msg->direction().x(),_msg->direction().y(),_msg->direction().z());
       std::cout << curDir << std::endl; // << _msg->direction().y << ", " << _msg->direction().z;
+       // Apply a small linear velocity to the model.
+      if (not this->isGripperMovementOk()) {
+        std::cout << "Gripper OFB" << std::endl;
+        this->curDir = math::Vector3(0.0,0.0,0.0);
+      }
+      this->gripper->SetLinearVel(this->curDir);
+      this->gripper->SetAngularVel(math::Vector3(0.0,0.0,0.0));
     }
 
     public: void Load(physics::WorldPtr _parent, sdf::ElementPtr /*_sdf*/)
@@ -58,7 +66,11 @@ namespace gazebo
       node->Init("default");
 
       // Listen to custom topic
-      msgSubscriber = node->Subscribe("/gazebo/default/gripperMsg", &GripperPlugin::cb, this);
+      this->msgSubscriber = node->Subscribe("/gazebo/default/gripperMsg", &GripperPlugin::cb, this);
+
+
+      this->worldStatePub = node->Advertise<msgs::Model_V>("~/worldstate");
+
       // Listen to the update event. This event is broadcast every
       // simulation iteration.
       this->updateConnection = event::Events::ConnectWorldUpdateBegin(
@@ -74,13 +86,23 @@ namespace gazebo
     // Called by the world update start event
     public: void OnUpdate(const common::UpdateInfo & /*_info*/)
     {
-      // Apply a small linear velocity to the model.
-      if (not this->isGripperMovementOk()) {
-        std::cout << "Gripper OFB" << std::endl;
-        this->curDir = math::Vector3(0.0,0.0,0.0);
+      // Publish world state
+      msgs::Model_V models;
+      physics::Model_V allModels = this->world->GetModels();
+      for (unsigned int i = 0; i<allModels.size();i++)
+      {
+        physics::ModelPtr m = allModels[i];
+        msgs::Model* tmp = models.add_models();
+        tmp->set_name(m->GetName());
+        tmp->set_id(m->GetId());
+        tmp->set_is_static(m->IsStatic());
+        msgs::Pose* p = tmp->mutable_pose();
+        msgs::Set(p, m->GetWorldPose());
       }
-      this->gripper->SetLinearVel(this->curDir);
-      this->gripper->SetAngularVel(math::Vector3(0.0,0.0,0.0));
+
+      this->worldStatePub->WaitForConnection();
+      this->worldStatePub->Publish(models);
+
     }
 
     public: void OnContact()

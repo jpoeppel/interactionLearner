@@ -16,6 +16,8 @@ import logging
 
 logging.basicConfig()
 
+GAZEBOCMDS = {"MOVE": 0, "GRAB": 1, "RELEASE": 2}
+
 class GazeboInterface():
     """
         Class that handles the interaction with gazebo.

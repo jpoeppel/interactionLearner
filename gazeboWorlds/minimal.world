@@ -8,7 +8,7 @@
       <uri>model://sun</uri>
     </include>
     <model name='gripper'>
-      <pose>0.0 0.0 0.0 0 0 0</pose>
+      <pose>0.0 0.0 0.025 0 0 0</pose>
       <link name='finger'>
         <collision name='finger_collision'>
           <geometry>
@@ -35,6 +35,7 @@
           <contact>
             <collision>finger_collision</collision>
           </contact>
+	  <update_rate>30.0</update_rate>
         </sensor>
       </link>
       <static>0</static>

@@ -70,11 +70,11 @@ namespace gazebo
 
 
       this->worldStatePub = node->Advertise<msgs::Model_V>("~/worldstate");
-
+      this->worldStatePub->WaitForConnection();
       // Listen to the update event. This event is broadcast every
       // simulation iteration.
-      this->updateConnection = event::Events::ConnectWorldUpdateBegin(
-          boost::bind(&GripperPlugin::OnUpdate, this, _1));
+ //     this->updateConnection = event::Events::ConnectWorldUpdateBegin(
+ //         boost::bind(&GripperPlugin::OnUpdate, this, _1));
       this->contactConnection = this->contactSensor->ConnectUpdated(
       boost::bind(&GripperPlugin::OnContact, this));
       // Make sure the parent sensor is active.
@@ -108,6 +108,23 @@ namespace gazebo
     public: void OnContact()
     {
 
+        // Publish world state
+      msgs::Model_V models;
+      physics::Model_V allModels = this->world->GetModels();
+      for (unsigned int i = 0; i<allModels.size();i++)
+      {
+        physics::ModelPtr m = allModels[i];
+        msgs::Model* tmp = models.add_models();
+        tmp->set_name(m->GetName());
+        tmp->set_id(m->GetId());
+        tmp->set_is_static(m->IsStatic());
+        msgs::Pose* p = tmp->mutable_pose();
+        msgs::Set(p, m->GetWorldPose());
+      }
+
+      this->worldStatePub->Publish(models);
+
+        //Publish contacts
         msgs::Contacts contacts;
         contacts = this->contactSensor->GetContacts();
         if (contacts.contact_size() > 0)

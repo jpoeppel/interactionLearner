@@ -13,10 +13,65 @@ from pygazebo.msg import model_pb2
 from pygazebo.msg import model_v_pb2
 from pygazebo.msg import gripperCommand_pb2
 import logging
+import numpy as np
 
 logging.basicConfig()
 
 GAZEBOCMDS = {"MOVE": 0, "GRAB": 1, "RELEASE": 2}
+
+GRIPPERSTATES = {"OPEN":0, "CLOSED": 1}
+
+
+class WorldObject(object):
+    def __init__(self, model = None):
+        self.pose =np.zeros(6)
+        self.name = ""
+        self.id = 0
+        if model != None:
+            self.parse(model)
+        
+    def parse(self, model):
+        self.pose = np.array(model.pose.position._fields.values() + model.pose.orientation._fields.values())
+        self.name = model.name
+        self.id = model.id
+        
+    def __repr__(self):
+        return "Name: " + str(self.name) + "\nId: " + str(self.id) + "\nPose: " + str(self.pose) 
+
+
+class Gripper(WorldObject):
+    def __init__(self):
+        super(Gripper, self).__init__()
+        self.state = GRIPPERSTATES["OPEN"]
+        
+    def __repr__(self):
+        return super(Gripper,self).__repr__() + "\nState: " + GRIPPERSTATES.keys()[GRIPPERSTATES.values().index(self.state)]
+
+
+class RawWorldState(object):
+    
+    def __init__(self):
+        self.gripper = Gripper()
+        self.objects = []
+        
+    def parseWorldState(self, models):
+        for m in models:
+            if m.name == "ground_plane":
+                continue
+            elif m.name == "gripper":
+                self.gripper.parse(m)
+            else:
+                self.objects.append(WorldObject(m))
+                
+    def __repr__(self):
+        return "Gripper: " + str(self.gripper) +"\nObjects: " + str(self.objects)
+
+
+class Action(object):
+    
+    def __init__(self, cmd, direction= [0.0,0.0,0.0]):
+        self.cmd = cmd
+        self.direction = direction
 
 class GazeboInterface():
     """
@@ -49,13 +104,13 @@ class GazeboInterface():
             yield From(trollius.sleep(0.1))
                           
                           
-    def sendCommand(self, cmd, direction = [0.0,0.0,0.0]):
+    def sendCommand(self, action):
         yield From(self.publisher.wait_for_listener())
         msg = pygazebo.msg.gripperCommand_pb2.GripperCommand()
-        msg.cmd = cmd
-        msg.direction.x = direction[0]
-        msg.direction.y = direction[1]
-        msg.direction.z = direction[2]
+        msg.cmd = action.cmd
+        msg.direction.x = action.direction[0]
+        msg.direction.y = action.direction[1]
+        msg.direction.z = action.direction[2]
         yield From(self.publisher.publish(msg))
         
         
@@ -69,8 +124,11 @@ class GazeboInterface():
             Protobuf bytearray containing a list of models
         """
         models = model_v_pb2.Model_V.FromString(data)
-        print 'Received # models message:', str(len(models.models))
-        print [str(m) for m in models.models]
+#        print 'Received # models message:', str(len(models.models))
+#        print [str(m) for m in models.models]
+        w = RawWorldState()
+        w.parseWorldState(models.models)
+        print w
     
     def stop(self):
         """

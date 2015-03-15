@@ -5,9 +5,13 @@ Created on Sat Mar 14 22:24:53 2015
 @author: jpoeppel
 """
 
+import numpy as np
+import gazeboInterface as gi
+
 
 class Model():
     def __init__(self):
+        self.model 
         pass
     
     def predict(self, action, state):
@@ -27,6 +31,7 @@ class Model():
             
                 The predicted world state.
         """
+        
         pass
     
     def update(self, action, state, result):
@@ -42,4 +47,5 @@ class Model():
             result:
                 The state the world was in after the action.
         """
+        
         pass

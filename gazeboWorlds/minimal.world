@@ -35,7 +35,7 @@
           <contact>
             <collision>finger_collision</collision>
           </contact>
-	  <update_rate>30.0</update_rate>
+	  <update_rate>1.0</update_rate>
         </sensor>
       </link>
       <static>0</static>

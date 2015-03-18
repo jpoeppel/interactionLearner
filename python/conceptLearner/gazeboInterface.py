@@ -18,6 +18,8 @@ import logging
 import numpy as np
 import math
 
+import model
+
 logging.basicConfig()
 
 GAZEBOCMDS = {"MOVE": 0, "GRAB": 1, "RELEASE": 2}
@@ -63,12 +65,13 @@ class Gripper(WorldObject):
     def __init__(self):
         super(Gripper, self).__init__()
         self.state = GRIPPERSTATES["OPEN"]
-        self.action = Action()
+#        self.action = Action()
         
         
     def toDict(self):
         d = super(Gripper, self).toDict()
-        return d.update([("state", self.state)])
+        d.update([("state", self.state)])
+        return d
         
     def __repr__(self):
         return super(Gripper,self).__repr__() + "\nState: " + GRIPPERSTATES.keys()[GRIPPERSTATES.values().index(self.state)]
@@ -96,7 +99,7 @@ class RawWorldState(object):
 
 class Action(object):
     
-    def __init__(self, cmd=GAZEBOCMDS["MOVE"], direction= [0.0,0.0,0.0]):
+    def __init__(self, cmd=GAZEBOCMDS["MOVE"], direction= np.array([0.0,0.0,0.0])):
         self.cmd = cmd
         self.direction = direction
         
@@ -106,6 +109,9 @@ class Action(object):
             return abs(self.direction.dot(otherAction.direction)/(np.linalg.norm(self.direction)*np.linalg.norm(otherAction.direction)))
         else:
             return 0
+            
+    def __repr__(self):
+        return "Action with direction: " + str(self.direction)
 
 class GazeboInterface():
     """
@@ -115,7 +121,10 @@ class GazeboInterface():
     def __init__(self):
          
         self.active = True
-        self.lastState = RawWorldState()
+        self.lastState = None
+        self.worldModel = model.ModelCBR()
+        self.lastPrediction = None
+        self.lastAction = Action()
 
         
     @trollius.coroutine
@@ -140,13 +149,15 @@ class GazeboInterface():
                           
                           
     def sendCommand(self, action):
-        yield From(self.publisher.wait_for_listener())
+#        print "setting Action: " + str(action)
+#        yield From(self.publisher.wait_for_listener())
         msg = pygazebo.msg.gripperCommand_pb2.GripperCommand()
         msg.cmd = action.cmd
         msg.direction.x = action.direction[0]
         msg.direction.y = action.direction[1]
-        msg.direction.z = action.direction[2]
-        yield From(self.publisher.publish(msg))
+        msg.direction.z = 0.0
+#        msg.direction.z = action.direction[2] # ignore z for now
+        self.publisher.publish(msg)
         
         
     def modelsCallback(self, data):
@@ -159,11 +170,20 @@ class GazeboInterface():
             Protobuf bytearray containing a list of models
         """
         models = modelState_v_pb2.ModelState_V.FromString(data)
-#        print 'Received # models message:', str(len(models.models))
-#        print [str(m) for m in models.models]
+#        print 'Received world state', str(models)
         w = RawWorldState()
         w.parseWorldState(models.models)
-        print w
+        if self.lastPrediction != None:
+            self.worldModel.update(self.lastAction,self.lastState, self.lastPrediction, w)
+        tmp = self.worldModel.getAction(w)
+        if tmp != None:
+            self.lastAction = tmp
+            self.sendCommand(self.lastAction)
+#        print "lastAction: " + str(self.lastAction)
+        
+        self.lastState = w
+        self.lastPrediction = self.worldModel.predict(self.lastAction, w)
+        print "num cases:" + str(self.worldModel.numCases)
     
     def stop(self):
         """
@@ -173,10 +193,8 @@ class GazeboInterface():
     
 if __name__ == "__main__":
 
-    a = RawWorldState()
-    print dir(a)
-    #    
-#    loop = trollius.get_event_loop()
-#    gi = GazeboInterface()
-#    loop.run_until_complete(gi.loop())
+
+    loop = trollius.get_event_loop()
+    gi = GazeboInterface()
+    loop.run_until_complete(gi.loop())
     

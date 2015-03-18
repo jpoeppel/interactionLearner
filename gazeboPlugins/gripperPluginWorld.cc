@@ -140,28 +140,28 @@ namespace gazebo
         //Publish contacts
         msgs::Contacts contacts;
         contacts = this->contactSensor->GetContacts();
-        if (contacts.contact_size() > 0)
-        {
-            std::cout << "onContact" << std::endl;
-        }
-        for (unsigned int i = 0; i < contacts.contact_size(); ++i)
-          {
-            std::cout << "Collision between[" << contacts.contact(i).collision1()
-                      << "] and [" << contacts.contact(i).collision2() << "]\n";
-
-            for (unsigned int j = 0; j < contacts.contact(i).position_size(); ++j)
-            {
-              std::cout << j << "  Position:"
-                        << contacts.contact(i).position(j).x() << " "
-                        << contacts.contact(i).position(j).y() << " "
-                        << contacts.contact(i).position(j).z() << "\n";
-              std::cout << "   Normal:"
-                        << contacts.contact(i).normal(j).x() << " "
-                        << contacts.contact(i).normal(j).y() << " "
-                        << contacts.contact(i).normal(j).z() << "\n";
-              std::cout << "   Depth:" << contacts.contact(i).depth(j) << "\n";
-            }
-          }
+//        if (contacts.contact_size() > 0)
+//        {
+//            std::cout << "onContact" << std::endl;
+//        }
+//        for (unsigned int i = 0; i < contacts.contact_size(); ++i)
+//          {
+//            std::cout << "Collision between[" << contacts.contact(i).collision1()
+//                      << "] and [" << contacts.contact(i).collision2() << "]\n";
+//
+//            for (unsigned int j = 0; j < contacts.contact(i).position_size(); ++j)
+//            {
+//              std::cout << j << "  Position:"
+//                        << contacts.contact(i).position(j).x() << " "
+//                        << contacts.contact(i).position(j).y() << " "
+//                        << contacts.contact(i).position(j).z() << "\n";
+//              std::cout << "   Normal:"
+//                        << contacts.contact(i).normal(j).x() << " "
+//                        << contacts.contact(i).normal(j).y() << " "
+//                        << contacts.contact(i).normal(j).z() << "\n";
+//              std::cout << "   Depth:" << contacts.contact(i).depth(j) << "\n";
+//            }
+//          }
 
     }
 

@@ -1,0 +1,14 @@
+package gazeboPlugins.msgs;
+
+/// \ingroup gazebo_msgs
+/// \interface ModelState_V
+/// \brief Information about all entity dynamics in a world
+
+
+import "modelState.proto";
+
+message ModelState_V
+{
+  repeated ModelState models  = 2;
+}
+

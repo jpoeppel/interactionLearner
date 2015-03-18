@@ -5,6 +5,8 @@
 #include <gazebo/msgs/msgs.hh>
 #include <gazebo/gazebo.hh>
 #include "gripperCommand.pb.h"
+#include "modelState_v.pb.h"
+#include "modelState.pb.h"
 #include <gazebo/sensors/sensors.hh>
 
 #include <iostream>
@@ -44,13 +46,7 @@ namespace gazebo
       std::cout << "Recieving \n";
       curDir = math::Vector3(_msg->direction().x(),_msg->direction().y(),_msg->direction().z());
       std::cout << curDir << std::endl; // << _msg->direction().y << ", " << _msg->direction().z;
-       // Apply a small linear velocity to the model.
-      if (not this->isGripperMovementOk()) {
-        std::cout << "Gripper OFB" << std::endl;
-        this->curDir = math::Vector3(0.0,0.0,0.0);
-      }
-      this->gripper->SetLinearVel(this->curDir);
-      this->gripper->SetAngularVel(math::Vector3(0.0,0.0,0.0));
+
     }
 
     public: void Load(physics::WorldPtr _parent, sdf::ElementPtr /*_sdf*/)
@@ -69,7 +65,7 @@ namespace gazebo
       this->msgSubscriber = node->Subscribe("/gazebo/default/gripperMsg", &GripperPlugin::cb, this);
 
 
-      this->worldStatePub = node->Advertise<msgs::Model_V>("~/worldstate");
+      this->worldStatePub = node->Advertise<gazeboPlugins::msgs::ModelState_V>("~/worldstate");
       this->worldStatePub->WaitForConnection();
       // Listen to the update event. This event is broadcast every
       // simulation iteration.
@@ -87,17 +83,21 @@ namespace gazebo
     public: void OnUpdate(const common::UpdateInfo & /*_info*/)
     {
       // Publish world state
-      msgs::Model_V models;
+      gazeboPlugins::msgs::ModelState_V models;
       physics::Model_V allModels = this->world->GetModels();
       for (unsigned int i = 0; i<allModels.size();i++)
       {
         physics::ModelPtr m = allModels[i];
-        msgs::Model* tmp = models.add_models();
+        gazeboPlugins::msgs::ModelState* tmp = models.add_models();
         tmp->set_name(m->GetName());
         tmp->set_id(m->GetId());
         tmp->set_is_static(m->IsStatic());
         msgs::Pose* p = tmp->mutable_pose();
         msgs::Set(p, m->GetWorldPose());
+        msgs::Vector3d* linvel = tmp->mutable_linvel();
+        msgs::Set(linvel, m->GetWorldLinearVel());
+        msgs::Vector3d* angvel = tmp->mutable_angvel();
+        msgs::Set(angvel, m->GetWorldAngularVel());
       }
 
       this->worldStatePub->WaitForConnection();
@@ -108,20 +108,33 @@ namespace gazebo
     public: void OnContact()
     {
 
-        // Publish world state
-      msgs::Model_V models;
+        // Apply a small linear velocity to the model.
+      if (not this->isGripperMovementOk()) {
+        std::cout << "Gripper OFB" << std::endl;
+        this->curDir = math::Vector3(0.0,0.0,0.0);
+      }
+      this->gripper->SetLinearVel(this->curDir);
+      this->gripper->SetAngularVel(math::Vector3(0.0,0.0,0.0));
+
+      // Publish world state
+      gazeboPlugins::msgs::ModelState_V models;
       physics::Model_V allModels = this->world->GetModels();
       for (unsigned int i = 0; i<allModels.size();i++)
       {
         physics::ModelPtr m = allModels[i];
-        msgs::Model* tmp = models.add_models();
+        gazeboPlugins::msgs::ModelState* tmp = models.add_models();
         tmp->set_name(m->GetName());
         tmp->set_id(m->GetId());
         tmp->set_is_static(m->IsStatic());
         msgs::Pose* p = tmp->mutable_pose();
         msgs::Set(p, m->GetWorldPose());
+        msgs::Vector3d* linvel = tmp->mutable_linvel();
+        msgs::Set(linvel, m->GetWorldLinearVel());
+        msgs::Vector3d* angvel = tmp->mutable_angvel();
+        msgs::Set(angvel, m->GetWorldAngularVel());
       }
 
+      this->worldStatePub->WaitForConnection();
       this->worldStatePub->Publish(models);
 
         //Publish contacts

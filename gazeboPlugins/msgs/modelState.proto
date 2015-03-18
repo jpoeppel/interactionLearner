@@ -1,0 +1,19 @@
+package gazeboPlugins.msgs;
+
+/// \ingroup gazebo_msgs
+/// \interface ModelState
+/// \brief Information about the model dynamics
+
+import "pose.proto";
+import "vector3d.proto";
+
+message ModelState
+{
+  required string name         = 1;
+  optional uint32 id           = 2;
+  optional bool is_static      = 3;
+  optional gazebo.msgs.Pose pose           = 4;
+  optional gazebo.msgs.Vector3d scale      = 5;
+  optional gazebo.msgs.Vector3d linVel     = 6;
+  optional gazebo.msgs.Vector3d angVel     = 7;
+}

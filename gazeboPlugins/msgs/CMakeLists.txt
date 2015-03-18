@@ -10,7 +10,11 @@ endforeach()
 
 set (msgs
   $ENV{masterPath}/masterThesis/gazeboPlugins/msgs/gripperCommand.proto
+  $ENV{masterPath}/masterThesis/gazeboPlugins/msgs/modelState.proto  
+  $ENV{masterPath}/masterThesis/gazeboPlugins/msgs/modelState_v.proto
   ${PROTOBUF_IMPORT_DIRS}/vector3d.proto
+  ${PROTOBUF_IMPORT_DIRS}/quaternion.proto
+  ${PROTOBUF_IMPORT_DIRS}/pose.proto
   ${PROTOBUF_IMPORT_DIRS}/header.proto
   ${PROTOBUF_IMPORT_DIRS}/time.proto
 )

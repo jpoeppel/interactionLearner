@@ -14,15 +14,22 @@ from sklearn.gaussian_process import GaussianProcess
 BESTCASESCORE = 8
 BESTWORLDSCORE = 6
 MARGIN = 0.5
+NUMDEC = 5
+PREDICTIONTHRESHOLD = BESTWORLDSCORE - MARGIN
            
 def cosD(a, b):
-    if np.linalg.norm(a) == 0:
-        if np.linalg.norm(b) == 0:
-            return 1
+    try:
+        if np.linalg.norm(a) == 0:
+            if np.linalg.norm(b) == 0:
+                return 1
+            else:
+                return 0
         else:
-            return 0
-    else:
-        return abs(a.dot(b)/(np.linalg.norm(a)*np.linalg.norm(b)))
+            return abs(a.dot(b)/(np.linalg.norm(a)*np.linalg.norm(b)))
+    except Exception, e:
+        print e
+        print "a: " + str(a)
+        print "b: " + str(b)
     
 def expD(a,b):
     return math.exp(-(np.linalg.norm(a-b)))
@@ -33,7 +40,7 @@ def equalD(a,b):
     else:
         return 0
         
-metrics = {"dir": cosD, "linVel": expD, "orientation": cosD, "pos": expD, 
+metrics = {"dir": expD, "linVel": expD, "orientation": cosD, "pos": expD, 
            "angVel": expD, "name": equalD, "id": equalD, "cmd":equalD}
 
 class WorldState(object):
@@ -63,18 +70,26 @@ class WorldState(object):
                 continue
             else:
                 tmpDict = {}
-                tmpDict["pos"] = np.array(m.pose.position._fields.values())
-                tmpDict["orientation"]  = np.array(m.pose.orientation._fields.values())
-                tmpDict["linVel"] = np.array(m.linVel._fields.values())
-                tmpDict["angVel"] = np.array(m.angVel._fields.values())
+                tmpDict["pos"] = np.round(np.array([m.pose.position.x,m.pose.position.y,m.pose.position.z]), NUMDEC)
+                tmpDict["orientation"]  = np.round(np.array([m.pose.orientation.x,m.pose.orientation.y,
+                                            m.pose.orientation.z,m.pose.orientation.w]), NUMDEC)
+                tmpDict["linVel"] = np.round(np.array([m.linVel.x,m.linVel.y,m.linVel.z]), NUMDEC)
+                tmpDict["angVel"] = np.round(np.array([m.angVel.x,m.angVel.y,m.angVel.z]), NUMDEC)
                 tmpDict["name"] = m.name
                 tmpDict["id"] = m.id
                 if m.name == "gripper":
                     self.gripperState = tmpDict
                 else:
                     self.objectStates.append(tmpDict)
+
+    def __repr__(self):
+        return str(self.gripperState)
     
 class Action(dict):
+    
+    def __init__(self):
+        self["cmd"] = 3 #NOTHING 
+        self["dir"] = np.array([0.0,0.0,0.0])
     
     def score(self, action):
         s = 0.0
@@ -115,20 +130,33 @@ class Case(predictionNode):
     def predict(self, state, action):
         return self.postState
         
+    def getInterestingGripperAttribs(self):
+        r = []
+        for k in self.preState.gripperState.keys():
+            if not np.array_equal(self.preState.gripperState[k], self.postState.gripperState[k]):
+                r.append(k)
+        return r
+        
 class AbstractCase(predictionNode):
-    
-    def __init__(self, caseA, caseB):
+        
+    def __init__(self, caseA, caseB=None):
+        #self.fixedAttribs= {} # Attributes for which this case was trained?
         self.gripperAttribs = []
         self.predictors = {}  
         self.refCases = []
-        self.refCases.append(caseA)
-        self.refCases.append(caseB)
+        self.refCases.append(caseA)   
+        self.gripperAttribs = caseA.getInterestingGripperAttribs()
+        if len(self.gripperAttribs) == 0:
+            raise(ValueError("No change in any attribute."))
         caseA.abstractCase = self
-        caseB.abstractCase = self
-        for k in caseA.preState.gripperState.keys():
-            if not (np.array_equal(caseA.preState.gripperState[k], caseA.postState.gripperState[k]) and 
-                np.array_equal(caseB.preState.gripperState[k], caseB.postState.gripperState[k])):
-                    self.gripperAttribs.append(k)
+        if caseB != None:
+            if self.gripperAttribs == caseB.getInterestingGripperAttribs():
+                self.refCases.append(caseB)
+                caseB.abstractCase = self
+            else:
+                print "WARNING caseB will be ignored because of different gripperAttribList!"
+            
+        
         self.updatePredictions()            
         
     def score(self, state, action):
@@ -137,18 +165,27 @@ class AbstractCase(predictionNode):
         
         
     def predict(self, state, action):
-        resultState = copy.deepcopy(state)
-        for k in self.gripperAttribs:
-            resultState.gripperState[k] = self.predictors[k].predict(np.concatenate((state.toVec(),action.toVec())))
-        return resultState
+        if len(self.refCases) > 1:
+            resultState = copy.deepcopy(state)
+            for k in self.gripperAttribs:
+                resultState.gripperState[k] = self.predictors[k].predict(np.concatenate((state.toVec(),action.toVec())))
+            return resultState
+        else:
+            return self.refCases[0].predict(state,action)
+            
+    def addRef(self, case):
+        case.abstractCase = self
+        self.refCases.append(case)
+        self.updatePredictions()
         
     def updatePredictions(self):
-        for k in self.gripperAttribs:
-            self.predictors[k] = GaussianProcess(corr='cubic')
-            data, labels = self.getTrainingData(k)
-#            print "data: " + str(data)
-#            print "labels: " + str(labels)
-            self.predictors[k].fit(data, labels)
+        if len(self.refCases) > 1:
+            for k in self.gripperAttribs:
+                self.predictors[k] = GaussianProcess(corr='cubic')
+                data, labels = self.getTrainingData(k)
+#                print "data: " + str(data)
+#                print "labels: " + str(labels)
+                self.predictors[k].fit(data, labels)
         pass
     
     def getTrainingData(self, attrib):
@@ -174,8 +211,12 @@ class ModelCBR(object):
                 bestScore = tmpScore
                 bestCase = c
         print "best score: " + str(bestScore)
+        if bestScore == BESTCASESCORE:
+            self.printUpdate = True
+        else:
+            self.printUpdate = False
         if bestCase != None and bestCase.abstractCase != None and bestScore < BESTCASESCORE:
-            print "using abstract case."
+#            print "using abstract case."
             return bestCase.abstractCase
         else:
             return bestCase
@@ -189,31 +230,95 @@ class ModelCBR(object):
             return similarCase.predict(state,action), similarCase
         else:
             return state, similarCase
-    
+            
     def update(self, state, action, prediction, result, usedCase):
+        """
+            Function to update the model according to the last case.
+            
+        """
+        predictionScore = result.score(prediction)
+        print "prediction score is: " + str(predictionScore)
+        if predictionScore < PREDICTIONTHRESHOLD:
+            #Prediction was not good enough -> improve
+            newCase = Case(state, result, action)
+            attribList = newCase.getInterestingGripperAttribs()
+            self.cases.append(newCase)
+            #Search for abstract Case with the same attribList:
+            abstractCase = None
+            for ac in self.abstractCases:
+                if ac.gripperAttribs == attribList:
+                    abstractCase = ac
+                    #TODO consider search for all of them in case we distinguis by certain features
+                    break
+            if abstractCase != None:
+                #If an abstract case is found add the reference
+                abstractCase.addRef(newCase)
+            else:
+                #Create a new abstract case
+                if isinstance(usedCase, Case) and usedCase != None and \
+                    usedCase.getInterestingGripperAttribs() == attribList:
+                        #Combine usedCase and newCase
+                    try:
+                        self.abstractCases.append(AbstractCase(newCase, usedCase))
+                    except ValueError:
+                        #Simply do nothing in this case
+                        pass
+                else:
+                    #Create a new abstractCase only based on the newCase
+                    try:
+                        self.abstractCases.append(AbstractCase(newCase))
+                    except ValueError:
+                        #Simply do nothing in this case
+                        pass
+
+    
+    def update2(self, state, action, prediction, result, usedCase):
         predictionScore = prediction.score(result)
         print "prediction score is: " + str(predictionScore)
         if predictionScore < BESTWORLDSCORE - MARGIN:
+            if self.printUpdate:
+                print "prediction: " + str(prediction)
+                print "result: " + str(result)
+                print "action: " + str(action)
+                print "usedCase action: " + str(usedCase.action)
             newCase = Case(state, result, action)
+            attribList = newCase.getInterestingGripperAttribs()
+#            for k in state.gripperState.keys():
+#                if not (np.array_equal(state.gripperState[k], result.gripperState[k])):
+#                    attribList.append(k)
 #            print type(usedCase)
             if isinstance(usedCase, AbstractCase):
                 #Prediction was bad, add new case and retrain predictors
-                print "is abstract"
-                attribList = []
-                for k in state.gripperState.keys():
-                    if not (np.array_equal(state.gripperState[k], result.gripperState[k])):
-                        attribList.append(k)
-                print "usedCased attribts: "+ str(usedCase.gripperAttribs)
-                print "attribList: " + str(attribList)
+#                print "is abstract"
+#                print "usedCased attribts: "+ str(usedCase.gripperAttribs)
+#                print "attribList: " + str(attribList)
                 if attribList == usedCase.gripperAttribs:
-                    print "update refCases"
+#                    print "update refCases"
                     usedCase.refCases.append(newCase)
                     newCase.abstractCase = usedCase
                     usedCase.updatePredictions()
+                else:
+                    self.abstractCases.append(AbstractCase(newCase))
             else:
                 if usedCase != None and usedCase.abstractCase == None:
-                    #Create abstractCase
-                    self.abstractCases.append(AbstractCase(usedCase, newCase))
+                    #Search for applicable abstractCase
+                    abstractCase = None
+                    for ac in self.abstractCases:
+                        if ac.gripperAttribs == attribList:
+#                            print "useable abstract case found"
+                            abstractCase = ac
+                            break
+                    if abstractCase != None:
+                        abstractCase.refCases.append(newCase)
+                        newCase.abstractCase = abstractCase
+                        abstractCase.updatePredictions()
+                    else:
+                        #Create abstractCase
+                        if usedCase.getInterestingGripperAttribs() == attribList:
+                            self.abstractCases.append(AbstractCase(usedCase, newCase))
+                        else:
+                            self.abstractCases.append(AbstractCase(usedCase))
+                            self.abstractCases.append(AbstractCase(newCase))
             self.cases.append(newCase)
                 
         pass

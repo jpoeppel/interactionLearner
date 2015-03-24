@@ -22,7 +22,7 @@ import model2 as model
 
 logging.basicConfig()
 
-GAZEBOCMDS = {"MOVE": 0, "GRAB": 1, "RELEASE": 2}
+GAZEBOCMDS = {"MOVE": 0, "GRAB": 1, "RELEASE": 2, "NOTHING": 3}
 
 GRIPPERSTATES = {"OPEN":0, "CLOSED": 1}
 
@@ -194,12 +194,13 @@ class GazeboInterface():
         models = modelState_v_pb2.ModelState_V.FromString(data)
 #        print 'Received world state', str(models)
         w = model.WorldState()
+        
         w.parse(models.models)
         if self.lastPrediction != None:
             self.worldModel.update(self.lastState, self.lastAction,self.lastPrediction, w, self.lastCase)
         tmp = self.getAction()
 #        tmp["cmd"] = GAZEBOCMDS["MOVE"]
-#        tmp["dir"] = np.array([0.0,0.0,0.0])
+#        tmp["dir"] = np.array([0.0,-1.2,0.0])
         if tmp != None:
             self.lastAction = tmp
             self.sendCommand(self.lastAction)
@@ -209,22 +210,26 @@ class GazeboInterface():
         self.lastPrediction, self.lastCase = self.worldModel.predict(w, self.lastAction)
         print "num cases: " + str(len(self.worldModel.cases))
         print "num abstract cases: " + str(len(self.worldModel.abstractCases))
+        print "abstract lists: " + str([c.gripperAttribs for c in self.worldModel.abstractCases])
     
 
     def getAction(self):
         rnd = np.random.rand()
         a = model.Action()
         a["cmd"] = GAZEBOCMDS["MOVE"]
-        if rnd < 0.2:
-            a["dir"] = np.array([1,0,0])
-        elif rnd < 0.4:
-            a["dir"] = np.array([-1,0,0])
-        elif rnd < 0.6:
-            a["dir"] = np.array([0,1,0])
-        elif rnd < 0.8:
-            a["dir"] = np.array([0,-1,0])
-        else:
+        if rnd < 0.5:
+#            a["dir"] = np.array([1.2,0,0])
+            a["dir"] = np.random.rand(3)*2-1
+#        elif rnd < 0.4:
+#            a["dir"] = np.array([-1.3,0,0])
+#        elif rnd < 0.6:
+#            a["dir"] = np.array([0,1,0])
+#        elif rnd < 0.8:
+#            a["dir"] = np.array([0,-1,0])
+        elif rnd < 0.75:
             a["dir"] = np.array([0,0,0])
+        else:
+            a["cmd"] = GAZEBOCMDS["NOTHING"]
         return a
     
     def stop(self):

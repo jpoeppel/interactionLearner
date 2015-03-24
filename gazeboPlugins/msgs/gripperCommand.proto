@@ -7,6 +7,7 @@ message GripperCommand
     MOVE = 0;
     GRAB = 1;
     RELEASE = 2;
+    NOTHING = 3;
   }
   required Command cmd = 1;
   optional gazebo.msgs.Vector3d   direction = 2;

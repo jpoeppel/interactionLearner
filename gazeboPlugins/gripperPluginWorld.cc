@@ -42,9 +42,9 @@ namespace gazebo
     {
       // Dump the message contents to stdout.
       std::cout << gazeboPlugins::msgs::GripperCommand::Command_Name(_msg->cmd()) << std::endl;
-      curCmd = _msg->cmd();
+      this->curCmd = _msg->cmd();
       std::cout << "Recieving \n";
-      curDir = math::Vector3(_msg->direction().x(),_msg->direction().y(),_msg->direction().z());
+      this->curDir = math::Vector3(_msg->direction().x(),_msg->direction().y(),_msg->direction().z());
       std::cout << curDir << std::endl; // << _msg->direction().y << ", " << _msg->direction().z;
 
     }
@@ -66,7 +66,6 @@ namespace gazebo
 
 
       this->worldStatePub = node->Advertise<gazeboPlugins::msgs::ModelState_V>("~/worldstate");
-      this->worldStatePub->WaitForConnection();
       // Listen to the update event. This event is broadcast every
       // simulation iteration.
  //     this->updateConnection = event::Events::ConnectWorldUpdateBegin(
@@ -100,7 +99,6 @@ namespace gazebo
         msgs::Set(angvel, m->GetWorldAngularVel());
       }
 
-      this->worldStatePub->WaitForConnection();
       this->worldStatePub->Publish(models);
 
     }
@@ -112,9 +110,13 @@ namespace gazebo
       if (not this->isGripperMovementOk()) {
         std::cout << "Gripper OFB" << std::endl;
         this->curDir = math::Vector3(0.0,0.0,0.0);
+        this->gripper->SetLinearVel(math::Vector3(0.0,0.0,0.0));
       }
-      this->gripper->SetLinearVel(this->curDir);
-      this->gripper->SetAngularVel(math::Vector3(0.0,0.0,0.0));
+      if (this->curCmd == gazeboPlugins::msgs::GripperCommand::MOVE)
+      {
+        this->gripper->SetLinearVel(this->curDir);
+        this->gripper->SetAngularVel(math::Vector3(0.0,0.0,0.0));
+      }
 
       // Publish world state
       gazeboPlugins::msgs::ModelState_V models;
@@ -134,7 +136,6 @@ namespace gazebo
         msgs::Set(angvel, m->GetWorldAngularVel());
       }
 
-      this->worldStatePub->WaitForConnection();
       this->worldStatePub->Publish(models);
 
         //Publish contacts

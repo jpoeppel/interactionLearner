@@ -68,8 +68,8 @@ namespace gazebo
       this->worldStatePub = node->Advertise<gazeboPlugins::msgs::ModelState_V>("~/worldstate");
       // Listen to the update event. This event is broadcast every
       // simulation iteration.
- //     this->updateConnection = event::Events::ConnectWorldUpdateBegin(
- //         boost::bind(&GripperPlugin::OnUpdate, this, _1));
+      this->updateConnection = event::Events::ConnectWorldUpdateBegin(
+          boost::bind(&GripperPlugin::OnUpdate, this, _1));
       this->contactConnection = this->contactSensor->ConnectUpdated(
       boost::bind(&GripperPlugin::OnContact, this));
       // Make sure the parent sensor is active.
@@ -81,32 +81,7 @@ namespace gazebo
     // Called by the world update start event
     public: void OnUpdate(const common::UpdateInfo & /*_info*/)
     {
-      // Publish world state
-      gazeboPlugins::msgs::ModelState_V models;
-      physics::Model_V allModels = this->world->GetModels();
-      for (unsigned int i = 0; i<allModels.size();i++)
-      {
-        physics::ModelPtr m = allModels[i];
-        gazeboPlugins::msgs::ModelState* tmp = models.add_models();
-        tmp->set_name(m->GetName());
-        tmp->set_id(m->GetId());
-        tmp->set_is_static(m->IsStatic());
-        msgs::Pose* p = tmp->mutable_pose();
-        msgs::Set(p, m->GetWorldPose());
-        msgs::Vector3d* linvel = tmp->mutable_linvel();
-        msgs::Set(linvel, m->GetWorldLinearVel());
-        msgs::Vector3d* angvel = tmp->mutable_angvel();
-        msgs::Set(angvel, m->GetWorldAngularVel());
-      }
-
-      this->worldStatePub->Publish(models);
-
-    }
-
-    public: void OnContact()
-    {
-
-        // Apply a small linear velocity to the model.
+      // Apply a small linear velocity to the model.
       if (not this->isGripperMovementOk()) {
         std::cout << "Gripper OFB" << std::endl;
         this->curDir = math::Vector3(0.0,0.0,0.0);
@@ -117,6 +92,12 @@ namespace gazebo
         this->gripper->SetLinearVel(this->curDir);
         this->gripper->SetAngularVel(math::Vector3(0.0,0.0,0.0));
       }
+    }
+
+    public: void OnContact()
+    {
+
+
 
       // Publish world state
       gazeboPlugins::msgs::ModelState_V models;

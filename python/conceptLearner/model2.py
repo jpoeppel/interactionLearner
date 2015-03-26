@@ -10,6 +10,7 @@ import numpy as np
 import math
 import copy
 from sklearn.gaussian_process import GaussianProcess
+from metrics import metrics
 
 BESTCASESCORE = 8
 BESTWORLDSCORE = 6
@@ -17,33 +18,12 @@ MARGIN = 0.5
 NUMDEC = 5
 PREDICTIONTHRESHOLD = BESTWORLDSCORE - MARGIN
            
-def cosD(a, b):
-    try:
-        if np.linalg.norm(a) == 0:
-            if np.linalg.norm(b) == 0:
-                return 1
-            else:
-                return 0
-        else:
-            return abs(a.dot(b)/(np.linalg.norm(a)*np.linalg.norm(b)))
-    except Exception, e:
-        print e
-        print "a: " + str(a)
-        print "b: " + str(b)
-    
-def expD(a,b):
-    return math.exp(-(np.linalg.norm(a-b)))
-    
-def equalD(a,b):
-    if a == b:
-        return 1
-    else:
-        return 0
-        
-metrics = {"dir": expD, "linVel": expD, "orientation": cosD, "pos": expD, 
-           "angVel": expD, "name": equalD, "id": equalD, "cmd":equalD}
 
 class WorldState(object):
+    """
+        WorldState object representing all the objects in the world at a
+        given moment.
+    """
     
     def __init__(self):
         self.gripperState = {}
@@ -81,15 +61,16 @@ class WorldState(object):
                     self.gripperState = tmpDict
                 else:
                     self.objectStates.append(tmpDict)
+                    
 
     def __repr__(self):
         return str(self.gripperState)
     
 class Action(dict):
     
-    def __init__(self):
-        self["cmd"] = 3 #NOTHING 
-        self["dir"] = np.array([0.0,0.0,0.0])
+    def __init__(self, cmd=3, direction=np.array([0.0,0.0,0.0])):
+        self["cmd"] = cmd
+        self["dir"] = direction
     
     def score(self, action):
         s = 0.0
@@ -168,7 +149,7 @@ class AbstractCase(predictionNode):
         if len(self.refCases) > 1:
             resultState = copy.deepcopy(state)
             for k in self.gripperAttribs:
-                resultState.gripperState[k] = self.predictors[k].predict(np.concatenate((state.toVec(),action.toVec())))
+                resultState.gripperState[k] = state.gripperState[k] + self.predictors[k].predict(np.concatenate((state.toVec(),action.toVec())))[0]
             return resultState
         else:
             return self.refCases[0].predict(state,action)
@@ -193,7 +174,7 @@ class AbstractCase(predictionNode):
         outputs = []
         for c in self.refCases:
             inputs.append(np.concatenate((c.preState.toVec(),c.action.toVec())))
-            outputs.append(c.postState.gripperState[attrib])
+            outputs.append(c.postState.gripperState[attrib]- c.preState.gripperState[attrib])
         return inputs, outputs
         
 class ModelCBR(object):

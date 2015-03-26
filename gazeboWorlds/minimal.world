@@ -10,6 +10,9 @@
     <model name='gripper'>
       <pose>0.0 0.0 0.025 0 0 0</pose>
       <link name='finger'>
+       <inertial>
+          <mass>100</mass>
+        </inertial>
         <collision name='finger_collision'>
           <geometry>
             <sphere>
@@ -43,6 +46,9 @@
     <model name='blockA'>
       <pose>-0.0 0.5 0 0 0 0</pose>
       <link name='link'>
+        <inertial>
+          <mass>100</mass>
+        </inertial>
         <collision name='collision'>
           <geometry>
             <box>

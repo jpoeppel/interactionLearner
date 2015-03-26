@@ -1,0 +1,179 @@
+<sdf version='1.4'>
+  <world name='default'>
+    <plugin name="gripperPlugin" filename="libgripperPluginWorld.so"/>
+    <include>
+      <uri>model://ground_plane</uri>
+    </include>
+    <include>
+      <uri>model://sun</uri>
+    </include>
+    <model name='gripper'>
+      <pose>0.0 0.0 0.03 0 0 0</pose>
+      <link name='finger'>
+        <collision name='finger_collision'>
+          <geometry>
+            <sphere>
+              <radius>0.025</radius>
+            </sphere>
+          </geometry>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <sphere>
+              <radius>0.025</radius>
+            </sphere>
+          </geometry>
+          <material>
+            <script>
+              <uri>file://media/materials/scripts/gazebo.material</uri>
+              <name>Gazebo/Black</name>
+            </script>
+          </material>
+        </visual>
+        <gravity>0</gravity>
+        <sensor name='gripperContact' type='contact'>
+          <contact>
+            <collision>finger_collision</collision>
+          </contact>
+	  <update_rate>1.0</update_rate>
+        </sensor>
+      </link>
+      <static>0</static>
+    </model>
+    <model name='blockA'>
+      <pose>-0.0 0.5 0 0 0 0</pose>
+      <link name='link'>
+        <collision name='collision'>
+          <geometry>
+            <box>
+              <size>0.5 0.05 0.1</size>
+            </box>
+          </geometry>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <box>
+              <size>0.5 0.05 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <script>
+              <uri>file://media/materials/scripts/gazebo.material</uri>
+              <name>Gazebo/Blue</name>
+            </script>
+          </material>
+        </visual>
+      </link>
+      <static>0</static>
+    </model>
+    <model name='wall1'>
+      <pose>0.0 1.0 0 0 0 0</pose>
+      <link name='link'>
+        <collision name='collision'>
+          <geometry>
+            <box>
+              <size>2 0.05 0.3</size>
+            </box>
+          </geometry>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <box>
+              <size>2 0.05 0.3</size>
+            </box>
+          </geometry>
+          <material>
+            <script>
+              <uri>file://media/materials/scripts/gazebo.material</uri>
+              <name>Gazebo/Grey</name>
+            </script>
+          </material>
+        </visual>
+      </link>
+      <static>1</static>
+    </model>
+    <model name='wall2'>
+      <pose>0.0 -1.0 0 0 0 0</pose>
+      <link name='link'>
+        <collision name='collision'>
+          <geometry>
+            <box>
+              <size>2 0.05 0.3</size>
+            </box>
+          </geometry>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <box>
+              <size>2 0.05 0.3</size>
+            </box>
+          </geometry>
+          <material>
+            <script>
+              <uri>file://media/materials/scripts/gazebo.material</uri>
+              <name>Gazebo/Grey</name>
+            </script>
+          </material>
+        </visual>
+      </link>
+      <static>1</static>
+    </model>
+    <model name='wall3'>
+      <pose>1.0 0.0 0 0 0 0</pose>
+      <link name='link'>
+        <collision name='collision'>
+          <geometry>
+            <box>
+              <size>0.05 2 0.3</size>
+            </box>
+          </geometry>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <box>
+              <size>0.05 2 0.3</size>
+            </box>
+          </geometry>
+          <material>
+            <script>
+              <uri>file://media/materials/scripts/gazebo.material</uri>
+              <name>Gazebo/Grey</name>
+            </script>
+          </material>
+        </visual>
+      </link>
+      <static>1</static>
+    </model>
+    <model name='wall4'>
+      <pose>-1.0 0.0 0 0 0 0</pose>
+      <link name='link'>
+        <collision name='collision'>
+          <geometry>
+            <box>
+              <size>0.05 2 0.3</size>
+            </box>
+          </geometry>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <box>
+              <size>0.05 2 0.3</size>
+            </box>
+          </geometry>
+          <material>
+            <script>
+              <uri>file://media/materials/scripts/gazebo.material</uri>
+              <name>Gazebo/Grey</name>
+            </script>
+          </material>
+        </visual>
+      </link>
+      <static>1</static>
+    </model>
+  </world>
+</sdf>

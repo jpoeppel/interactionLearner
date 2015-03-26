@@ -199,6 +199,7 @@ class GazeboInterface():
         if self.lastPrediction != None:
             self.worldModel.update(self.lastState, self.lastAction,self.lastPrediction, w, self.lastCase)
         tmp = self.getAction()
+#        tmp = self.getRightAction()
 #        tmp["cmd"] = GAZEBOCMDS["MOVE"]
 #        tmp["dir"] = np.array([0.0,-1.2,0.0])
         if tmp != None:
@@ -211,7 +212,10 @@ class GazeboInterface():
         print "num cases: " + str(len(self.worldModel.cases))
         print "num abstract cases: " + str(len(self.worldModel.abstractCases))
         print "abstract lists: " + str([c.gripperAttribs for c in self.worldModel.abstractCases])
-    
+
+
+    def getRightAction(self):
+        return model.Action(cmd = GAZEBOCMDS["MOVE"], direction=np.array([0.5,0.0,0.0]))
 
     def getAction(self):
         rnd = np.random.rand()
@@ -230,6 +234,7 @@ class GazeboInterface():
             a["dir"] = np.array([0,0,0])
         else:
             a["cmd"] = GAZEBOCMDS["NOTHING"]
+        a["dir"] /= 2.0
         return a
     
     def stop(self):

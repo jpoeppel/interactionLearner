@@ -20,6 +20,7 @@ import numpy as np
 import math
 
 import model2 as model
+import model3
 
 logging.basicConfig()
 
@@ -195,6 +196,8 @@ class GazeboInterface():
         worldState = worldState_pb2.WorldState.FromString(data)
 #        print 'Received world state', str(models)
         w = model.WorldState()
+        w2 = model3.WorldState()
+        w2.parse(worldState)
         
         w.parse(worldState.model_v.models)
         if self.lastPrediction != None:

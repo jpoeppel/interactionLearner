@@ -57,6 +57,7 @@ class WorldState(object):
                 tmpDict["angVel"] = np.round(np.array([m.angVel.x,m.angVel.y,m.angVel.z]), NUMDEC)
                 tmpDict["name"] = m.name
                 tmpDict["id"] = m.id
+                print "object: {}, type: {}".format(m.name, m.type)
                 if m.name == "gripper":
                     self.gripperState = tmpDict
                 else:

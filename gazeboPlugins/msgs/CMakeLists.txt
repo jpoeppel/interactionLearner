@@ -10,18 +10,21 @@ endforeach()
 
 set (msgs
   $ENV{masterPath}/masterThesis/gazeboPlugins/msgs/gripperCommand.proto
-  $ENV{masterPath}/masterThesis/gazeboPlugins/msgs/modelState.proto  
+  $ENV{masterPath}/masterThesis/gazeboPlugins/msgs/modelState.proto
   $ENV{masterPath}/masterThesis/gazeboPlugins/msgs/modelState_v.proto
+  $ENV{masterPath}/masterThesis/gazeboPlugins/msgs/worldState.proto
   ${PROTOBUF_IMPORT_DIRS}/vector3d.proto
   ${PROTOBUF_IMPORT_DIRS}/quaternion.proto
   ${PROTOBUF_IMPORT_DIRS}/pose.proto
   ${PROTOBUF_IMPORT_DIRS}/header.proto
   ${PROTOBUF_IMPORT_DIRS}/time.proto
+  ${PROTOBUF_IMPORT_DIRS}/contacts.proto
+  ${PROTOBUF_IMPORT_DIRS}/contact.proto
+  ${PROTOBUF_IMPORT_DIRS}/joint_wrench.proto
+  ${PROTOBUF_IMPORT_DIRS}/wrench.proto
 )
 
-execute_process(COMMAND echo ${GAZEBO_INCLUDE_DIRS})
-execute_process(COMMAND echo $ENV{masterPath})
-    
+
 PROTOBUF_GENERATE_CPP(PROTO_SRCS PROTO_HDRS ${msgs})
 
 execute_process(COMMAND protoc -I=$ENV{masterPath}/masterThesis/gazeboPlugins/msgs/ --proto_path=/usr/include/gazebo-2.2/gazebo/msgs/proto --python_out=$ENV{masterPath}/pygazebo/pygazebo/msg/ ${msgs})

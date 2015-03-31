@@ -7,6 +7,7 @@
 #include "gripperCommand.pb.h"
 #include "modelState_v.pb.h"
 #include "modelState.pb.h"
+#include "worldState.pb.h"
 #include <gazebo/sensors/sensors.hh>
 
 #include <iostream>
@@ -65,7 +66,7 @@ namespace gazebo
       this->msgSubscriber = node->Subscribe("/gazebo/default/gripperMsg", &GripperPlugin::cb, this);
 
 
-      this->worldStatePub = node->Advertise<gazeboPlugins::msgs::ModelState_V>("~/worldstate");
+      this->worldStatePub = node->Advertise<gazeboPlugins::msgs::WorldState>("~/worldstate");
       // Listen to the update event. This event is broadcast every
       // simulation iteration.
       this->updateConnection = event::Events::ConnectWorldUpdateBegin(
@@ -100,15 +101,17 @@ namespace gazebo
 
 
       // Publish world state
-      gazeboPlugins::msgs::ModelState_V models;
+      gazeboPlugins::msgs::WorldState worldState;
+      gazeboPlugins::msgs::ModelState_V* models = worldState.mutable_model_v();
       physics::Model_V allModels = this->world->GetModels();
       for (unsigned int i = 0; i<allModels.size();i++)
       {
         physics::ModelPtr m = allModels[i];
-        gazeboPlugins::msgs::ModelState* tmp = models.add_models();
+        gazeboPlugins::msgs::ModelState* tmp = models->add_models();
         tmp->set_name(m->GetName());
         tmp->set_id(m->GetId());
         tmp->set_is_static(m->IsStatic());
+        tmp->set_type(m->GetChildCollision("collision")->GetShapeType());
         msgs::Pose* p = tmp->mutable_pose();
         msgs::Set(p, m->GetWorldPose());
         msgs::Vector3d* linvel = tmp->mutable_linvel();
@@ -117,11 +120,17 @@ namespace gazebo
         msgs::Set(angvel, m->GetWorldAngularVel());
       }
 
-      this->worldStatePub->Publish(models);
+
+
 
         //Publish contacts
-        msgs::Contacts contacts;
-        contacts = this->contactSensor->GetContacts();
+        msgs::Contacts* contacts = worldState.mutable_contacts();
+
+        msgs::Contacts tmpC =this->contactSensor->GetContacts();
+        contacts->CopyFrom(tmpC);
+        msgs::Set(contacts->mutable_time(), this->world->GetSimTime());
+
+        this->worldStatePub->Publish(worldState);
 //        if (contacts.contact_size() > 0)
 //        {
 //            std::cout << "onContact" << std::endl;

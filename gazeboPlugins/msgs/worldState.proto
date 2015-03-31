@@ -1,0 +1,15 @@
+package gazeboPlugins.msgs;
+
+/// \ingroup gazebo_msgs
+/// \interface WorldState
+/// \brief Information about the world
+
+import "modelState_v.proto";
+import "contacts.proto";
+
+message WorldState
+{
+  required gazeboPlugins.msgs.ModelState_V model_v = 1;
+  required gazebo.msgs.Contacts contacts = 2;
+}
+

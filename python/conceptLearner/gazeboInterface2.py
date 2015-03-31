@@ -14,6 +14,7 @@ from pygazebo.msg import model_v_pb2
 from pygazebo.msg import modelState_pb2
 from pygazebo.msg import modelState_v_pb2
 from pygazebo.msg import gripperCommand_pb2
+from pygazebo.msg import worldState_pb2
 import logging
 import numpy as np
 import math
@@ -158,7 +159,7 @@ class GazeboInterface():
         
         self.manager =  yield From(pygazebo.connect(('127.0.0.1', 11345)))
         self.manager.subscribe('/gazebo/default/worldstate',
-                          'gazebo.msgs.ModelState_V',
+                          'gazebo.msgs.WorldState',
                           self.modelsCallback)
                           
         self.publisher = yield From(
@@ -191,11 +192,11 @@ class GazeboInterface():
         data: bytearry
             Protobuf bytearray containing a list of models
         """
-        models = modelState_v_pb2.ModelState_V.FromString(data)
+        worldState = worldState_pb2.WorldState.FromString(data)
 #        print 'Received world state', str(models)
         w = model.WorldState()
         
-        w.parse(models.models)
+        w.parse(worldState.model_v.models)
         if self.lastPrediction != None:
             self.worldModel.update(self.lastState, self.lastAction,self.lastPrediction, w, self.lastCase)
         tmp = self.getAction()

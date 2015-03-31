@@ -10,7 +10,7 @@
     <model name='gripper'>
       <pose>0.0 0.0 0.03 0 0 0</pose>
       <link name='finger'>
-        <collision name='finger_collision'>
+        <collision name='collision'>
           <geometry>
             <sphere>
               <radius>0.025</radius>
@@ -33,7 +33,7 @@
         <gravity>0</gravity>
         <sensor name='gripperContact' type='contact'>
           <contact>
-            <collision>finger_collision</collision>
+            <collision>collision</collision>
           </contact>
 	  <update_rate>1.0</update_rate>
         </sensor>

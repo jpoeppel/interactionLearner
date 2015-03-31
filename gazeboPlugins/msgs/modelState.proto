@@ -16,4 +16,5 @@ message ModelState
   optional gazebo.msgs.Vector3d scale      = 5;
   optional gazebo.msgs.Vector3d linVel     = 6;
   optional gazebo.msgs.Vector3d angVel     = 7;
+  optional uint32 type                     = 8;
 }

@@ -40,8 +40,9 @@ def zeroD(a,b):
 
 """
 Metrics to be used when comparing features
+#TODO Fix when actual states are finalized
 """
 metrics = {"dir": expD, "linVel": expD, "orientation": cosD, "pos": expD, 
            "angVel": expD, "name": zeroD, "id": equalD, "cmd":equalD,
            "A": participantD, "B": participantD, "dist":expD, "contact":equalD,
-           "type": equalD}
+           "type": equalD, "self": equalD, "other": equalD}

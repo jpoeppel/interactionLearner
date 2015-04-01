@@ -38,7 +38,8 @@ class AbstractCase(object):
         self.avgPrediction = 0.0
         self.numPredictions = 0
         self.name = ""
-        self.attribs = []
+        self.attribs = [] #List of attributes that changed 
+        self.constants = {} # Dictionary holding the attributs:values whose values are important
         self.predictors = {}
         
     def predict(self, state, action):
@@ -82,23 +83,30 @@ class ObjectState(State):
     """
     
     def __init__(self):
-        self.update({"id": 0, "name": "", "type":0, "pos":np.zeros(3), 
+        self.update({"id": 0, "name": "", "type":0, "pos": np.zeros(3), 
                          "orientation": np.zeros(4), "linVel": np.zeros(3), 
-                         "angVel": np.zeros(3)})
+                         "angVel": np.zeros(3), "interactions": []})
         
+#    def addContact(self, otherId):
+#        self["contacts"].append(otherId)
+        
+    def addInteraction(self, isId):
+        self["interaction"].append(isId)
         
 class InteractionState(State):
     """
         State class used to represent interaction states.
         Holds information about object pairs: Participants A and B, distance, 
         direction, contact yes/no etc.
+        TODO: Leave out for now!!
     """
     
-    def __init__(self, objA, objB):
+    def __init__(self, isId, objA, objB):
         assert isinstance(objA, ObjectState), "{}(A) is not an ObjectState object".format(objA)
         assert isinstance(objB, ObjectState), "{}(B) is not an ObjectState object".format(objB)
-        self.update({"id": "{:d}{:d}".format(objA["id"], objB["id"]), "A": objA, "B": objB, "dir": objB["pos"]-objA["pos"],
+        self.update({"id": "{:d}{:d}".format(objA["id"], objB["id"]), "self": objA, "other": objB, "dir": objB["pos"]-objA["pos"],
                          "dist": np.linalg.norm(objB["pos"]-objA["pos"]), "contact": 0})
+        objA.addInteraction(self["id"])
         pass
     
 class WorldState(object):
@@ -140,19 +148,24 @@ class WorldState(object):
     def parseInteractions(self, ws):
         tmpList = self.objectStates.values()
         for o1 in self.objectStates.values():
-            tmpList.remove(o1)
             for o2 in tmpList:
-                intState = InteractionState(o1,o2)
-                self.addInteractionState(intState)
+                if o1 != o2:
+                    intState = InteractionState(o1,o2)
+                    self.addInteractionState(intState)
         for c in ws.contacts.contact:
             idS = "{:d}{:d}".format(c.wrench[0].body_1_id,c.wrench[0].body_2_id)
             if self.interactionStates.has_key(idS):
                 self.interactionStates[idS]["contact"] = 1
                 
+#    def parseContacts(self, contacts):
+#        for c in contacts:
+#            if self.objectStates.has_key(c.wrench[0].body_1_id):
+#                self.objectStates[c.wrench[0].body_1_id].addContact(c.wrench[0].body_2_id)
     
     def parse(self, ws):
         self.parseModels(ws.model_v.models)
         self.parseInteractions(ws)
+#        self.parseContacts(ws.contacts.contact)
     
 class CBRModel(object):
 
@@ -165,14 +178,16 @@ class CBRModel(object):
     
     def predict(self, state, action):
         resultWorldState = copy.deepcopy(state)
-        for intS in resultWorldState.interactionStates.values():
-            bestCase = self.findBestObjectCase(intS, action)
-            if bestCase != None:
-                rIntS = bestCase.predict(intS, action)
-                resultWorldState.interactionStates[rIntS["id"]] = rIntS
-        
-            
-        pass
+        for os in resultWorldState.objectStates.values():
+            selfPredictions = []
+            for intS in os["interactions"]:
+                bestCase = self.findBestInteractionCase(state.interactionStates[intS], action)
+                if bestCase != None:
+                    selfState, intState = bestCase.predict(state, intS, action)
+                    selfPredictions.append(selfState)
+                    resultWorldState.interactionStates[intS] = intState
+            resultWorldState.objectStates[os["id"]] = self.mergePredictions(selfPredictions, state)
+        return resultWorldState
     
         
 if __name__ == "__main__":

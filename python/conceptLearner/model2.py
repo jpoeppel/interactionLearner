@@ -13,7 +13,7 @@ from sklearn.gaussian_process import GaussianProcess
 from metrics import metrics
 
 BESTCASESCORE = 8
-BESTWORLDSCORE = 6
+BESTWORLDSCORE = 5
 MARGIN = 0.5
 NUMDEC = 5
 PREDICTIONTHRESHOLD = BESTWORLDSCORE - MARGIN

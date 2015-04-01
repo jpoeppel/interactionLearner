@@ -24,7 +24,7 @@ import model3
 
 logging.basicConfig()
 
-GAZEBOCMDS = {"MOVE": 0, "GRAB": 1, "RELEASE": 2, "NOTHING": 3}
+GAZEBOCMDS = { "NOTHING": 0,"MOVE": 1, "GRAB": 2, "RELEASE": 3}
 
 GRIPPERSTATES = {"OPEN":0, "CLOSED": 1}
 
@@ -181,6 +181,7 @@ class GazeboInterface():
         msg.direction.y = action["dir"][1]
         msg.direction.z = 0.0
 #        msg.direction.z = action.direction[2] # ignore z for now
+        print msg
         self.publisher.publish(msg)
         
         
@@ -224,8 +225,9 @@ class GazeboInterface():
     def getAction(self):
         rnd = np.random.rand()
         a = model.Action()
-        a["cmd"] = GAZEBOCMDS["MOVE"]
-        if rnd < 0.5:
+        
+        if rnd < 0.05:
+            a["cmd"] = GAZEBOCMDS["MOVE"]
 #            a["dir"] = np.array([1.2,0,0])
             a["dir"] = np.random.rand(3)*2-1
 #        elif rnd < 0.4:
@@ -234,11 +236,12 @@ class GazeboInterface():
 #            a["dir"] = np.array([0,1,0])
 #        elif rnd < 0.8:
 #            a["dir"] = np.array([0,-1,0])
-        elif rnd < 0.75:
+        elif rnd < 0.1:
+            a["cmd"] = GAZEBOCMDS["MOVE"]
             a["dir"] = np.array([0,0,0])
         else:
             a["cmd"] = GAZEBOCMDS["NOTHING"]
-        a["dir"] /= 2.0
+        a["dir"] *= 2.0
         return a
     
     def stop(self):

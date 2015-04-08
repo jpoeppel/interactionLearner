@@ -38,7 +38,7 @@
           <contact>
             <collision>collision</collision>
           </contact>
-	  <update_rate>100.0</update_rate>
+	  <update_rate>10.0</update_rate>
         </sensor>
       </link>
       <static>0</static>
@@ -180,6 +180,26 @@
         </visual>
       </link>
       <static>1</static>
+    </model>
+     <model name='gripperShadow'>
+      <pose>0.0 0.0 0.03 0 0 0</pose>
+      <link name='finger'>
+        <visual name='visual'>
+          <geometry>
+            <sphere>
+              <radius>0.025</radius>
+            </sphere>
+          </geometry>
+          <material>
+            <script>
+              <uri>file://media/materials/scripts/gazebo.material</uri>
+              <name>Gazebo/GreyTransparent</name>
+            </script>
+          </material>
+        </visual>
+        <gravity>0</gravity>
+      </link>
+      <static>0</static>
     </model>
   </world>
 </sdf>

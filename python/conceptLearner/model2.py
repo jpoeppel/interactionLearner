@@ -12,12 +12,13 @@ import copy
 from sklearn.gaussian_process import GaussianProcess
 from metrics import metrics
 
-BESTCASESCORE = 8
+#BESTCASESCORE = 8
 BESTWORLDSCORE = 5
 MARGIN = 0.5
 NUMDEC = 5
-PREDICTIONTHRESHOLD = BESTWORLDSCORE - MARGIN
-           
+#PREDICTIONTHRESHOLD = BESTWORLDSCORE - MARGIN
+PREDICTIONTHRESHOLD = 0.95
+BESTCASESCORE = 3
 
 class WorldState(object):
     """
@@ -33,6 +34,7 @@ class WorldState(object):
         s = 0.0
         for k in self.gripperState.keys():
             s += metrics[k](self.gripperState[k], state.gripperState[k])
+        s = metrics["pos"](self.gripperState["pos"], state.gripperState["pos"])
         return s
         
     def toVec(self):
@@ -57,7 +59,7 @@ class WorldState(object):
                 tmpDict["angVel"] = np.round(np.array([m.angVel.x,m.angVel.y,m.angVel.z]), NUMDEC)
                 tmpDict["name"] = m.name
                 tmpDict["id"] = m.id
-                print "object: {}, type: {}".format(m.name, m.type)
+#                print "object: {}, type: {}".format(m.name, m.type)
                 if m.name == "gripper":
                     self.gripperState = tmpDict
                 else:
@@ -224,6 +226,7 @@ class ModelCBR(object):
             #Prediction was not good enough -> improve
             newCase = Case(state, result, action)
             attribList = newCase.getInterestingGripperAttribs()
+            print "appending new case"
             self.cases.append(newCase)
             #Search for abstract Case with the same attribList:
             abstractCase = None
@@ -265,42 +268,44 @@ class ModelCBR(object):
                 print "usedCase action: " + str(usedCase.action)
             newCase = Case(state, result, action)
             attribList = newCase.getInterestingGripperAttribs()
-#            for k in state.gripperState.keys():
-#                if not (np.array_equal(state.gripperState[k], result.gripperState[k])):
-#                    attribList.append(k)
-#            print type(usedCase)
-            if isinstance(usedCase, AbstractCase):
-                #Prediction was bad, add new case and retrain predictors
-#                print "is abstract"
-#                print "usedCased attribts: "+ str(usedCase.gripperAttribs)
-#                print "attribList: " + str(attribList)
-                if attribList == usedCase.gripperAttribs:
-#                    print "update refCases"
-                    usedCase.refCases.append(newCase)
-                    newCase.abstractCase = usedCase
-                    usedCase.updatePredictions()
-                else:
-                    self.abstractCases.append(AbstractCase(newCase))
-            else:
-                if usedCase != None and usedCase.abstractCase == None:
-                    #Search for applicable abstractCase
-                    abstractCase = None
-                    for ac in self.abstractCases:
-                        if ac.gripperAttribs == attribList:
-#                            print "useable abstract case found"
-                            abstractCase = ac
-                            break
-                    if abstractCase != None:
-                        abstractCase.refCases.append(newCase)
-                        newCase.abstractCase = abstractCase
-                        abstractCase.updatePredictions()
+            if len(attribList) != 0:
+    #            for k in state.gripperState.keys():
+    #                if not (np.array_equal(state.gripperState[k], result.gripperState[k])):
+    #                    attribList.append(k)
+    #            print type(usedCase)
+                if isinstance(usedCase, AbstractCase):
+                    #Prediction was bad, add new case and retrain predictors
+    #                print "is abstract"
+    #                print "usedCased attribts: "+ str(usedCase.gripperAttribs)
+    #                print "attribList: " + str(attribList)
+                    if attribList == usedCase.gripperAttribs:
+    #                    print "update refCases"
+                        usedCase.refCases.append(newCase)
+                        newCase.abstractCase = usedCase
+                        usedCase.updatePredictions()
                     else:
-                        #Create abstractCase
-                        if usedCase.getInterestingGripperAttribs() == attribList:
-                            self.abstractCases.append(AbstractCase(usedCase, newCase))
+                        self.abstractCases.append(AbstractCase(newCase))
+                else:
+                    if usedCase != None and usedCase.abstractCase == None:
+                        #Search for applicable abstractCase
+                        abstractCase = None
+                        for ac in self.abstractCases:
+                            if ac.gripperAttribs == attribList:
+    #                            print "useable abstract case found"
+                                abstractCase = ac
+                                break
+                        if abstractCase != None:
+                            abstractCase.refCases.append(newCase)
+                            newCase.abstractCase = abstractCase
+                            abstractCase.updatePredictions()
                         else:
-                            self.abstractCases.append(AbstractCase(usedCase))
-                            self.abstractCases.append(AbstractCase(newCase))
+                            #Create abstractCase
+                            if usedCase.getInterestingGripperAttribs() == attribList:
+                                self.abstractCases.append(AbstractCase(usedCase, newCase))
+                            else:
+                                if len(usedCase.getInterestingGripperAttribs()) != 0:
+                                    self.abstractCases.append(AbstractCase(usedCase))
+                                self.abstractCases.append(AbstractCase(newCase))
             self.cases.append(newCase)
                 
         pass

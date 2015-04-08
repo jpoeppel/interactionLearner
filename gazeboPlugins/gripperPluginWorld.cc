@@ -33,6 +33,7 @@ namespace gazebo
     private: event::ConnectionPtr updateConnection;
     private: event::ConnectionPtr contactConnection;
     private: transport::SubscriberPtr msgSubscriber;
+    private: transport::SubscriberPtr predictionSubscriber;
     private: transport::PublisherPtr worldStatePub;
 
     private: bool hasTarget;
@@ -44,15 +45,22 @@ namespace gazebo
       // Dump the message contents to stdout.
       std::cout << gazeboPlugins::msgs::GripperCommand::Command_Name(_msg->cmd()) << std::endl;
       this->curCmd = _msg->cmd();
-      std::cout << "Recieving \n";
       this->curDir = math::Vector3(_msg->direction().x(),_msg->direction().y(),_msg->direction().z());
       std::cout << curDir << std::endl; // << _msg->direction().y << ", " << _msg->direction().z;
 
     }
 
+    typedef const boost::shared_ptr<const gazeboPlugins::msgs::ModelState_V> ModelSVPtr;
+    void predictCB(ModelSVPtr &_msg)
+    {
+        std::cout << "Moving gripperShadow to " << msgs::Convert(_msg->models(0).pose())<< "\n";
+        physics::ModelPtr shadow = this->world->GetModel("gripperShadow");
+        shadow->SetWorldPose(msgs::Convert(_msg->models(0).pose()));
+    }
+
     public: void Load(physics::WorldPtr _parent, sdf::ElementPtr /*_sdf*/)
     {
-      std::cout << "loading plugin" << std::endl;
+
       // Store the pointer to the model
       this->world = _parent;
       this->gripper = this->world->GetModel("gripper");
@@ -64,6 +72,7 @@ namespace gazebo
 
       // Listen to custom topic
       this->msgSubscriber = node->Subscribe("/gazebo/default/gripperMsg", &GripperPlugin::cb, this);
+      this->predictionSubscriber = node->Subscribe("/gazebo/default/predictions", &GripperPlugin::predictCB, this);
 
 
       this->worldStatePub = node->Advertise<gazeboPlugins::msgs::WorldState>("~/worldstate");
@@ -75,6 +84,7 @@ namespace gazebo
       boost::bind(&GripperPlugin::OnContact, this));
       // Make sure the parent sensor is active.
       this->contactSensor->SetActive(true);
+      std::cout << "loaded plugin" << std::endl;
     }
 
 
@@ -111,7 +121,7 @@ namespace gazebo
         tmp->set_name(m->GetName());
         tmp->set_id(m->GetId());
         tmp->set_is_static(m->IsStatic());
-        tmp->set_type(m->GetChildCollision("collision")->GetShapeType());
+  //      tmp->set_type(m->GetChildCollision("collision")->GetShapeType());
         msgs::Pose* p = tmp->mutable_pose();
         msgs::Set(p, m->GetWorldPose());
         msgs::Vector3d* linvel = tmp->mutable_linvel();

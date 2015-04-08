@@ -46,3 +46,5 @@ metrics = {"dir": expD, "linVel": expD, "orientation": cosD, "pos": expD,
            "angVel": expD, "name": zeroD, "id": equalD, "cmd":equalD,
            "A": participantD, "B": participantD, "dist":expD, "contact":equalD,
            "type": equalD, "self": equalD, "other": equalD}
+
+metrics2 = {}

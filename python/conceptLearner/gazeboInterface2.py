@@ -20,7 +20,7 @@ import numpy as np
 import math
 
 import model2 as model
-import model3
+import model4
 
 logging.basicConfig()
 
@@ -146,7 +146,7 @@ class GazeboInterface():
          
         self.active = True
         self.lastState = None
-        self.worldModel = model.ModelCBR()
+        self.worldModel = model4.ModelCBR()
         self.lastPrediction = None
         self.lastAction = Action()
 
@@ -185,14 +185,14 @@ class GazeboInterface():
 #        yield From(self.publisher.wait_for_listener())
         msg = pygazebo.msg.gripperCommand_pb2.GripperCommand()
         msg.cmd = action["cmd"]
-        msg.direction.x = action["dir"][0]
-        msg.direction.y = action["dir"][1]
+        msg.direction.x = action["mvDir"][0]
+        msg.direction.y = action["mvDir"][1]
         msg.direction.z = 0.0
 #        msg.direction.z = action.direction[2] # ignore z for now
 #        print msg
         self.publisher.publish(msg)
         
-    def sendPrediction(self):
+    def sendPrediction2(self):
         print "sending prediction"
         msg = pygazebo.msg.modelState_v_pb2.ModelState_V()
         gripper = pygazebo.msg.modelState_pb2.ModelState()
@@ -209,12 +209,25 @@ class GazeboInterface():
         gripper.pose.orientation.w = self.lastPrediction.gripperState["orientation"][3]
         msg.models.extend([gripper])
         self.predictPublisher.publish(msg)
-#        pose = pygazebo.msg.pose_pb2.Pose()
-#        pose.position.x = self.lastPrediction.gripperState["pos"][0]
-#        pose.position.y = self.lastPrediction.gripperState["pos"][1]
-#        pose.position.z = self.lastPrediction.gripperState["pos"][2]
-#        
-#        self.predictPublisher.publish(pose)
+
+    def sendPrediction(self):
+        msg = pygazebo.msg.modelState_v_pb2.ModelState_V()
+        gripper = pygazebo.msg.modelState_pb2.ModelState()
+        gripper.name = "gripperShadow"
+#        for k in self.lastPrediction.gripperState.keys():
+        gripper.id = 99
+        
+        for intState in self.lastPrediction.interactionStates.values():
+            if intState["sname"] == "gripper":
+                gripper.pose.position.x = intState["spos"][0]
+                gripper.pose.position.y = intState["spos"][1]
+                gripper.pose.position.z = intState["spos"][2]
+                gripper.pose.orientation.x = intState["sori"][0]
+                gripper.pose.orientation.y = intState["sori"][1]
+                gripper.pose.orientation.z = intState["sori"][2]
+                gripper.pose.orientation.w = intState["sori"][3]
+        msg.models.extend([gripper])
+        self.predictPublisher.publish(msg)
         
     def modelsCallback(self, data):
         """
@@ -227,13 +240,13 @@ class GazeboInterface():
         """
         worldState = worldState_pb2.WorldState.FromString(data)
 #        print 'Received world state', str(models)
-        w = model.WorldState()
-        #w2 = model3.WorldState()
+#        w = model.WorldState()
+        w = model4.WorldState()
         #w2.parse(worldState)
         
-        w.parse(worldState.model_v.models)
+        w.parse(worldState)
         if self.lastPrediction != None:
-            self.worldModel.update(self.lastState, self.lastAction,self.lastPrediction, w, self.lastCase)
+            self.worldModel.update(self.lastState, self.lastAction,self.lastPrediction, w)
         tmp = self.getAction()
 #        tmp = self.getRightAction()
 #        tmp["cmd"] = GAZEBOCMDS["MOVE"]
@@ -244,11 +257,11 @@ class GazeboInterface():
 #        print "lastAction: " + str(self.lastAction)
         
         self.lastState = w
-        self.lastPrediction, self.lastCase = self.worldModel.predict(w, self.lastAction)
+        self.lastPrediction = self.worldModel.predict(w, self.lastAction)
         self.sendPrediction()
-        print "num cases: " + str(len(self.worldModel.cases))
+#        print "num cases: " + str(len(self.worldModel.cases))
         print "num abstract cases: " + str(len(self.worldModel.abstractCases))
-        print "abstract lists: " + str([c.gripperAttribs for c in self.worldModel.abstractCases])
+        print "abstract lists: " + str([c.variables for c in self.worldModel.abstractCases])
 
 
     def getRightAction(self):
@@ -256,12 +269,12 @@ class GazeboInterface():
 
     def getAction(self):
         rnd = np.random.rand()
-        a = model.Action()
+        a = model4.Action()
         
         if rnd < 0.5:
             a["cmd"] = GAZEBOCMDS["MOVE"]
 #            a["dir"] = np.array([1.2,0,0])
-            a["dir"] = np.random.rand(3)*2-1
+            a["mvDir"] = np.random.rand(3)*2-1
 #        elif rnd < 0.4:
 #            a["dir"] = np.array([-1.3,0,0])
 #        elif rnd < 0.6:
@@ -270,10 +283,10 @@ class GazeboInterface():
 #            a["dir"] = np.array([0,-1,0])
         elif rnd < 0.6:
             a["cmd"] = GAZEBOCMDS["MOVE"]
-            a["dir"] = np.array([0,0,0])
+            a["mvDir"] = np.array([0,0,0])
         else:
             a["cmd"] = GAZEBOCMDS["NOTHING"]
-        a["dir"] *= 2.0
+        a["mvDir"] *= 2.0
         return a
     
     def stop(self):

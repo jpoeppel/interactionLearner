@@ -9,6 +9,7 @@ Created on Wed Apr  8 15:34:43 2015
 import numpy as np
 from metrics import metrics2 as metrics
 from common import GAZEBOCMDS as GZCMD
+from sklearn.gaussian_process import GaussianProcess
 import copy
 
 THRESHOLD = 0.1
@@ -29,9 +30,9 @@ class State(dict):
     
     def score(self, otherState):
         assert isinstance(otherState, State), "{} is not a State object".format(otherState)
-        s = 0.0
+        s = MAXSTATESCORE
         for k in self.relevantKeys():
-            s += metrics[k](self[k], otherState[k]) #* weights[k] 
+            s -= metrics[k](self[k], otherState[k]) #* weights[k] 
         return s
         
     def relevantKeys(self):
@@ -76,6 +77,12 @@ class InteractionState(State):
         keys.remove("intId")
         keys.remove("sname")
         keys.remove("oname")
+        keys.remove("sangVel")
+        keys.remove("oid")
+        keys.remove("dlinVel")
+        keys.remove("dori")
+        keys.remove("dangVel")
+        keys.remove("otype")
         return keys
                      
     def fill(self, o2):
@@ -111,7 +118,7 @@ class WorldState(object):
     
     def parseModels(self, models):
         for m in models:
-            if m.name == "ground_plane" or "wall" in m.name or m.name == "gripperShadow":
+            if m.name == "ground_plane" or "wall" in m.name or "Shadow" in m.name:
                 #Do not model the ground plane or walls for now
                 continue
             else:
@@ -131,7 +138,7 @@ class WorldState(object):
         for o1 in self.objectStates.values():
             intState = InteractionState(self.numIntStates, o1)
             for o2 in tmpList:
-                if np.array_equal(o1,o2):                    
+                if not np.array_equal(o1,o2):                    
                     intState.fill(o2)
                     self.addInteractionState(intState)
                 
@@ -157,8 +164,10 @@ class BaseCase(object):
         self.postState = post
         self.action = action
         self.dif = {}
+        self.abstCase = None
         for k in pre.relevantKeys():
             self.dif[k] = post[k]-pre[k]
+            
         
     def getListOfAttribs(self):
         """
@@ -182,6 +191,24 @@ class BaseCase(object):
     def predict(self, state,action):
         return self.postState
         
+    def score(self, state, action):
+        s = MAXCASESCORE
+        for k in state.relevantKeys():
+            if self.preState.has_key(k):
+                bestScore = 1
+                
+                tmpScore = metrics[k](state[k], self.preState[k])
+                if tmpScore < bestScore:
+                    bestScore = tmpScore
+                s -= bestScore
+        for k in action.relevantKeys():
+            bestScore = 1
+            tmpScore = metrics[k](action[k], self.action[k])
+            if tmpScore < bestScore:
+                bestScore = tmpScore
+            s -= bestScore
+        return s
+        
 class AbstractCase(object):
     
     def __init__(self, case):
@@ -193,6 +220,7 @@ class AbstractCase(object):
         self.variables = [] #List of attributes that changed 
         self.attribs = {} # Dictionary holding the attributs:[values,] pairs for the not changing attribs of the references
         self.predictors = {}
+        self.variables.extend(case.getListOfAttribs())
         self.addRef(case)
         
     def predict(self, state, action):
@@ -215,7 +243,7 @@ class AbstractCase(object):
             if self.attribs.has_key(k):
                 bestScore = 1
                 for v in self.attribs[k]:
-                    tmpScore = metrics[k](state[k], v)
+                    tmpScore = metrics[k](state[k], v)#Forgot action!!
                     if tmpScore < bestScore:
                         bestScore = tmpScore
                 s -= bestScore
@@ -226,9 +254,9 @@ class AbstractCase(object):
         self.avgPrediction += (score-self.avgPrediction)/self.numPredictions
         
     def addRef(self, ref):
+        ref.abstCase = self
         for k,v in ref.getListOfConstants():
             if self.attribs.has_key(k):
-                
                 if any(np.array_equal(v,x) for x in self.attribs[k]):
                     self.attribs[k].append(v)
             else:
@@ -255,7 +283,7 @@ class AbstractCase(object):
 class ModelCBR(object):
     
     def __init__(self):
-#        self.cases = []
+        self.cases = []
         self.abstractCases = []
         
     def getAction(self, state):
@@ -264,12 +292,18 @@ class ModelCBR(object):
     def getBestCase(self, state, action):
         bestCase = None
         bestScore = 0.0
-        for c in self.abstractCases:
+        for c in self.cases:
             s = c.score(state, action)
             if s >= bestScore:
                 bestCase = c
                 bestScore = s
-        return bestCase
+        if bestCase != None:
+            if bestCase.abstCase != None:
+                print "bestCase #refs: ", len(bestCase.abstCase.refCases)
+                print "bestCase avgPrediction: ", bestCase.abstCase.avgPrediction
+            return bestCase.abstCase
+        else:
+            return None
     
     def predictIntState(self, state, action):
         bestCase = self.getBestCase(state, action)
@@ -297,6 +331,7 @@ class ModelCBR(object):
         if usedCase != None and usedCase.variables == attribList:
             usedCase.updatePredictionScore(predictionScore)
         if predictionScore < PREDICTIONTHRESHOLD:
+            self.cases.append(newCase)
             abstractCase = None
             for ac in self.abstractCases:
                 if ac.variables == attribList:

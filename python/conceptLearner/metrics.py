@@ -61,4 +61,4 @@ metrics2 = {"sid":equalD, "stype": equalD, "spos":expD,
                      "sori": cosD, "slinVel": expD, 
                      "sangVel":expD, "dist": expD, "dir": expD,
                      "contact": equalD, "oid": equalD, "otype": equalD, 
-                     "dori": cosD, "dlinVel": expD, "dangVel":expD}
+                     "dori": cosD, "dlinVel": expD, "dangVel":expD, "cmd": equalD, "mvDir": expD}

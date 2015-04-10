@@ -212,21 +212,20 @@ class GazeboInterface():
 
     def sendPrediction(self):
         msg = pygazebo.msg.modelState_v_pb2.ModelState_V()
-        gripper = pygazebo.msg.modelState_pb2.ModelState()
-        gripper.name = "gripperShadow"
-#        for k in self.lastPrediction.gripperState.keys():
-        gripper.id = 99
+        
         
         for intState in self.lastPrediction.interactionStates.values():
-            if intState["sname"] == "gripper":
-                gripper.pose.position.x = intState["spos"][0]
-                gripper.pose.position.y = intState["spos"][1]
-                gripper.pose.position.z = intState["spos"][2]
-                gripper.pose.orientation.x = intState["sori"][0]
-                gripper.pose.orientation.y = intState["sori"][1]
-                gripper.pose.orientation.z = intState["sori"][2]
-                gripper.pose.orientation.w = intState["sori"][3]
-        msg.models.extend([gripper])
+            tmp = pygazebo.msg.modelState_pb2.ModelState()
+            tmp.name =intState["sname"] +"Shadow"
+            tmp.id = 99
+            tmp.pose.position.x = intState["spos"][0]
+            tmp.pose.position.y = intState["spos"][1]
+            tmp.pose.position.z = intState["spos"][2]
+            tmp.pose.orientation.x = intState["sori"][0]
+            tmp.pose.orientation.y = intState["sori"][1]
+            tmp.pose.orientation.z = intState["sori"][2]
+            tmp.pose.orientation.w = intState["sori"][3]
+            msg.models.extend([tmp])
         self.predictPublisher.publish(msg)
         
     def modelsCallback(self, data):
@@ -259,9 +258,9 @@ class GazeboInterface():
         self.lastState = w
         self.lastPrediction = self.worldModel.predict(w, self.lastAction)
         self.sendPrediction()
-#        print "num cases: " + str(len(self.worldModel.cases))
+        print "num cases: " + str(len(self.worldModel.cases))
         print "num abstract cases: " + str(len(self.worldModel.abstractCases))
-        print "abstract lists: " + str([c.variables for c in self.worldModel.abstractCases])
+#        print "abstract lists: " + str([c.variables for c in self.worldModel.abstractCases])
 
 
     def getRightAction(self):

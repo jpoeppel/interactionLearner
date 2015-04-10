@@ -53,9 +53,13 @@ namespace gazebo
     typedef const boost::shared_ptr<const gazeboPlugins::msgs::ModelState_V> ModelSVPtr;
     void predictCB(ModelSVPtr &_msg)
     {
-        std::cout << "Moving gripperShadow to " << msgs::Convert(_msg->models(0).pose())<< "\n";
-        physics::ModelPtr shadow = this->world->GetModel("gripperShadow");
-        shadow->SetWorldPose(msgs::Convert(_msg->models(0).pose()));
+
+        for (unsigned int i=0; i<_msg->models_size();i++) {
+            std::cout << "Moving " << _msg->models(i).name()<<" to " << msgs::Convert(_msg->models(i).pose())<< "\n";
+            physics::ModelPtr m = this->world->GetModel(_msg->models(i).name());
+            m->SetWorldPose(msgs::Convert(_msg->models(i).pose()));
+        }
+
     }
 
     public: void Load(physics::WorldPtr _parent, sdf::ElementPtr /*_sdf*/)

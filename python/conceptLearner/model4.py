@@ -5,8 +5,9 @@ Created on Wed Apr  8 15:34:43 2015
 TODOS:
 * Implement possibility to set target!!!
 * Implement active learning!!!!
-* Block has action like gripper -> wrong
-* action influence appears not to be learned too wellf or pos
+* Block has action like gripper -> wrong?
+* action influence appears not to be learned too well for pos
+* Check the case selection when finding best cases, it appears some are quite bad.
 * The model should remove unnecessary attributes (like spos) itself
 * Split relevantScoringKeys and relevantTrainingKeys?
 @author: jpoeppel

@@ -2,7 +2,13 @@
 # -*- coding: utf-8 -*-
 """
 Created on Wed Apr  8 15:34:43 2015
-
+TODOS:
+* Implement possibility to set target!!!
+* Implement active learning!!!!
+* Block has action like gripper -> wrong
+* action influence appears not to be learned too wellf or pos
+* The model should remove unnecessary attributes (like spos) itself
+* Split relevantScoringKeys and relevantTrainingKeys?
 @author: jpoeppel
 """
 
@@ -10,13 +16,15 @@ import numpy as np
 from metrics import metrics2 as metrics
 from common import GAZEBOCMDS as GZCMD
 from sklearn.gaussian_process import GaussianProcess
+from topoMaps import ITM
+from network import Node
 import copy
 
 THRESHOLD = 0.1
 NUMDEC = 5
 MAXCASESCORE = 16
 MAXSTATESCORE = 14
-PREDICTIONTHRESHOLD = 0.1
+PREDICTIONTHRESHOLD = 0.5
 PREDICTIONTHRESHOLD = MAXSTATESCORE - PREDICTIONTHRESHOLD
 
 class State(dict):
@@ -41,10 +49,11 @@ class State(dict):
     def toVec(self):
         r = np.array([])
         for k in self.relevantKeys():
-            if isinstance(self[k], np.ndarray):
-                r = np.concatenate((r,self[k]))
-            elif not isinstance(self[k], unicode):
-                r = np.concatenate((r,[self[k]]))
+            if k != "spos":
+                if isinstance(self[k], np.ndarray):
+                    r = np.concatenate((r,self[k]))
+                elif not isinstance(self[k], unicode):
+                    r = np.concatenate((r,[self[k]]))
         return r
         
 #    def __repr__(self):
@@ -76,13 +85,16 @@ class InteractionState(State):
         keys = self.keys()
         keys.remove("intId")
         keys.remove("sname")
+#        keys.remove("spos")
+#        keys.remove("stype")
+#        keys.remove("sori")
+#        keys.remove("sangVel")
+#        keys.remove("oid")
         keys.remove("oname")
-        keys.remove("sangVel")
-        keys.remove("oid")
-        keys.remove("dlinVel")
-        keys.remove("dori")
-        keys.remove("dangVel")
-        keys.remove("otype")
+#        keys.remove("dlinVel")
+#        keys.remove("dori")
+#        keys.remove("dangVel")
+#        keys.remove("otype")
         return keys
                      
     def fill(self, o2):
@@ -221,17 +233,23 @@ class AbstractCase(object):
         self.attribs = {} # Dictionary holding the attributs:[values,] pairs for the not changing attribs of the references
         self.predictors = {}
         self.variables.extend(case.getListOfAttribs())
+        for k in self.variables:
+            self.predictors[k] = ITM()
         self.addRef(case)
         
     def predict(self, state, action):
+        print "predicting for variables: ", self.variables
         if len(self.refCases) > 1:
             resultState = copy.deepcopy(state)
 #            print "resultState intId: ", resultState["intId"]
             for k in self.variables:
-                resultState[k] = state[k] + self.predictors[k].predict(np.concatenate((state.toVec(),action.toVec())))[0]
+                resultState[k] = state[k] + self.predictors[k].predict(np.concatenate((state.toVec(),action.toVec())))
+                if k == "spos":
+                    print "prediction: ", self.predictors[k].predict(np.concatenate((state.toVec(),action.toVec())))
 #            print "resultState intId after: ", resultState["intId"]
             return resultState
         else:
+            print "predicting with only one ref"
             prediction= self.refCases[0].predict(state,action)
             prediction["intId"] = state["intId"]
             return prediction
@@ -263,7 +281,16 @@ class AbstractCase(object):
                 self.attribs[k] = [v]
             
         self.refCases.append(ref)
-        self.updatePredictors()
+        self.updatePredictorsITM(ref)
+        
+    def updatePredictorsITM(self, case):
+        for k in self.variables:
+            self.predictors[k].train(self.toNode(case, k))
+            
+    def toNode(self, case, attrib):
+        node = Node(0, wIn=np.concatenate((case.preState.toVec(),case.action.toVec())),
+                    wOut=case.postState[attrib]-case.preState[attrib])
+        return node
         
     def updatePredictors(self):
         if len(self.refCases) > 1:

@@ -246,18 +246,19 @@ class GazeboInterface():
         w.parse(worldState)
         if self.lastPrediction != None:
             self.worldModel.update(self.lastState, self.lastAction,self.lastPrediction, w)
+            
         tmp = self.getAction()
 #        tmp = self.getRightAction()
 #        tmp["cmd"] = GAZEBOCMDS["MOVE"]
 #        tmp["dir"] = np.array([0.0,-1.2,0.0])
-        if tmp != None:
-            self.lastAction = tmp
-            self.sendCommand(self.lastAction)
+        self.lastAction = tmp
 #        print "lastAction: " + str(self.lastAction)
         
         self.lastState = w
         self.lastPrediction = self.worldModel.predict(w, self.lastAction)
         self.sendPrediction()
+        
+        self.sendCommand(self.lastAction)
         print "num cases: " + str(len(self.worldModel.cases))
         print "num abstract cases: " + str(len(self.worldModel.abstractCases))
 #        print "abstract lists: " + str([c.variables for c in self.worldModel.abstractCases])

@@ -42,10 +42,13 @@ def zeroS(a,b):
 Metrics to be used when comparing features
 #TODO Fix when actual states are finalized
 """
-metrics = {"dir": expS, "linVel": expS, "orientation": cosS, "pos": expS, 
+similarities = {"dir": expS, "linVel": expS, "orientation": cosS, "pos": expS, 
            "angVel": expS, "name": zeroS, "id": equalS, "cmd":equalS,
            "A": participantS, "B": participantS, "dist":expS, "contact":equalS,
-           "type": equalS, "self": equalS, "other": equalS}
+           "type": equalS, "self": equalS, "other": equalS, "sname": equalS, 
+           "oid": equalS, "sangVel": expS, "intId": zeroS, "dori": expS, "dlinVel":expS,
+           "dangVel": expS, "mvDir": expS, "otype": equalS, "sangVel":expS, "sori": expS,
+           "spos": expS, "stype":equalS, "sid": equalS, "slinVel": expS, "oname": equalS}
            
 def cosD(a,b):
     return 1-cosS(a,b)
@@ -56,9 +59,13 @@ def expD(a,b):
 def equalD(a,b):
     return 1-equalS(a,b)
     
+def zeroD(a,b):
+    return 1-zeroS(a,b)
+    
 
-metrics2 = {"sid":equalD, "stype": equalD, "spos":expD, 
-                     "sori": cosD, "slinVel": expD, 
+differences = {"sid":equalD, "stype": equalD, "spos":expD, 
+                     "sori": expD, "slinVel": expD, 
                      "sangVel":expD, "dist": expD, "dir": expD,
                      "contact": equalD, "oid": equalD, "otype": equalD, 
-                     "dori": cosD, "dlinVel": expD, "dangVel":expD, "cmd": equalD, "mvDir": expD}
+                     "dori": expD, "dlinVel": expD, "dangVel":expD, "cmd": equalD, "mvDir": expD,
+                     "sname": equalD, "intId": zeroD, "oname": equalD}

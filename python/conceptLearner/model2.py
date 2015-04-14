@@ -10,7 +10,7 @@ import numpy as np
 import math
 import copy
 from sklearn.gaussian_process import GaussianProcess
-from metrics import metrics
+from metrics import similarities
 
 #BESTCASESCORE = 8
 BESTWORLDSCORE = 5
@@ -33,8 +33,8 @@ class WorldState(object):
     def score(self, state):
         s = 0.0
         for k in self.gripperState.keys():
-            s += metrics[k](self.gripperState[k], state.gripperState[k])
-        s = metrics["pos"](self.gripperState["pos"], state.gripperState["pos"])
+            s += similarities[k](self.gripperState[k], state.gripperState[k])
+        s = similarities["pos"](self.gripperState["pos"], state.gripperState["pos"])
         return s
         
     def toVec(self):
@@ -78,7 +78,7 @@ class Action(dict):
     def score(self, action):
         s = 0.0
         for k in self.keys():
-            s += metrics[k](self[k], action[k])
+            s += similarities[k](self[k], action[k])
         return s
         
     def toVec(self):

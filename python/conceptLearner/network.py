@@ -60,5 +60,6 @@ class Network(object):
     def removeNode(self, node):
         for n in node.neighbours.values():
             self.removeEdge(node.name, n.name)
-        del self.nodes[node.name]
+        if self.nodes.has_key(node.name):
+            del self.nodes[node.name]
     

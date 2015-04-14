@@ -14,7 +14,8 @@ TODOS:
 """
 
 import numpy as np
-from metrics import metrics2 as metrics
+from metrics import similarities
+from metrics import differences
 from common import GAZEBOCMDS as GZCMD
 from sklearn.gaussian_process import GaussianProcess
 from topoMaps import ITM
@@ -41,24 +42,23 @@ class State(dict):
         assert isinstance(otherState, State), "{} is not a State object".format(otherState)
         s = MAXSTATESCORE
         for k in self.relevantKeys():
-            s -= metrics[k](self[k], otherState[k]) #* weights[k] 
+            s -= differences[k](self[k], otherState[k]) #* weights[k] 
         return s
         
     def relevantKeys(self):
         return self.keys()
         
-    def toVec(self):
+    def toVec(self, const = {}):
         r = np.array([])
         for k in self.relevantKeys():
-            if k != "spos":
+            if k not in const.keys():
+#            if k != "spos":
                 if isinstance(self[k], np.ndarray):
                     r = np.concatenate((r,self[k]))
                 elif not isinstance(self[k], unicode):
                     r = np.concatenate((r,[self[k]]))
         return r
         
-#    def __repr__(self):
-#        return str(self)
         
 class ObjectState(State):
     """
@@ -201,8 +201,8 @@ class BaseCase(object):
                 r.append((k,self.preState[k]))
         return r
     
-    def predict(self, state,action):
-        return self.postState
+    def predict(self, state,action, attrib):
+        return self.dif[attrib]
         
     def score(self, state, action):
         s = MAXCASESCORE
@@ -210,13 +210,13 @@ class BaseCase(object):
             if self.preState.has_key(k):
                 bestScore = 1
                 
-                tmpScore = metrics[k](state[k], self.preState[k])
+                tmpScore = differences[k](state[k], self.preState[k])
                 if tmpScore < bestScore:
                     bestScore = tmpScore
                 s -= bestScore
         for k in action.relevantKeys():
             bestScore = 1
-            tmpScore = metrics[k](action[k], self.action[k])
+            tmpScore = differences[k](action[k], self.action[k])
             if tmpScore < bestScore:
                 bestScore = tmpScore
             s -= bestScore
@@ -234,38 +234,48 @@ class AbstractCase(object):
         self.attribs = {} # Dictionary holding the attributs:[values,] pairs for the not changing attribs of the references
         self.predictors = {}
         self.variables.extend(case.getListOfAttribs())
+        self.preCons = {}
         for k in self.variables:
             self.predictors[k] = ITM()
         self.addRef(case)
         
     def predict(self, state, action):
-        print "predicting for variables: ", self.variables
+#        print "predicting for variables: ", self.variables
+    
+        resultState = copy.deepcopy(state)
         if len(self.refCases) > 1:
-            resultState = copy.deepcopy(state)
 #            print "resultState intId: ", resultState["intId"]
             for k in self.variables:
-                resultState[k] = state[k] + self.predictors[k].predict(np.concatenate((state.toVec(),action.toVec())))
+                resultState[k] = state[k] + self.predictors[k].predict(np.concatenate((state.toVec(self.preCons),action.toVec(self.preCons))))[0]
                 if k == "spos":
-                    print "prediction: ", self.predictors[k].predict(np.concatenate((state.toVec(),action.toVec())))
+                    print "prediction: ", self.predictors[k].predict(np.concatenate((state.toVec(self.preCons),action.toVec(self.preCons))))
 #            print "resultState intId after: ", resultState["intId"]
-            return resultState
+            
         else:
-            print "predicting with only one ref"
-            prediction= self.refCases[0].predict(state,action)
-            prediction["intId"] = state["intId"]
-            return prediction
+#            print "predicting with only one ref"
+            for k in self.variables:
+                resultState[k] = state[k] + self.refCases[0].predict(state, action, k)
+#            prediction= self.refCases[0].predict(state,action)
+#            prediction["intId"] = state["intId"]
+        return resultState
             
             
     def score(self, state, action):
-        s = MAXCASESCORE
-        for k in state.relevantKeys()+ action.relevantKeys():
-            if self.attribs.has_key(k):
-                bestScore = 1
-                for v in self.attribs[k]:
-                    tmpScore = metrics[k](state[k], v)#Forgot action!!
-                    if tmpScore < bestScore:
-                        bestScore = tmpScore
-                s -= bestScore
+#        s = MAXCASESCORE
+        s = 0
+        for k,v in state.items() + action.items():
+            if self.preCons.has_key(k):
+#                bestScore = 1
+                s += similarities[k](self.preCons[k],v)
+            else:
+                #For keys that are not preconditions, add average value, so that not simply
+                # the cases with the most preconditions win
+                s += 0.75
+#                for v in self.attribs[k]:
+#                    tmpScore = metrics[k](state[k], v)#Forgot action!!
+#                    if tmpScore < bestScore:
+#                        bestScore = tmpScore
+#                s -= bestScore
         return s
     
     def updatePredictionScore(self, score):
@@ -274,22 +284,42 @@ class AbstractCase(object):
         
     def addRef(self, ref):
         ref.abstCase = self
-        for k,v in ref.getListOfConstants():
-            if self.attribs.has_key(k):
-                if any(np.array_equal(v,x) for x in self.attribs[k]):
-                    self.attribs[k].append(v)
+#        for k,v in ref.getListOfConstants():
+#            if self.attribs.has_key(k):
+#                if np.array_equal()
+#                if any(np.array_equal(v,x) for x in self.attribs[k]):
+#                    self.attribs[k].append(v)
+#            else:
+#                self.attribs[k] = [v]
+        for k,v in ref.preState.items() + ref.action.items():
+            if self.preCons.has_key(k):
+                #If the previous value is roughly the same as the new one, keep it. Else say it can be arbitrary?
+                if differences[k](self.preCons[k], v) > 0.05: #THRESHOLD:
+                    #Remove pre-condition
+                    del self.preCons[k]
+                    self.retrain()
             else:
-                self.attribs[k] = [v]
+                #Only add preconditions for the first case
+                if len(self.refCases) == 0:
+                    self.preCons[k] = v
             
         self.refCases.append(ref)
-        self.updatePredictorsITM(ref)
+#        self.updatePredictorsITM(ref)
+        self.updatePredictors()
+        
+    def retrain(self):
+        for k in self.variables:
+            self.predictors[k] = ITM()
+#        for c in self.refCases:
+#            self.updatePredictorsITM(c)
+        self.updatePredictors()
         
     def updatePredictorsITM(self, case):
         for k in self.variables:
             self.predictors[k].train(self.toNode(case, k))
             
     def toNode(self, case, attrib):
-        node = Node(0, wIn=np.concatenate((case.preState.toVec(),case.action.toVec())),
+        node = Node(0, wIn=np.concatenate((case.preState.toVec(self.preCons),case.action.toVec(self.preCons))),
                     wOut=case.postState[attrib]-case.preState[attrib])
         return node
         
@@ -304,7 +334,7 @@ class AbstractCase(object):
         inputs = []
         outputs = []
         for c in self.refCases:
-            inputs.append(np.concatenate((c.preState.toVec(),c.action.toVec())))
+            inputs.append(np.concatenate((c.preState.toVec(self.preCons),c.action.toVec(self.preCons))))
             outputs.append(c.postState[attrib]- c.preState[attrib])
         return inputs, outputs
     
@@ -325,7 +355,12 @@ class ModelCBR(object):
             if s >= bestScore:
                 bestCase = c
                 bestScore = s
-        if bestCase != None:
+        if isinstance(bestCase, AbstractCase):
+            print "bestCase #refs: ", len(bestCase.refCases)
+            print "bestCase variables: ", bestCase.variables
+            print "bestCase preConditions: ", bestCase.preCons
+            return bestCase
+        elif isinstance(bestCase, BaseCase):
             if bestCase.abstCase != None:
                 print "bestCase #refs: ", len(bestCase.abstCase.refCases)
                 print "bestCase avgPrediction: ", bestCase.abstCase.avgPrediction
@@ -353,6 +388,15 @@ class ModelCBR(object):
         return predictionWs
         
     def updateState(self, state, action, prediction, result, usedCase):
+        """
+        Parameters
+        
+        state: InteractionState
+        Action: Action
+        prediction: InteractionState
+        result: Interaction
+        usedCase: AbstractCase
+        """
         newCase = BaseCase(state, action, result)
         attribList = newCase.getListOfAttribs()
         predictionScore = result.score(prediction)
@@ -382,6 +426,8 @@ class ModelCBR(object):
                 print "prediction: ", prediction.interactionStates
             if not result.interactionStates.has_key(intState):
                 print "result: ", result.interactionStates
+            if not prediction.predictionCases.has_key(intState):
+                print "prediction.predictionCases: ", prediction.predictionCases
             self.updateState(state.interactionStates[intState], action, prediction.interactionStates[intState], 
                              result.interactionStates[intState], prediction.predictionCases[intState])
         

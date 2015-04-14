@@ -70,14 +70,14 @@ class ITM(Network):
                 minDist = d
                 minNode = n
         if minNode != None:
-            res = minNode.wOut
-            norm = 1
-            for n in minNode.neighbours.values():
-                wc = math.exp(-np.linalg.norm(wIn-n.wIn)**2/(SIGMAE**2))
-                norm += wc
-                res += wc * n.wOut
-            return res/norm
-#            return minNode.wOut
+#            res = minNode.wOut
+#            norm = 1
+#            for n in minNode.neighbours.values():
+#                wc = math.exp(-np.linalg.norm(wIn-n.wIn)**2/(SIGMAE**2))
+#                norm += wc
+#                res += wc * n.wOut
+#            return res/norm
+            return minNode.wOut
                 
             
 class SOM(Network):

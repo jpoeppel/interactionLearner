@@ -13,6 +13,11 @@ EMAX = 0.5
 ETA = 0.1
 SIGMAE = 0.5
 
+WINNER = 0
+NEIGHBOURS = 1
+BESTTWO = 2
+PREDICTIONMODE = BESTTWO
+
 class ITM(Network):
     
     def __init__(self):
@@ -64,21 +69,36 @@ class ITM(Network):
         minDist = float('inf')
         secDist = float('inf')
         minNode = None
+        secNode = None
         for n in self.nodes.values():
             d = np.linalg.norm(n.wIn-wIn)
             if d < minDist:
                 minDist = d
                 minNode = n
+            elif d < secDist:
+                secDist = d
+                secNode = n
         if minNode != None:
-#            res = minNode.wOut
-#            norm = 1
-#            for n in minNode.neighbours.values():
-#                wc = math.exp(-np.linalg.norm(wIn-n.wIn)**2/(SIGMAE**2))
-#                norm += wc
-#                res += wc * n.wOut
-#            return res/norm
-            return minNode.wOut
-                
+            if PREDICTIONMODE == WINNER:
+                return minNode.wOut
+            elif PREDICTIONMODE == NEIGHBOURS:                    
+                norm = math.exp(-np.linalg.norm(wIn-winNode.wIn)**2/(SIGMAE**2))
+                res = norm*winNode.wOut
+                for n in minNode.neighbours.values():
+                    wc = math.exp(-np.linalg.norm(wIn-n.wIn)**2/(SIGMAE**2))
+                    norm += wc
+                    res += wc * n.wOut
+                return res/norm
+            elif PREDICTIONMODE == BESTTWO:
+                if secNode != None:
+                    norm = math.exp(-np.linalg.norm(wIn-minNode.wIn)**2/(SIGMAE**2))
+                    res = norm*minNode.wOut
+                    wc = math.exp(-np.linalg.norm(wIn-secNode.wIn)**2/(SIGMAE**2))
+                    res += wc*secNode.wOut
+                    norm += wc
+                    return res/norm
+                else:
+                    return minNode.wOut
             
 class SOM(Network):
   

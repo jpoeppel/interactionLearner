@@ -261,6 +261,10 @@ class GazeboInterface():
         self.sendCommand(self.lastAction)
         print "num cases: " + str(len(self.worldModel.cases))
         print "num abstract cases: " + str(len(self.worldModel.abstractCases))
+        print "% correctCase selected: ", self.worldModel.numCorrectCase/(float)(self.worldModel.numPredictions)
+
+#        for ac in self.worldModel.abstractCases:
+#            print "number of refs: {} for abstract case variables: {}".format(len(ac.refCases),ac.variables)
 #        print "abstract lists: " + str([c.variables for c in self.worldModel.abstractCases])
 
 
@@ -271,7 +275,7 @@ class GazeboInterface():
         rnd = np.random.rand()
         a = model4.Action()
         
-        if rnd < 0.5:
+        if rnd < 0.3:
             a["cmd"] = GAZEBOCMDS["MOVE"]
 #            a["dir"] = np.array([1.2,0,0])
             a["mvDir"] = np.random.rand(3)*2-1
@@ -281,7 +285,7 @@ class GazeboInterface():
 #            a["dir"] = np.array([0,1,0])
 #        elif rnd < 0.8:
 #            a["dir"] = np.array([0,-1,0])
-        elif rnd < 0.6:
+        elif rnd < 0.4:
             a["cmd"] = GAZEBOCMDS["MOVE"]
             a["mvDir"] = np.array([0,0,0])
         else:

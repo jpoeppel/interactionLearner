@@ -21,13 +21,14 @@ from sklearn.gaussian_process import GaussianProcess
 from topoMaps import ITM
 from network import Node
 import copy
+import math
 
-THRESHOLD = 0.1
+THRESHOLD = 0.01
 NUMDEC = 5
 MAXCASESCORE = 16
 MAXSTATESCORE = 14
-PREDICTIONTHRESHOLD = 0.5
-PREDICTIONTHRESHOLD = MAXSTATESCORE - PREDICTIONTHRESHOLD
+#PREDICTIONTHRESHOLD = 0.5
+PREDICTIONTHRESHOLD = MAXSTATESCORE - 0.2
 
 class State(dict):
     """
@@ -47,6 +48,12 @@ class State(dict):
         
     def relevantKeys(self):
         return self.keys()
+        
+    def relevantItems(self):
+        r = []
+        for k in self.relevantKeys():
+            r.append((k,self[k]))
+        return r
         
     def toVec(self, const = {}):
         r = np.array([])
@@ -235,6 +242,7 @@ class AbstractCase(object):
         self.predictors = {}
         self.variables.extend(case.getListOfAttribs())
         self.preCons = {}
+        self.gaussians = {}
         for k in self.variables:
             self.predictors[k] = ITM()
         self.addRef(case)
@@ -246,9 +254,9 @@ class AbstractCase(object):
         if len(self.refCases) > 1:
 #            print "resultState intId: ", resultState["intId"]
             for k in self.variables:
-                resultState[k] = state[k] + self.predictors[k].predict(np.concatenate((state.toVec(self.preCons),action.toVec(self.preCons))))[0]
-                if k == "spos":
-                    print "prediction: ", self.predictors[k].predict(np.concatenate((state.toVec(self.preCons),action.toVec(self.preCons))))
+                resultState[k] = state[k] + self.predictors[k].predict(np.concatenate((state.toVec(self.preCons),action.toVec(self.preCons))))
+#                if k == "spos":
+#                    print "prediction: ", self.predictors[k].predict(np.concatenate((state.toVec(self.preCons),action.toVec(self.preCons))))
 #            print "resultState intId after: ", resultState["intId"]
             
         else:
@@ -263,19 +271,47 @@ class AbstractCase(object):
     def score(self, state, action):
 #        s = MAXCASESCORE
         s = 0
-        for k,v in state.items() + action.items():
-            if self.preCons.has_key(k):
-#                bestScore = 1
-                s += similarities[k](self.preCons[k],v)
+        for k,v in state.relevantItems() + action.relevantItems():
+            
+#            if s > 16:
+#                print "mu: {}, cov: {}, det:{}, inv: {}".format(mu, cov, det, inv)
+#            det = np.linalg.det(cov)
+#            print "cov: ", cov
+#            print "mu: ", mu
+#            print "det: ", det
+#            print "inv: ", inv
+#            print "v: ", v
+#            print "result: ", math.exp(-0.5*np.dot(np.dot((v-mu),inv),(v-mu).T))
+            
+            
+#            if self.preCons.has_key(k):
+##                bestScore = 1
+#                s += similarities[k](self.preCons[k],v)
+#            else:
+            if hasattr(v, "__len__"):
+                dim = len(v)
             else:
-                #For keys that are not preconditions, add average value, so that not simply
-                # the cases with the most preconditions win
-                s += 0.75
+                dim = 1
+            mu, cov, det, inv = self.gaussians[k]
+#                print "det: ", det
+            norm = 1.0/(math.sqrt((2*math.pi)**dim * det))
+            if norm > 1:
+#                print "cov: ", cov
+#                print "damn inv: ", inv
+                norm = 1
+            
+            s += norm * math.exp(-0.5*(np.dot(np.dot((v-mu),inv),(v-mu).T)))
+#            if tmp > 1:
+               
+#                #For keys that are not preconditions, add average value, so that not simply
+#                # the cases with the most preconditions win
+#                s += 0.75
 #                for v in self.attribs[k]:
 #                    tmpScore = metrics[k](state[k], v)#Forgot action!!
 #                    if tmpScore < bestScore:
 #                        bestScore = tmpScore
 #                s -= bestScore
+#        print "score for case with list {}: {}".format(self.variables, s)
         return s
     
     def updatePredictionScore(self, score):
@@ -291,28 +327,75 @@ class AbstractCase(object):
 #                    self.attribs[k].append(v)
 #            else:
 #                self.attribs[k] = [v]
-        for k,v in ref.preState.items() + ref.action.items():
-            if self.preCons.has_key(k):
-                #If the previous value is roughly the same as the new one, keep it. Else say it can be arbitrary?
-                if differences[k](self.preCons[k], v) > 0.05: #THRESHOLD:
-                    #Remove pre-condition
-                    del self.preCons[k]
-                    self.retrain()
-            else:
-                #Only add preconditions for the first case
-                if len(self.refCases) == 0:
-                    self.preCons[k] = v
+#        for k,v in ref.preState.relevantItems() + ref.action.relevantItems():
+#            if self.preCons.has_key(k):
+#                #If the previous value is roughly the same as the new one, keep it. Else say it can be arbitrary?
+#                if differences[k](self.preCons[k], v) > 0.05: #THRESHOLD:
+#                    #Remove pre-condition
+#                    del self.preCons[k]           
+#                    self.retrain()
+#            else:
+#                #Only add preconditions for the first case
+#                if len(self.refCases) == 0:
+#                    self.preCons[k] = v
             
+         
         self.refCases.append(ref)
-#        self.updatePredictorsITM(ref)
-        self.updatePredictors()
+        self.updatePredictorsITM(ref)
+        
+        self.updateGaussians(ref)
+#        self.updatePredictorsGP()
+        
+    def updateGaussians(self, ref):
+        for k,v in ref.preState.relevantItems() + ref.action.relevantItems():
+            if hasattr(v, "__len__"):
+                dim = len(v)
+            else:
+                dim = 1
+                
+            if not self.gaussians.has_key(k):
+                self.gaussians[k] = (np.array(v)[np.newaxis], np.identity(dim), 1, np.identity(dim))
+            else:
+                numData = len(self.refCases)
+                muO, covO, detO, invO = self.gaussians[k]
+                mu = (1-1.0/numData)*muO + 1.0/numData*v
+                cov = (1-1.0/numData)*(covO+1.0/numData*np.dot((v-muO).T,(v-muO)))
+#                inv = numData/(numData-1)*(invO-(invO*np.dot(np.dot((v-muO).T,v-muO),invO))/(numData + np.dot(np.dot(v-muO,invO),(v-muO).T)))
+                inv = np.linalg.inv(cov)
+                self.gaussians[k] = (mu, cov, np.linalg.det(cov), inv )
+
+            
+    def getData(self, attrib):
+        
+        numCases = len(self.refCases)
+        if self.refCases[0].preState.has_key(attrib):
+            if hasattr(self.refCases[0].preState[attrib], "__len__"):
+                dim = len(self.refCases[0].preState[attrib])
+            else:
+                dim = 1
+            data = np.zeros((numCases,dim))
+            for i in range(numCases):
+                data[i,:] = self.refCases[i].preState[attrib]
+        elif self.refCases[0].action.has_key(attrib):
+            if hasattr(self.refCases[0].action[attrib], "__len__"):
+                dim = len(self.refCases[0].action[attrib])
+            else:
+                dim = 1
+            data = np.zeros((numCases,dim))
+            for i in range(numCases):
+                data[i,:] = self.refCases[i].action[attrib]
+        else:
+            raise TypeError("Invalid attribute: ", attrib)
+            
+        return data
+        
         
     def retrain(self):
         for k in self.variables:
             self.predictors[k] = ITM()
-#        for c in self.refCases:
-#            self.updatePredictorsITM(c)
-        self.updatePredictors()
+        for c in self.refCases:
+            self.updatePredictorsITM(c)
+#        self.updatePredictorsGP()
         
     def updatePredictorsITM(self, case):
         for k in self.variables:
@@ -323,7 +406,7 @@ class AbstractCase(object):
                     wOut=case.postState[attrib]-case.preState[attrib])
         return node
         
-    def updatePredictors(self):
+    def updatePredictorsGP(self):
         if len(self.refCases) > 1:
             for k in self.variables:
                 self.predictors[k] = GaussianProcess(corr='cubic')
@@ -343,6 +426,9 @@ class ModelCBR(object):
     def __init__(self):
         self.cases = []
         self.abstractCases = []
+        self.numZeroCase = 0
+        self.numCorrectCase = 0
+        self.numPredictions = 0
         
     def getAction(self, state):
         pass
@@ -350,7 +436,7 @@ class ModelCBR(object):
     def getBestCase(self, state, action):
         bestCase = None
         bestScore = 0.0
-        for c in self.cases:
+        for c in self.abstractCases:
             s = c.score(state, action)
             if s >= bestScore:
                 bestCase = c
@@ -358,7 +444,9 @@ class ModelCBR(object):
         if isinstance(bestCase, AbstractCase):
             print "bestCase #refs: ", len(bestCase.refCases)
             print "bestCase variables: ", bestCase.variables
-            print "bestCase preConditions: ", bestCase.preCons
+            if bestCase.variables == []:
+                self.numZeroCase += 1
+#            print "bestCase preConditions: ", bestCase.preCons
             return bestCase
         elif isinstance(bestCase, BaseCase):
             if bestCase.abstCase != None:
@@ -369,14 +457,16 @@ class ModelCBR(object):
             return None
     
     def predictIntState(self, state, action):
+        self.numPredictions += 1
         bestCase = self.getBestCase(state, action)
         if bestCase != None:
             return bestCase.predict(state, action), bestCase
         else:
-            print "using old state with id: ", state["intId"]
+#            print "using old state with id: ", state["intId"]
             return state, bestCase
     
     def predict(self, worldState, action):
+        
         predictionWs = WorldState()
         for intState in worldState.interactionStates.values():
             
@@ -400,8 +490,10 @@ class ModelCBR(object):
         newCase = BaseCase(state, action, result)
         attribList = newCase.getListOfAttribs()
         predictionScore = result.score(prediction)
+        print "predictionScore: ", predictionScore
         if usedCase != None and usedCase.variables == attribList:
             usedCase.updatePredictionScore(predictionScore)
+            self.numCorrectCase += 1
         if predictionScore < PREDICTIONTHRESHOLD:
             self.cases.append(newCase)
             abstractCase = None

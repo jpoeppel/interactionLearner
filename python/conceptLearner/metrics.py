@@ -24,7 +24,7 @@ def cosS(a, b):
         print "b: " + str(b)
     
 def expS(a,b):
-    return math.exp(-(np.linalg.norm(a-b)))
+    return math.exp(-0.5*(np.linalg.norm(a-b)))
     
 def equalS(a,b):
     if a == b:

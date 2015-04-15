@@ -106,6 +106,8 @@ namespace gazebo
       {
         this->gripper->SetLinearVel(this->curDir);
         this->gripper->SetAngularVel(math::Vector3(0.0,0.0,0.0));
+        math::Pose p = this->gripper->GetWorldPose();
+        this->gripper->SetWorldPose(math::Pose(math::Vector3(p.pos.x,p.pos.y,0.03), p.rot));
       }
     }
 

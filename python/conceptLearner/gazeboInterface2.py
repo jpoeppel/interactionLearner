@@ -261,7 +261,10 @@ class GazeboInterface():
         self.sendCommand(self.lastAction)
         print "num cases: " + str(len(self.worldModel.cases))
         print "num abstract cases: " + str(len(self.worldModel.abstractCases))
+        print "num Predictions: ", self.worldModel.numPredictions
         print "% correctCase selected: ", self.worldModel.numCorrectCase/(float)(self.worldModel.numPredictions)
+        if self.worldModel.numPredictions == 31206:
+            raise Exception("Finished")
 
 #        for ac in self.worldModel.abstractCases:
 #            print "number of refs: {} for abstract case variables: {}".format(len(ac.refCases),ac.variables)

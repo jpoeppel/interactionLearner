@@ -286,7 +286,9 @@ class AbstractCase(object):
             
 #            if self.preCons.has_key(k):
 ##                bestScore = 1
-#                s += similarities[k](self.preCons[k],v)
+#                if differences[k](self.preCons[k], v) <= 0.05:
+#                    s+= 1
+#            else:
 #            else:
             if hasattr(v, "__len__"):
                 dim = len(v)
@@ -295,10 +297,10 @@ class AbstractCase(object):
             mu, cov, det, inv = self.gaussians[k]
 #                print "det: ", det
             norm = 1.0/(math.sqrt((2*math.pi)**dim * det))
-            if norm > 1:
-#                print "cov: ", cov
-#                print "damn inv: ", inv
-                norm = 1
+#            if norm > 1:
+##                print "cov: ", cov
+##                print "norm still too big: ", norm
+#                norm = 1
             
             s += norm * math.exp(-0.5*(np.dot(np.dot((v-mu),inv),(v-mu).T)))
 #            if tmp > 1:

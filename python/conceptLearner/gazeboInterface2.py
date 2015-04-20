@@ -18,15 +18,19 @@ from pygazebo.msg import worldState_pb2
 import logging
 import numpy as np
 import math
+import copy
 
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.ERROR)
 import model2 as model
 import model4
 
-logging.basicConfig()
-
-GAZEBOCMDS = { "NOTHING": 0,"MOVE": 1, "GRAB": 2, "RELEASE": 3}
-
-GRIPPERSTATES = {"OPEN":0, "CLOSED": 1}
+#logging.basicConfig()
+#
+#GAZEBOCMDS = { "NOTHING": 0,"MOVE": 1, "GRAB": 2, "RELEASE": 3}
+#
+#GRIPPERSTATES = {"OPEN":0, "CLOSED": 1}
 
 
 class WorldObject(object):
@@ -120,22 +124,22 @@ class RawWorldState(object):
     def __repr__(self):
         return "Gripper: " + str(self.gripper) #+"\nObjects: " + str(self.objects)
 
-
-class Action(object):
-    
-    def __init__(self, cmd=GAZEBOCMDS["MOVE"], direction=np.array([0.0,0.0,0.0])):
-        self.cmd = cmd
-        self.direction = direction
-        
-    def score(self, otherAction):
-        if self.cmd == otherAction.cmd:
-            #Cosine similarity
-            return 1 + abs(self.direction.dot(otherAction.direction)/(np.linalg.norm(self.direction)*np.linalg.norm(otherAction.direction)))
-        else:
-            return 0
-            
-    def __repr__(self):
-        return "Action with direction: " + str(self.direction)
+#
+#class Action(object):
+#    
+#    def __init__(self, cmd=GAZEBOCMDS["MOVE"], direction=np.array([0.0,0.0,0.0])):
+#        self.cmd = cmd
+#        self.direction = direction
+#        
+#    def score(self, otherAction):
+#        if self.cmd == otherAction.cmd:
+#            #Cosine similarity
+#            return 1 + abs(self.direction.dot(otherAction.direction)/(np.linalg.norm(self.direction)*np.linalg.norm(otherAction.direction)))
+#        else:
+#            return 0
+#            
+#    def __repr__(self):
+#        return "Action with direction: " + str(self.direction)
 
 class GazeboInterface():
     """
@@ -148,7 +152,7 @@ class GazeboInterface():
         self.lastState = None
         self.worldModel = model4.ModelCBR()
         self.lastPrediction = None
-        self.lastAction = Action()
+        self.lastAction = model4.Action()
 
         
     @trollius.coroutine
@@ -247,7 +251,7 @@ class GazeboInterface():
         if self.lastPrediction != None:
             self.worldModel.update(self.lastState, self.lastAction,self.lastPrediction, w)
             
-        tmp = self.getAction()
+        tmp = self.worldModel.getAction(w)
 #        tmp = self.getRightAction()
 #        tmp["cmd"] = GAZEBOCMDS["MOVE"]
 #        tmp["dir"] = np.array([0.0,-1.2,0.0])
@@ -265,36 +269,33 @@ class GazeboInterface():
         print "% correctCase selected: ", self.worldModel.numCorrectCase/(float)(self.worldModel.numPredictions)
         if self.worldModel.numPredictions == 31206:
             raise Exception("Finished")
-
+            
+        if len(self.worldModel.cases) == 1000 or len(self.worldModel.cases) == 1001:
+            self.worldModel.setTarget(self.getTarget(w))
+#
 #        for ac in self.worldModel.abstractCases:
 #            print "number of refs: {} for abstract case variables: {}".format(len(ac.refCases),ac.variables)
 #        print "abstract lists: " + str([c.variables for c in self.worldModel.abstractCases])
 
 
+    def getTarget(self, worldState):
+        gripper = None
+        block = None
+        for i in worldState.objectStates.values():
+            if i["name"] == "gripper":
+                gripper = copy.deepcopy(i)
+            if i["name"] == "blockA":
+                block = copy.deepcopy(i)
+                
+        
+        gripper["pos"] = np.array([0.0,0.0,0.03])
+        intState = model4.InteractionState(0, gripper)
+        intState.relKeys = ["spos"]
+        intState.fill(block)
+        return intState
     def getRightAction(self):
         return model.Action(cmd = GAZEBOCMDS["MOVE"], direction=np.array([0.5,0.0,0.0]))
 
-    def getAction(self):
-        rnd = np.random.rand()
-        a = model4.Action()
-        
-        if rnd < 0.3:
-            a["cmd"] = GAZEBOCMDS["MOVE"]
-#            a["dir"] = np.array([1.2,0,0])
-            a["mvDir"] = np.random.rand(3)*2-1
-#        elif rnd < 0.4:
-#            a["dir"] = np.array([-1.3,0,0])
-#        elif rnd < 0.6:
-#            a["dir"] = np.array([0,1,0])
-#        elif rnd < 0.8:
-#            a["dir"] = np.array([0,-1,0])
-        elif rnd < 0.4:
-            a["cmd"] = GAZEBOCMDS["MOVE"]
-            a["mvDir"] = np.array([0,0,0])
-        else:
-            a["cmd"] = GAZEBOCMDS["NOTHING"]
-        a["mvDir"] *= 2.0
-        return a
     
     def stop(self):
         """

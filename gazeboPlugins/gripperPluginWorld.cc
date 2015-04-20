@@ -43,11 +43,9 @@ namespace gazebo
     void cb(CmdPtr &_msg)
     {
       // Dump the message contents to stdout.
-      std::cout << gazeboPlugins::msgs::GripperCommand::Command_Name(_msg->cmd()) << std::endl;
       this->curCmd = _msg->cmd();
       this->curDir = math::Vector3(_msg->direction().x(),_msg->direction().y(),_msg->direction().z());
-      std::cout << curDir << std::endl; // << _msg->direction().y << ", " << _msg->direction().z;
-
+      std::cout << gazeboPlugins::msgs::GripperCommand::Command_Name(_msg->cmd()) << ": " << curDir << std::endl;
     }
 
     typedef const boost::shared_ptr<const gazeboPlugins::msgs::ModelState_V> ModelSVPtr;

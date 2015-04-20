@@ -22,13 +22,18 @@ from topoMaps import ITM
 from network import Node
 import copy
 import math
+from sets import Set
 
 THRESHOLD = 0.01
 NUMDEC = 5
 MAXCASESCORE = 16
 MAXSTATESCORE = 14
 #PREDICTIONTHRESHOLD = 0.5
-PREDICTIONTHRESHOLD = MAXSTATESCORE - 0.2
+PREDICTIONTHRESHOLD = MAXSTATESCORE - 0.05
+
+#
+import logging
+logging.basicConfig()
 
 class State(dict):
     """
@@ -37,27 +42,28 @@ class State(dict):
     """
     
     def __init__(self):
+        self.relKeys = self.keys()
         pass
     
     def score(self, otherState):
         assert isinstance(otherState, State), "{} is not a State object".format(otherState)
         s = MAXSTATESCORE
-        for k in self.relevantKeys():
+        for k in self.relKeys:
             s -= differences[k](self[k], otherState[k]) #* weights[k] 
         return s
         
     def relevantKeys(self):
-        return self.keys()
+        return self.relKeys
         
     def relevantItems(self):
         r = []
-        for k in self.relevantKeys():
+        for k in self.relKeys:
             r.append((k,self[k]))
         return r
         
     def toVec(self, const = {}):
         r = np.array([])
-        for k in self.relevantKeys():
+        for k in self.relKeys:
             if k not in const.keys():
 #            if k != "spos":
                 if isinstance(self[k], np.ndarray):
@@ -65,6 +71,18 @@ class State(dict):
                 elif not isinstance(self[k], unicode):
                     r = np.concatenate((r,[self[k]]))
         return r
+        
+    def __eq__(self, other):
+        if not isinstance(other, State):
+            return False
+        for k, v in self.relevantItems():
+            if np.linalg.norm(v-other[k]) > THRESHOLD:
+                return False
+        
+        return True
+        
+    def __ne__(self, other):
+        return not self.__eq__(other)
         
         
 class ObjectState(State):
@@ -75,35 +93,26 @@ class ObjectState(State):
     """
     
     def __init__(self):
+        State.__init__(self)
         self.update({"id": -1, "name": "", "type": -1, "pos": np.zeros(3), 
                          "orientation": np.zeros(4), "linVel": np.zeros(3), 
                          "angVel": np.zeros(3)})
+        self.relKeys = self.keys()
         
 class InteractionState(State):
     
     def __init__(self, intId, o1):
+#        State.__init__(self)
         self.update({"intId": intId, "sid":o1["id"], "sname": o1["name"], 
                      "stype": o1["type"], "spos":o1["pos"], 
                      "sori": o1["orientation"], "slinVel": o1["linVel"], 
                      "sangVel": o1["angVel"], "dist": 0, "dir": np.zeros(3),
                      "contact": 0, "oid": -1, "oname": "", "otype": 0, 
                      "dori": np.zeros(4), "dlinVel": np.zeros(3), "dangVel":np.zeros(3)})
-                     
-    def relevantKeys(self):
-        keys = self.keys()
-        keys.remove("intId")
-        keys.remove("sname")
-#        keys.remove("spos")
-#        keys.remove("stype")
-#        keys.remove("sori")
-#        keys.remove("sangVel")
-#        keys.remove("oid")
-        keys.remove("oname")
-#        keys.remove("dlinVel")
-#        keys.remove("dori")
-#        keys.remove("dangVel")
-#        keys.remove("otype")
-        return keys
+        self.relKeys = self.keys()
+        self.relKeys.remove("intId")
+        self.relKeys.remove("sname")
+        self.relKeys.remove("oname")
                      
     def fill(self, o2):
         assert isinstance(o2, ObjectState), "{} (o2) is not an ObjectState!".format(o2)
@@ -119,7 +128,10 @@ class InteractionState(State):
 class Action(State):
     
     def __init__(self, cmd=GZCMD["NOTHING"], direction=np.array([0.0,0.0,0.0])):
-        self.update({"cmd":cmd, "mvDir": direction})
+        State.__init__(self)
+        self.update({"cmd":int(cmd), "mvDir": direction})
+        self.relKeys = self.keys()
+
         
 class WorldState(object):
     
@@ -156,11 +168,19 @@ class WorldState(object):
     def parseInteractions(self, ws):
         tmpList = self.objectStates.values()
         for o1 in self.objectStates.values():
+#            print "interactionState for o1: ", o1
             intState = InteractionState(self.numIntStates, o1)
+#            self.addInteractionState(intState)
             for o2 in tmpList:
                 if not np.array_equal(o1,o2):                    
                     intState.fill(o2)
                     self.addInteractionState(intState)
+                    
+    def getGripperInteraction(self):
+        for i in self.interactionStates.values():
+            if i["sname"] == "gripper":
+                return i
+        return None
                 
 #    def parseContacts(self, contacts):
 #        for c in contacts:
@@ -197,7 +217,7 @@ class BaseCase(object):
         for k in self.dif.keys():
             if np.linalg.norm(self.dif[k]) > THRESHOLD:
                 r.append(k)
-        return r
+        return Set(r)
         
         
     def getListOfConstants(self):
@@ -206,7 +226,7 @@ class BaseCase(object):
         for k in self.dif.keys():
             if np.linalg.norm(self.dif[k]) <= THRESHOLD:
                 r.append((k,self.preState[k]))
-        return r
+        return Set(r)
     
     def predict(self, state,action, attrib):
         return self.dif[attrib]
@@ -229,6 +249,17 @@ class BaseCase(object):
             s -= bestScore
         return s
         
+    def __eq__(self, other):
+        if not isinstance(other, BaseCase):
+            return False
+        return self.preState == other.preState and self.action == other.action and self.postState == other.postState
+        
+    def __ne__(self, other):
+        return not self.__eq__(other)
+        
+    def __repr__(self):
+        return "Pre: {} \n Action: {} \n Post: {}".format(self.preState,self.action,self.postState)
+        
 class AbstractCase(object):
     
     def __init__(self, case):
@@ -237,12 +268,14 @@ class AbstractCase(object):
         self.avgPrediction = 0.0
         self.numPredictions = 0
         self.name = ""
-        self.variables = [] #List of attributes that changed 
+        self.variables = Set() #List of attributes that changed 
         self.attribs = {} # Dictionary holding the attributs:[values,] pairs for the not changing attribs of the references
         self.predictors = {}
-        self.variables.extend(case.getListOfAttribs())
+        self.variables.update(case.getListOfAttribs())
         self.preCons = {}
         self.gaussians = {}
+        self.errorGaussians = {}
+        self.numErrorCases = 0
         for k in self.variables:
             self.predictors[k] = ITM()
         self.addRef(case)
@@ -260,13 +293,27 @@ class AbstractCase(object):
 #            print "resultState intId after: ", resultState["intId"]
             
         else:
-#            print "predicting with only one ref"
+            print "predicting with only one ref"
             for k in self.variables:
                 resultState[k] = state[k] + self.refCases[0].predict(state, action, k)
 #            prediction= self.refCases[0].predict(state,action)
 #            prediction["intId"] = state["intId"]
         return resultState
+        
+    def getAction(self, pre, dif):
+        action = np.zeros(4)
+        numVariables = len(self.variables)
+        for k in self.variables:
+            action += 1.0/numVariables * self.predictors[k].predictAction(pre.toVec(), dif[k])
             
+#        action[1:] += np.random.rand(3)/10.0
+        
+        res = Action(cmd = action[0], direction=action[1:]/5)
+        return res
+            
+    def addErrorCase(self, case):
+        self.numErrorCases += 1
+        self.updateGaussians(self.errorGaussians, self.numErrorCases, case)
             
     def score(self, state, action):
 #        s = MAXCASESCORE
@@ -302,7 +349,20 @@ class AbstractCase(object):
 ##                print "norm still too big: ", norm
 #                norm = 1
             
-            s += norm * math.exp(-0.5*(np.dot(np.dot((v-mu),inv),(v-mu).T)))
+#            s += norm * math.exp(-0.5*(np.dot(np.dot((v-mu),inv),(v-mu).T)))
+            tmp = norm * math.exp(-0.5*(np.dot(np.dot((v-mu),inv),(v-mu).T)))
+            if self.errorGaussians.has_key(k):
+                mu, cov, det, inv = self.errorGaussians[k]
+    #                print "det: ", det
+                norm = 1.0/(math.sqrt((2*math.pi)**dim * det))
+#                if norm > 1:
+#    #                print "cov: ", cov
+#    #                print "norm still too big: ", norm
+#                    norm = 1
+                
+                tmp -=  norm * math.exp(-0.5*(np.dot(np.dot((v-mu),inv),(v-mu).T)))
+                
+            s += tmp
 #            if tmp > 1:
                
 #                #For keys that are not preconditions, add average value, so that not simply
@@ -321,7 +381,7 @@ class AbstractCase(object):
         self.avgPrediction += (score-self.avgPrediction)/self.numPredictions
         
     def addRef(self, ref):
-        ref.abstCase = self
+        
 #        for k,v in ref.getListOfConstants():
 #            if self.attribs.has_key(k):
 #                if np.array_equal()
@@ -340,31 +400,51 @@ class AbstractCase(object):
 #                #Only add preconditions for the first case
 #                if len(self.refCases) == 0:
 #                    self.preCons[k] = v
+        
+        if ref in self.refCases:
+            raise Exception("ref already in refCases")
             
+#        equal = True
+#        for rc in self.refCases:
+#            if equal == True:
+#                for k in rc.dif.keys():
+#                    if np.linalg.norm(rc.dif[k]-ref.dif[k]) > 0.02:
+#                       equal = False
+#                       break
+#                for k in rc.action.relevantKeys():
+#                    if np.linalg.norm(rc.action[k] - ref.action[k]) > 0.02:
+#                        equal = False
+#                        break
+#        if equal == True:
+#            print "there is one very similar ref already"
+#            import sys
+#            sys.exit()
          
         self.refCases.append(ref)
+        ref.abstCase = self
         self.updatePredictorsITM(ref)
         
-        self.updateGaussians(ref)
+        self.updateGaussians(self.gaussians, len(self.refCases), ref)
+        
 #        self.updatePredictorsGP()
         
-    def updateGaussians(self, ref):
+    def updateGaussians(self, gaussians, numData, ref):
         for k,v in ref.preState.relevantItems() + ref.action.relevantItems():
             if hasattr(v, "__len__"):
                 dim = len(v)
             else:
                 dim = 1
                 
-            if not self.gaussians.has_key(k):
-                self.gaussians[k] = (np.array(v)[np.newaxis], np.identity(dim), 1, np.identity(dim))
+            if not gaussians.has_key(k):
+                gaussians[k] = (np.array(v)[np.newaxis], np.identity(dim), 1, np.identity(dim))
             else:
-                numData = len(self.refCases)
-                muO, covO, detO, invO = self.gaussians[k]
+#                numData = len(self.refCases)
+                muO, covO, detO, invO = gaussians[k]
                 mu = (1-1.0/numData)*muO + 1.0/numData*v
                 cov = (1-1.0/numData)*(covO+1.0/numData*np.dot((v-muO).T,(v-muO)))
 #                inv = numData/(numData-1)*(invO-(invO*np.dot(np.dot((v-muO).T,v-muO),invO))/(numData + np.dot(np.dot(v-muO,invO),(v-muO).T)))
                 inv = np.linalg.inv(cov)
-                self.gaussians[k] = (mu, cov, np.linalg.det(cov), inv )
+                gaussians[k] = (mu, cov, np.linalg.det(cov), inv )
 
             
     def getData(self, attrib):
@@ -404,7 +484,7 @@ class AbstractCase(object):
             self.predictors[k].train(self.toNode(case, k))
             
     def toNode(self, case, attrib):
-        node = Node(0, wIn=np.concatenate((case.preState.toVec(self.preCons),case.action.toVec(self.preCons))),
+        node = Node(0, wIn=case.preState.toVec(self.preCons), action=case.action.toVec(self.preCons),
                     wOut=case.postState[attrib]-case.preState[attrib])
         return node
         
@@ -431,9 +511,57 @@ class ModelCBR(object):
         self.numZeroCase = 0
         self.numCorrectCase = 0
         self.numPredictions = 0
+        self.target = None
         
     def getAction(self, state):
-        pass
+        bestAction = None
+        bestScore = 0
+        gripperInt = state.getGripperInteraction()
+        if gripperInt != None and self.target != None:
+            variables = Set()
+            dif = {}
+            for k in gripperInt.relevantKeys():
+                dif[k] = self.target[k] - gripperInt[k]
+                if k in self.target.relKeys and np.linalg.norm(dif[k]) > THRESHOLD:
+                    variables.add(k)                    
+            print "variables: ", variables
+            print "cur dif: ", dif
+            for ac in self.abstractCases:
+                if variables.issubset(ac.variables):
+                    action = ac.getAction(gripperInt, dif)
+                    prediction = ac.predict(gripperInt, action)
+                    score = self.target.score(prediction)
+                    print "abstract case: ", ac.variables
+                    print "predicted pos: ", prediction["spos"]
+                    print "score to target: {}, for action: {}".format(score, action)                    
+                    if score > bestScore:
+                        bestScore = score
+                        bestAction = action
+                        bestAction["cmd"] = 1
+        if bestAction != None:
+            print "using Action: ", bestAction
+            return bestAction
+        return self.getRandomAction()
+            
+    def getRandomAction(self):
+        print "getting random action"
+        rnd = np.random.rand()
+        a = Action()
+        if rnd < 0.3:
+            a["cmd"] = GZCMD["MOVE"]
+#            a["dir"] = np.array([1.2,0,0])
+            a["mvDir"] = np.random.rand(3)*2-1
+        elif rnd < 0.4:
+            a["cmd"] = GZCMD["MOVE"]
+            a["mvDir"] = np.array([0,0,0])
+        else:
+            a["cmd"] = GZCMD["NOTHING"]
+        a["mvDir"] *= 2.0
+        a["mvDir"][2] = 0
+        return a
+    
+    def setTarget(self, postState = None):
+        self.target = postState
     
     def getBestCase(self, state, action):
         bestCase = None
@@ -459,7 +587,7 @@ class ModelCBR(object):
             return None
     
     def predictIntState(self, state, action):
-        self.numPredictions += 1
+        
         bestCase = self.getBestCase(state, action)
         if bestCase != None:
             return bestCase.predict(state, action), bestCase
@@ -471,7 +599,7 @@ class ModelCBR(object):
         
         predictionWs = WorldState()
         for intState in worldState.interactionStates.values():
-            
+            self.numPredictions += 1
 #            print "predicting for ", intState["intId"]
             prediction, usedCase = self.predictIntState(intState, action)
 #            print "predicted intId: ", prediction["intId"]
@@ -494,10 +622,14 @@ class ModelCBR(object):
         predictionScore = result.score(prediction)
         print "predictionScore: ", predictionScore
         if usedCase != None and usedCase.variables == attribList:
+            print "correct case selected"
             usedCase.updatePredictionScore(predictionScore)
             self.numCorrectCase += 1
+        elif usedCase != None:
+            usedCase.addErrorCase(newCase)
         if predictionScore < PREDICTIONTHRESHOLD:
-            self.cases.append(newCase)
+            print "adding Case"
+#            self.cases.append(newCase)
             abstractCase = None
             for ac in self.abstractCases:
                 if ac.variables == attribList:
@@ -506,7 +638,15 @@ class ModelCBR(object):
                     break
             if abstractCase != None:
                 #If an abstract case is found add the reference
-                abstractCase.addRef(newCase)
+                try:
+                    abstractCase.addRef(newCase)
+                except Exception, e:
+                    print "case was already present"
+#                    print "Responsible abstractCase: ", abstractCase.variables
+#                    print "newCase: ", newCase
+#                    raise Exception("case already present")
+                else:
+                    self.cases.append(newCase)
             else:
                 #Create a new abstract case
                 self.abstractCases.append(AbstractCase(newCase))

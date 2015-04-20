@@ -8,11 +8,16 @@ Created on Mon Apr 13 00:32:22 2015
 import numpy as np
 
 class Node(object):
-    def __init__(self, name, pos=np.array([]), wIn=np.array([]), wOut = np.array([]), A = np.array([])):
+    def __init__(self, name, pos=np.array([]), wIn=np.array([]), action = np.array([]), wOut = np.array([]), A = np.array([])):
         self.name = name
         self.pos = pos
         self.neighbours = {}
         self.wIn = wIn
+        if hasattr(action, "__len__"):
+            self.action = action
+        else:
+            self.action = np.array([action])
+        
         if hasattr(wOut, "__len__"):
             self.wOut = wOut
         else:
@@ -27,10 +32,17 @@ class Node(object):
     
     def adapt(self, x, eta):
         self.wIn += eta*(x.wIn - self.wIn)
+        self.action += eta*(x.action - self.action)
         self.wOut += eta*(x.wOut - self.wOut)
         
     def vec(self):
+        return np.concatenate((self.wIn, self.action, self.wOut))
+        
+    def vecInOut(self):
         return np.concatenate((self.wIn, self.wOut))
+        
+    def vecInA(self):
+        return np.concatenate((self.wIn, self.action))
 
 class Network(object):
     def __init__(self):

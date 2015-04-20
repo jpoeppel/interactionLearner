@@ -270,8 +270,8 @@ class GazeboInterface():
         if self.worldModel.numPredictions == 31206:
             raise Exception("Finished")
             
-        if len(self.worldModel.cases) == 1000 or len(self.worldModel.cases) == 1001:
-            self.worldModel.setTarget(self.getTarget(w))
+#        if len(self.worldModel.cases) == 1000 or len(self.worldModel.cases) == 1001:
+#            self.worldModel.setTarget(self.getTarget(w))
 #
 #        for ac in self.worldModel.abstractCases:
 #            print "number of refs: {} for abstract case variables: {}".format(len(ac.refCases),ac.variables)

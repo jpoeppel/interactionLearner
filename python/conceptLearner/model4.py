@@ -219,7 +219,7 @@ class BaseCase(object):
             self.dif[k] = post[k]-pre[k]
             
         
-    def getListOfAttribs(self):
+    def getSetOfAttribs(self):
         """
             Returns the list of attributes that changed more than THRESHOLD.
         """
@@ -230,7 +230,7 @@ class BaseCase(object):
         return Set(r)
         
         
-    def getListOfConstants(self):
+    def getSetOfConstants(self):
         #TODO make more efficient by storing these values
         r = []
         for k in self.dif.keys():
@@ -412,7 +412,7 @@ class AbstractCase(object):
                 if len(self.refCases) == 0:
                     self.constants[k] = v
         
-#        for k,v in ref.getListOfConstants():
+#        for k,v in ref.getSetOfConstants():
 #            if self.attribs.has_key(k):
 #                if np.array_equal()
 #                if any(np.array_equal(v,x) for x in self.attribs[k]):
@@ -551,7 +551,7 @@ class ModelCBR(object):
             variables = Set()
             dif = {}
             for k in gripperInt.relevantKeys():
-                dif[k] = self.target[k] - gripperInt[k]
+                dif[k] = (self.target[k] - gripperInt[k])/10.0
                 if k in self.target.relKeys and np.linalg.norm(dif[k]) > THRESHOLD:
                     variables.add(k)                    
             for ac in self.abstractCases:
@@ -649,10 +649,10 @@ class ModelCBR(object):
         usedCase: AbstractCase
         """
         newCase = BaseCase(state, action, result)
-        attribList = newCase.getListOfAttribs()
+        attribSet = newCase.getSetOfAttribs()
         predictionScore = result.score(prediction)
         print "predictionScore: ", predictionScore
-        if usedCase != None and usedCase.variables == attribList:
+        if usedCase != None and usedCase.variables == attribSet:
             print "correct case selected"
             usedCase.updatePredictionScore(predictionScore)
             self.numCorrectCase += 1
@@ -663,7 +663,7 @@ class ModelCBR(object):
 #            self.cases.append(newCase)
             abstractCase = None
             for ac in self.abstractCases:
-                if ac.variables == attribList:
+                if ac.variables == attribSet:
                     abstractCase = ac
                     #TODO consider search for all of them in case we distinguis by certain features
                     break

@@ -189,6 +189,10 @@ class GazeboInterface():
 #        yield From(self.publisher.wait_for_listener())
         msg = pygazebo.msg.gripperCommand_pb2.GripperCommand()
         msg.cmd = action["cmd"]
+        
+        
+            
+#        action["mvDir"] *= 0.5
         msg.direction.x = action["mvDir"][0]
         msg.direction.y = action["mvDir"][1]
         msg.direction.z = 0.0
@@ -252,6 +256,10 @@ class GazeboInterface():
             self.worldModel.update(self.lastState, self.lastAction,self.lastPrediction, w)
             
         tmp = self.worldModel.getAction(w)
+        
+        norm = np.linalg.norm(tmp["mvDir"])
+        if norm > 1:
+            tmp["mvDir"] /= 2*norm
 #        tmp = self.getRightAction()
 #        tmp["cmd"] = GAZEBOCMDS["MOVE"]
 #        tmp["dir"] = np.array([0.0,-1.2,0.0])
@@ -289,9 +297,11 @@ class GazeboInterface():
                 
         
         gripper["pos"] = np.array([0.0,0.0,0.03])
+        gripper["linVel"] = np.array([0.0,0.0,0.0])
         intState = model4.InteractionState(0, gripper)
-        intState.relKeys = ["spos"]
+        intState.relKeys = ["spos", "slinVel"]
         intState.fill(block)
+        intState.weights["spos"] = 30
         return intState
     def getRightAction(self):
         return model.Action(cmd = GAZEBOCMDS["MOVE"], direction=np.array([0.5,0.0,0.0]))

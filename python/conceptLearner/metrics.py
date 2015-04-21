@@ -69,3 +69,10 @@ differences = {"sid":equalD, "stype": equalD, "spos":expD,
                      "contact": equalD, "oid": equalD, "otype": equalD, 
                      "dori": expD, "dlinVel": expD, "dangVel":expD, "cmd": equalD, "mvDir": expD,
                      "sname": equalD, "intId": zeroD, "oname": equalD}
+                     
+weights = {"sid":1, "stype": 1, "spos":30, 
+                     "sori": 1, "slinVel": 1, 
+                     "sangVel":1, "dist": 1, "dir": 1,
+                     "contact": 1, "oid": 1, "otype": 1, 
+                     "dori": 1, "dlinVel": 1, "dangVel":1, "cmd": 1, "mvDir": 1,
+                     "sname": 1, "intId": 1, "oname": 1}

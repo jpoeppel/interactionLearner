@@ -9,7 +9,7 @@ from network import Network
 import numpy as np
 import math
 
-EMAX = 0.5
+EMAX = 0.1
 ETA = 0.1
 SIGMAE = 0.5
 
@@ -74,7 +74,8 @@ class ITM(Network):
         
         for n in self.nodes.values():
 #            print "n.wIn: {}, n.wOut: {}, wIn: {}, wOut: {}".format(n.wIn, n.wOut, wIn, wOut)
-            d = np.linalg.norm(n.vecInOut()-w)
+#            d = np.linalg.norm(n.vecInOut()-w)
+            d = np.linalg.norm(wOut-n.wOut)
             if d < minDist:
                 minDist = d
                 minNode = n
@@ -82,15 +83,18 @@ class ITM(Network):
             if PREDICTIONMODE == WINNER:
                 return minNode.action
             elif PREDICTIONMODE == NEIGHBOURS:
-                norm = math.exp(-np.linalg.norm(w-minNode.vecInOut())**2/(SIGMAE**2))
+#                norm = math.exp(-np.linalg.norm(w-minNode.vecInOut())**2/(SIGMAE**2))
+                norm = math.exp(-0.5*np.linalg.norm(wOut-minNode.wOut)/(SIGMAE**2))
                 res = norm*minNode.action
                 for n in minNode.neighbours.values():
-                    wc = math.exp(-np.linalg.norm(w-n.vecInOut())**2/(SIGMAE**2))
+#                    wc = math.exp(-np.linalg.norm(w-n.vecInOut())**2/(SIGMAE**2))
+                    wc = math.exp(-0.5*np.linalg.norm(wOut-n.wOut)/(SIGMAE**2))
                     norm += wc
                     res += wc * n.action
                 return res/norm
                 
     def predict(self, wIn):
+        
         minDist = float('inf')
         secDist = float('inf')
         minNode = None

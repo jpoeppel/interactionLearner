@@ -230,7 +230,7 @@ class BaseCase(object):
         return Set(r)
         
         
-    def getSetOfConstants(self):
+    def getListOfConstants(self):
         #TODO make more efficient by storing these values
         r = []
         for k in self.dif.keys():
@@ -281,7 +281,7 @@ class AbstractCase(object):
         self.variables = Set() #List of attributes that changed 
         self.attribs = {} # Dictionary holding the attributs:[values,] pairs for the not changing attribs of the references
         self.predictors = {}
-        self.variables.update(case.getListOfAttribs())
+        self.variables.update(case.getSetOfAttribs())
         self.preCons = {}
         self.constants = {}
         self.gaussians = {}
@@ -382,17 +382,7 @@ class AbstractCase(object):
                 tmp -=  norm * math.exp(-0.5*(np.dot(np.dot((v-mu),inv),(v-mu).T)))
                 
             s += tmp
-#            if tmp > 1:
-               
-#                #For keys that are not preconditions, add average value, so that not simply
-#                # the cases with the most preconditions win
-#                s += 0.75
-#                for v in self.attribs[k]:
-#                    tmpScore = metrics[k](state[k], v)#Forgot action!!
-#                    if tmpScore < bestScore:
-#                        bestScore = tmpScore
-#                s -= bestScore
-#        print "score for case with list {}: {}".format(self.variables, s)
+
         return s
     
     def updatePredictionScore(self, score):
@@ -546,31 +536,32 @@ class ModelCBR(object):
     def getAction(self, state):
         bestAction = None
         bestScore = 0
-        gripperInt = state.getInteractionState("gripper")
-        if gripperInt != None and self.target != None:
-            variables = Set()
-            dif = {}
-            for k in gripperInt.relevantKeys():
-                dif[k] = (self.target[k] - gripperInt[k])/10.0
-                if k in self.target.relKeys and np.linalg.norm(dif[k]) > THRESHOLD:
-                    variables.add(k)                    
-            for ac in self.abstractCases:
-                if variables.issubset(ac.variables):
-                    action = ac.getAction(gripperInt,variables, self.target.weights, dif)
-                    prediction = ac.predict(gripperInt, action)
-                    score = self.target.score(prediction)*ac.avgPrediction
-                    print "abstract case: ", ac.variables
-                    print "ac avgPrediction: ", ac.avgPrediction
-                    print "numPredictions: ", ac.numPredictions
-                    print "predicted pos: ", prediction["spos"]
-                    print "score to target: {}, for action: {}".format(score, action)                    
-                    if score > bestScore:
-                        bestScore = score
-                        bestAction = action
-#                        bestAction["cmd"] = 1
-        if bestAction != None:
-            print "using Action: ", bestAction
-            return bestAction
+        if self.target != None:
+            gripperInt = state.getInteractionState(self.target["sname"])
+            if gripperInt != None:
+                variables = Set()
+                dif = {}
+                for k in gripperInt.relevantKeys():
+                    dif[k] = (self.target[k] - gripperInt[k])/10.0
+                    if k in self.target.relKeys and np.linalg.norm(dif[k]) > THRESHOLD:
+                        variables.add(k)                    
+                for ac in self.abstractCases:
+                    if variables.issubset(ac.variables):
+                        action = ac.getAction(gripperInt,variables, self.target.weights, dif)
+                        prediction = ac.predict(gripperInt, action)
+                        score = self.target.score(prediction)*ac.avgPrediction
+                        print "abstract case: ", ac.variables
+                        print "ac avgPrediction: ", ac.avgPrediction
+                        print "numPredictions: ", ac.numPredictions
+                        print "predicted pos: ", prediction["spos"]
+                        print "score to target: {}, for action: {}".format(score, action)                    
+                        if score > bestScore:
+                            bestScore = score
+                            bestAction = action
+    #                        bestAction["cmd"] = 1
+            if bestAction != None:
+                print "using Action: ", bestAction
+                return bestAction
         return self.getRandomAction()
             
     def getRandomAction(self):

@@ -49,7 +49,7 @@ namespace gazebo
     }
 
     typedef const boost::shared_ptr<const gazeboPlugins::msgs::ModelState_V> ModelSVPtr;
-    void predictCB(ModelSVPtr &_msg)
+    void poseCB(ModelSVPtr &_msg)
     {
 
         for (unsigned int i=0; i<_msg->models_size();i++) {
@@ -74,7 +74,7 @@ namespace gazebo
 
       // Listen to custom topic
       this->msgSubscriber = node->Subscribe("/gazebo/default/gripperMsg", &GripperPlugin::cb, this);
-      this->predictionSubscriber = node->Subscribe("/gazebo/default/predictions", &GripperPlugin::predictCB, this);
+      this->predictionSubscriber = node->Subscribe("/gazebo/default/poses", &GripperPlugin::poseCB, this);
 
 
       this->worldStatePub = node->Advertise<gazeboPlugins::msgs::WorldState>("~/worldstate");

@@ -25,12 +25,13 @@ import copy
 import math
 from sets import Set
 
-THRESHOLD = 0.005
-NUMDEC = 5
+THRESHOLD = 0.001
+NUMDEC = 6
 MAXCASESCORE = 16
 MAXSTATESCORE = 14
 #PREDICTIONTHRESHOLD = 0.5
 PREDICTIONTHRESHOLD = MAXSTATESCORE - 0.01
+TARGETTHRESHOLD = MAXCASESCORE - 0.05
 
 
 #
@@ -52,9 +53,11 @@ class State(dict):
     
     def score(self, otherState):
         assert isinstance(otherState, State), "{} is not a State object".format(otherState)
-        s = MAXSTATESCORE
+#        s = MAXSTATESCORE
+        s = 0.0
         for k in self.relKeys:
-            s -= self.weights[k]*differences[k](self[k], otherState[k]) #* weights[k] 
+#            s -= self.weights[k]*differences[k](self[k], otherState[k]) 
+            s += self.weights[k]* similarities[k](self[k], otherState[k])
 
         return s
         
@@ -77,6 +80,28 @@ class State(dict):
                 elif not isinstance(self[k], unicode):
                     r = np.concatenate((r,[self[k]]))
         return r
+        
+    def updateWeights(self, curState):
+        print "updating weights"
+        minAttrib = None
+        minDif = float('inf')
+        maxAttrib = None
+        maxDif = 0.0
+        for k in self.relKeys:
+            d = np.linalg.norm(self[k] - curState[k])
+            if d < minDif:
+                minAttrib = k
+                minDif = d
+            if d > maxDif:
+                maxAttrib = k
+                maxDif = d
+        print "maxAttrib: ", maxAttrib
+        print "minAttrib: ", minAttrib
+        if maxAttrib != None:
+            if minAttrib != maxAttrib:
+                self.weights[minAttrib] /= 2.0
+                
+            self.weights[maxAttrib] *= 2
         
     def __eq__(self, other):
         if not isinstance(other, State):
@@ -523,6 +548,25 @@ class AbstractCase(object):
             outputs.append(c.postState[attrib]- c.preState[attrib])
         return inputs, outputs
     
+    def createTarget(self, worldState):
+        if self.constants.has_key("sname"):
+            intState = worldState.getInteractionState(self.constants["sname"])
+        else:
+            intState = worldState.getInteractionState("gripper")
+            
+        print "choosing state with name: ", intState["sname"]
+        target = copy.deepcopy(intState)
+        for k in self.variables:
+            if hasattr(target[k], "__len__"):
+                target[k] += 2*np.random.rand(len(target[k]))
+            else:
+                target[k] += 2*np.random.rand()
+                
+        target.relKeys = self.variables
+        return target
+        
+    
+    
 class ModelCBR(object):
     
     def __init__(self):
@@ -534,8 +578,8 @@ class ModelCBR(object):
         self.target = None
         
     def getAction(self, state):
-        bestAction = None
-        bestScore = 0
+
+        print "target: ", self.target
         if self.target != None:
             gripperInt = state.getInteractionState(self.target["sname"])
             if gripperInt != None:
@@ -544,12 +588,14 @@ class ModelCBR(object):
                 for k in gripperInt.relevantKeys():
                     dif[k] = (self.target[k] - gripperInt[k])/10.0
                     if k in self.target.relKeys and np.linalg.norm(dif[k]) > THRESHOLD:
-                        variables.add(k)                    
+                        variables.add(k)           
+                bestAction = None
+                bestScore = 0
                 for ac in self.abstractCases:
                     if variables.issubset(ac.variables):
                         action = ac.getAction(gripperInt,variables, self.target.weights, dif)
                         prediction = ac.predict(gripperInt, action)
-                        score = self.target.score(prediction)*ac.avgPrediction
+                        score = self.target.score(prediction)#*ac.avgPrediction
                         print "abstract case: ", ac.variables
                         print "ac avgPrediction: ", ac.avgPrediction
                         print "numPredictions: ", ac.numPredictions
@@ -562,6 +608,21 @@ class ModelCBR(object):
             if bestAction != None:
                 print "using Action: ", bestAction
                 return bestAction
+#        else:
+#            # There is currently no target selected
+#            minScore = float('inf')
+#            worstAc = None
+#            rnd = np.random.rand()
+#            for ac in self.abstractCases:
+#                if ac.avgPrediction < minScore:
+#                    minScore = ac.avgPrediction
+#                    worstAc = ac
+#            if worstAc != None and rnd < 0.5:
+#                self.target = worstAc.createTarget(state)
+#                print "setting target: ", self.target
+#                return self.getAction(state)
+                
+            
         return self.getRandomAction()
             
     def getRandomAction(self):
@@ -587,7 +648,7 @@ class ModelCBR(object):
     def getBestCase(self, state, action):
         bestCase = None
         bestScore = 0.0
-        for c in self.abstractCases:
+        for c in self.cases:
             s = c.score(state, action)
 #            print "case: {}  has score: {}".format(c.variables,s)
             if s >= bestScore:
@@ -639,6 +700,19 @@ class ModelCBR(object):
         result: Interaction
         usedCase: AbstractCase
         """
+        
+        if self.target != None and self.target["sname"] == result["sname"]:
+            if result.score(self.target) > TARGETTHRESHOLD:
+                print "Target reached!"
+                self.target = None
+#            else:
+#                print "target not yet reached"
+#                print self.target.score(result)
+#                print self.target.score(state)
+#                if self.target.score(result)-self.target.score(state) < 1:
+#                   # Score did not improve
+#                    self.target.updateWeights(result)
+        
         newCase = BaseCase(state, action, result)
         attribSet = newCase.getSetOfAttribs()
         predictionScore = result.score(prediction)

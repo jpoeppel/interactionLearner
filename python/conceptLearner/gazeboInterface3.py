@@ -41,12 +41,13 @@ logging.basicConfig()
 
 FREE_EXPLORATION = 0
 PUSHTASK = 1
-MODE = PUSHTASK
+PUSHTASKSIMULATION = 2
+MODE = PUSHTASKSIMULATION
 
 
 
-NUM_TRAIN_RUNS = 0
-NUM_TEST_RUNS = 10
+NUM_TRAIN_RUNS = 10
+NUM_TEST_RUNS = 100
 
 class GazeboInterface():
     """
@@ -68,12 +69,16 @@ class GazeboInterface():
         self.stepCounter = 0
         self.times = 0
         
-        self.gripperError = 0.0
+        self.gripperErrorPos = 0.0
+        self.gripperErrorOri = 0.0
         self.gripperErrors = []
-        self.tmpGripperError = 0.0
-        self.blockError = 0.0
+        self.tmpGripperErrorPos = 0.0
+        self.tmpGripperErrorOri = 0.0
+        self.blockErrorPos = 0.0
+        self.blockErrorOri = 0.0
         self.blockErrors = []
-        self.tmpBlockError = 0.0
+        self.tmpBlockErrorPos = 0.0
+        self.tmpBlockErrorOri = 0.0
         
     @trollius.coroutine
     def loop(self):
@@ -188,6 +193,7 @@ class GazeboInterface():
         self.posePublisher.publish(msg)
         
     def resetWorld(self):
+        print "reset world"
         self.sendStopCommand()
         msg = world_control_pb2.WorldControl()
         msg.reset.all = True
@@ -221,20 +227,11 @@ class GazeboInterface():
             self.randomExploration(w)
         elif MODE == PUSHTASK:
             self.pushTask(w)
+        elif MODE == PUSHTASKSIMULATION:
+            self.pushTaskSimulation(w)
         else:
             raise AttributeError("Unknown MODE: ", MODE)
-            
-#            
-#        if self.worldModel.numPredictions == 31206:
-#            raise Exception("Finished")
-#            
-#        if len(self.worldModel.cases) == 100 or len(self.worldModel.cases) == 101:
-##            self.worldModel.setTarget(self.getTarget(w))
-#            self.resetWorld()
-#
-#        for ac in self.worldModel.abstractCases:
-#            print "number of refs: {} for abstract case variables: {}".format(len(ac.refCases),ac.variables)
-#        print "abstract lists: " + str([c.variables for c in self.worldModel.abstractCases])
+
 
     def runEnded(self, worldState):
         """
@@ -246,25 +243,23 @@ class GazeboInterface():
         worldState: model.WorldState
             The current world state.
         """
-        if self.lastState != None:
-#            gripperIntLast = self.lastState.getInteractionState("gripper")
-            gripperInt = worldState.getInteractionState("gripper")
-            if np.linalg.norm(gripperInt["spos"]) > 0.9 or self.stepCounter > 100:
-                return True
+        gripperInt = worldState.getInteractionState("gripper")
+        print "gripper pos: ", gripperInt["spos"]
+        if np.linalg.norm(gripperInt["spos"]) > 1.0 or self.stepCounter > 50:
+            return True
         return False
 
-    def startRun(self, worldState):
+    def startRun(self):
         """
         Function to start a new Run. This means that the inital action is set and the first
         prediction is made.
-        
-        Paramters
-        ---------
-        worldState: mode.WorldState
-            The current world state
+
         """
         
         self.runStarted = True
+         #Set up Starting position
+        posX = np.random.rand()*0.5-0.25
+        self.sendPose("gripper", np.array([posX,0.0,0.0]), np.array([0.0,0.0,0.0,0.0]))
         self.stepCounter = 0
         
     def updateTmpErrors(self, worldState):
@@ -280,12 +275,12 @@ class GazeboInterface():
         if self.lastPrediction != None:
             gripperPrediction = self.lastPrediction.getInteractionState("gripper")
             gripperInt = worldState.getInteractionState("gripper")
-            self.tmpGripperError += np.linalg.norm(gripperPrediction["spos"]-gripperInt["spos"]) + \
-                np.linalg.norm(gripperPrediction["sori"]-gripperInt["sori"]) 
+            self.tmpGripperErrorPos += np.linalg.norm(gripperPrediction["spos"]-gripperInt["spos"]) 
+            self.tmpGripperErrorOri += np.linalg.norm(gripperPrediction["sori"]-gripperInt["sori"]) 
             blockPrediction= self.lastPrediction.getInteractionState("blockA")
             blockInt = worldState.getInteractionState("blockA")
-            self.tmpBlockError += np.linalg.norm(blockPrediction["spos"]-blockInt["spos"]) + \
-                np.linalg.norm(blockPrediction["sori"]-blockInt["sori"])
+            self.tmpBlockErrorPos += np.linalg.norm(blockPrediction["spos"]-blockInt["spos"]) 
+            self.tmpBlockErrorOri +=  np.linalg.norm(blockPrediction["sori"]-blockInt["sori"])
 
     def pushTask(self, worldState):
         """
@@ -301,18 +296,18 @@ class GazeboInterface():
         if self.runStarted:
             if self.runEnded(worldState):
                 self.resetWorld()
-                #Set up Starting position
-                posX = np.random.rand()*0.5-0.25
-                self.sendPose("gripper", np.array([posX,0.0,0.0]), np.array([0.0,0.0,0.0,0.0]))
                 self.runStarted = False
-            
+        else:
+            self.startRun()
+            return
+
         if self.trainRun < NUM_TRAIN_RUNS:
             print "Train run #: ", self.trainRun
             if self.runStarted:
                 self.updateModel(worldState)
             else:
                 self.trainRun += 1
-                self.startRun(worldState)
+#                self.startRun()
         
         elif self.testRun < NUM_TEST_RUNS:
             print "Test run #: ", self.testRun
@@ -321,27 +316,72 @@ class GazeboInterface():
                 self.updateTmpErrors(worldState)
                 self.updateModel(worldState)
             else:
-                self.gripperError += self.tmpGripperError/self.stepCounter
-                self.tmpGripperError = 0.0
-                self.blockError += self.tmpBlockError/self.stepCounter
-                self.tmpBlockError = 0.0
+                self.gripperErrorPos += self.tmpGripperErrorPos/self.stepCounter
+                self.gripperErrorOri += self.tmpGripperErrorOri/self.stepCounter
+                self.tmpGripperErrorPos = 0.0
+                self.tmpGripperErrorOri = 0.0
+                self.blockErrorPos += self.tmpBlockErrorPos/self.stepCounter
+                self.blockErrorOri += self.tmpBlockErrorOri/self.stepCounter
+                self.tmpBlockErrorPos = 0.0
+                self.tmpBlockErrorOri = 0.0
                 self.testRun += 1
-                self.startRun(worldState)
+#                self.startRun()
         else:
 #            self.sendStopCommand()
 ##            self.pauseWorld()
 #            self.blockErrors.append(self.blockError/self.testRun)
 #            self.gripperErrors.append(self.gripperError/self.testRun)
             self.times += 1
-            with open("testfile.txt", 'a') as f:
-                s = str(self.times* NUM_TEST_RUNS) + ", " + str(self.gripperError/self.testRun) + ", " + str(self.blockError/self.testRun) + "\n"
+            with open("PosOriCT0.001E0.05NoWall.txt", 'a') as f:
+                s = str(self.times* NUM_TEST_RUNS) + ", " + str(self.gripperErrorPos/self.testRun) + ", "  \
+                    + str(self.gripperErrorOri/self.testRun) + ', '+ str(self.blockErrorPos/self.testRun) + ', ' \
+                    + str(self.blockErrorOri/self.testRun) +"\n"
                 f.write(s)
             
-            print "Average Gripper prediction error: {}".format(self.gripperError/self.testRun)
-            print "Average Block prediction error: {}".format(self.blockError/self.testRun)
+#            print "Average Gripper prediction error: {}".format(self.gripperError/self.testRun)
+#            print "Average Block prediction error: {}".format(self.blockError/self.testRun)
             self.testRun = 0
-            self.gripperError = 0
-            self.blockError = 0
+            self.gripperErrorPos = 0.0
+            self.gripperErrorOri = 0.0
+            self.blockErrorPos = 0.0
+            self.blockErrorOri = 0.0
+            
+    def pushTaskSimulation(self, worldState):
+        self.stepCounter += 1
+        if self.runStarted:
+            if self.trainRun == NUM_TRAIN_RUNS and self.lastPrediction != None:
+                print "override worldstate"
+                worldState = self.lastPrediction
+            if self.runEnded(worldState):
+                self.resetWorld()
+                self.runStarted = False
+        else:
+            self.startRun()
+            return
+            
+        if self.trainRun < NUM_TRAIN_RUNS:
+            print "Train run #: ", self.trainRun
+            if self.runStarted:
+                self.updateModel(worldState)
+            else:
+                self.trainRun += 1
+                if self.trainRun == NUM_TRAIN_RUNS:
+                    self.pauseWorld()
+        elif self.testRun < NUM_TEST_RUNS:
+            print "Test run #: ", self.testRun
+            if self.runStarted:
+                self.lastAction = model.Action(cmd = GAZEBOCMDS["MOVE"], direction=np.array([0.0,0.5,0.0]))
+                if self.lastPrediction != None:
+                    worldState = self.lastPrediction
+                self.lastPrediction = self.worldModel.predict(worldState, self.lastAction)
+                self.sendPrediction()
+                self.sendCommand(self.lastAction)
+            else:
+                self.testRun += 1
+#                self.startRun()
+        else:
+            self.pauseWorld()
+        
             
     def updateModel(self, worldState):
         """
@@ -353,7 +393,6 @@ class GazeboInterface():
         worldState: mode.WorldState
             The current world state
         """
-        print "update model stepCounter: ", self.stepCounter
         if self.lastPrediction != None:
             self.worldModel.update(self.lastState, self.lastAction,self.lastPrediction, worldState)
         
@@ -399,6 +438,8 @@ class GazeboInterface():
         print "num abstract cases: " + str(len(self.worldModel.abstractCases))
         print "num Predictions: ", self.worldModel.numPredictions
         print "% correctCase selected: ", self.worldModel.numCorrectCase/(float)(self.worldModel.numPredictions)
+        if len(self.worldModel.cases) == 400 or len(self.worldModel.cases) == 401:
+            self.worldModel.setTarget(self.getTarget(worldState))
         
 
     def getTarget(self, worldState):

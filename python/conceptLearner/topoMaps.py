@@ -9,7 +9,7 @@ from network import Network
 import numpy as np
 import math
 
-EMAX = 0.1
+EMAX = 0.05
 ETA = 0.1
 SIGMAE = 0.5
 

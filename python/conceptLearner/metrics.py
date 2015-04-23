@@ -62,6 +62,7 @@ def equalD(a,b):
 def zeroD(a,b):
     return 1-zeroS(a,b)
     
+    
 
 differences = {"sid":equalD, "stype": equalD, "spos":expD, 
                      "sori": expD, "slinVel": expD, 

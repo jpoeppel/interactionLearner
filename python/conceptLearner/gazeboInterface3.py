@@ -35,6 +35,7 @@ from common import GAZEBOCMDS
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
 import model4 as model
+import model5
 
 logging.basicConfig()
 #
@@ -42,7 +43,9 @@ logging.basicConfig()
 FREE_EXPLORATION = 0
 PUSHTASK = 1
 PUSHTASKSIMULATION = 2
+MOVE_TO_TARGET = 3
 MODE = PUSHTASKSIMULATION
+#MODE = FREE_EXPLORATION
 
 
 
@@ -58,7 +61,7 @@ class GazeboInterface():
          
         self.active = True
         self.lastState = None
-        self.worldModel = model.ModelCBR()
+        self.worldModel = model5.ModelCBR()
         self.lastPrediction = None
         self.lastAction = model.Action()
         
@@ -229,6 +232,8 @@ class GazeboInterface():
             self.pushTask(w)
         elif MODE == PUSHTASKSIMULATION:
             self.pushTaskSimulation(w)
+        elif MODE == MOVE_TO_TARGET:
+            self.moveToTarget(w)
         else:
             raise AttributeError("Unknown MODE: ", MODE)
 
@@ -244,7 +249,6 @@ class GazeboInterface():
             The current world state.
         """
         gripperInt = worldState.getInteractionState("gripper")
-        print "gripper pos: ", gripperInt["spos"]
         if np.linalg.norm(gripperInt["spos"]) > 1.0 or self.stepCounter > 50:
             return True
         return False
@@ -348,9 +352,11 @@ class GazeboInterface():
             
     def pushTaskSimulation(self, worldState):
         self.stepCounter += 1
+        print "num cases: " + str(len(self.worldModel.cases))
+        print "num abstract cases: " + str(len(self.worldModel.abstractCases))
+        
         if self.runStarted:
-            if self.trainRun == NUM_TRAIN_RUNS and self.lastPrediction != None:
-                print "override worldstate"
+            if self.trainRun > NUM_TRAIN_RUNS and self.lastPrediction != None:
                 worldState = self.lastPrediction
             if self.runEnded(worldState):
                 self.resetWorld()
@@ -381,6 +387,8 @@ class GazeboInterface():
 #                self.startRun()
         else:
             self.pauseWorld()
+        
+        print "% correctCase selected: ", self.worldModel.numCorrectCase/(float)(self.worldModel.numPredictions)
         
             
     def updateModel(self, worldState):
@@ -438,8 +446,11 @@ class GazeboInterface():
         print "num abstract cases: " + str(len(self.worldModel.abstractCases))
         print "num Predictions: ", self.worldModel.numPredictions
         print "% correctCase selected: ", self.worldModel.numCorrectCase/(float)(self.worldModel.numPredictions)
-        if len(self.worldModel.cases) == 400 or len(self.worldModel.cases) == 401:
-            self.worldModel.setTarget(self.getTarget(worldState))
+#        if len(self.worldModel.cases) == 400 or len(self.worldModel.cases) == 401:
+#            self.worldModel.setTarget(self.getTarget(worldState))
+            
+    def moveToTarget(self, worldState):
+        raise NotImplementedError("TODO")
         
 
     def getTarget(self, worldState):

@@ -25,8 +25,8 @@ import copy
 import math
 from sets import Set
 
-THRESHOLD = 0.001
-NUMDEC = 6
+THRESHOLD = 0.01
+NUMDEC = 4
 MAXCASESCORE = 16
 MAXSTATESCORE = 14
 #PREDICTIONTHRESHOLD = 0.5
@@ -51,13 +51,13 @@ class State(dict):
             self.weights[k] = 1.0
         pass
     
-    def score(self, otherState):
+    def score(self, otherState):#, gWeights):
         assert isinstance(otherState, State), "{} is not a State object".format(otherState)
 #        s = MAXSTATESCORE
         s = 0.0
         for k in self.relKeys:
 #            s -= self.weights[k]*differences[k](self[k], otherState[k]) 
-            s += self.weights[k]* similarities[k](self[k], otherState[k])
+            s += self.weights[k]* similarities[k](self[k], otherState[k]) #* gWeights
 
         return s
         
@@ -133,7 +133,7 @@ class ObjectState(State):
 class InteractionState(State):
     
     def __init__(self, intId, o1):
-        
+        assert isinstance(o1, ObjectState), "{} (o1) is not an ObjectState!".format(o1)
         self.update({"intId": intId, "sid":o1["id"], "sname": o1["name"], 
                      "stype": o1["type"], "spos":o1["pos"], 
                      "sori": o1["orientation"], "slinVel": o1["linVel"], 
@@ -147,6 +147,7 @@ class InteractionState(State):
         self.relKeys.remove("intId")
         self.relKeys.remove("sname")
         self.relKeys.remove("oname")
+#        self.relKeys.remove("spos")
         
                      
     def fill(self, o2):
@@ -156,7 +157,7 @@ class InteractionState(State):
         self["oid"] = o2["id"]
         self["oname"] = o2["name"]
         self["otype"] = o2["type"]
-        self["dori"] = o2["orientation"]-self["sori"] # TODO Fix THIS IS WRONG!!!
+        self["dori"] = o2["orientation"]-self["sori"] # TODO Fix THIS IS WRONG!!! Although it works reasonably well
         self["dlinVel"] = o2["linVel"] - self["slinVel"]
         self["dangVel"] = o2["angVel"] - self["sangVel"]
     
@@ -217,15 +218,15 @@ class WorldState(object):
                 return i
         return None
                 
-#    def parseContacts(self, contacts):
-#        for c in contacts:
-#            if self.objectStates.has_key(c.wrench[0].body_1_id):
-#                self.objectStates[c.wrench[0].body_1_id].addContact(c.wrench[0].body_2_id)
+    def parseContacts(self, contacts):
+        for c in contacts:
+            if self.objectStates.has_key(c.wrench[0].body_1_id):
+                self.objectStates[c.wrench[0].body_1_id].addContact(c.wrench[0].body_2_id)
     
     def parse(self, gzWS):
         self.parseModels(gzWS.model_v.models)
         self.parseInteractions(gzWS)
-#        self.parseContacts(ws.contacts.contact)
+        self.parseContacts(gzWS.contacts.contact)
     
 
 class BaseCase(object):
@@ -299,6 +300,7 @@ class AbstractCase(object):
     
     def __init__(self, case):
         assert isinstance(case, BaseCase), "case is not a BaseCase object."
+        self.id = 0
         self.refCases = []
         self.avgPrediction = 0.0
         self.numPredictions = 0
@@ -312,6 +314,7 @@ class AbstractCase(object):
         self.gaussians = {}
         self.errorGaussians = {}
         self.numErrorCases = 0
+        self.weights= {}
         for k in self.variables:
             self.predictors[k] = ITM()
         self.addRef(case)
@@ -356,37 +359,57 @@ class AbstractCase(object):
         return res
             
     def addErrorCase(self, case):
-        self.numErrorCases += 1
-        self.updateGaussians(self.errorGaussians, self.numErrorCases, case)
-            
-    def score(self, state, action):
-#        s = MAXCASESCORE
-        s = 0
-        for k,v in state.relevantItems() + action.relevantItems():
-            
-#            if s > 16:
-#                print "mu: {}, cov: {}, det:{}, inv: {}".format(mu, cov, det, inv)
-#            det = np.linalg.det(cov)
-#            print "cov: ", cov
-#            print "mu: ", mu
-#            print "det: ", det
-#            print "inv: ", inv
-#            print "v: ", v
-#            print "result: ", math.exp(-0.5*np.dot(np.dot((v-mu),inv),(v-mu).T))
-            
-            
-#            if self.preCons.has_key(k):
-##                bestScore = 1
-#                if differences[k](self.preCons[k], v) <= 0.05:
-#                    s+= 1
-#            else:
-#            else:
+#        self.numErrorCases += 1
+#        self.updateGaussians(self.errorGaussians, self.numErrorCases, case)
+        bestScore = 0.0
+        bestKey = None
+        worstScore = float('inf')
+        worstKey = None
+        for k,v in case.preState.relevantItems() + case.action.relevantItems():
+
             if hasattr(v, "__len__"):
                 dim = len(v)
             else:
                 dim = 1
             mu, cov, det, inv = self.gaussians[k]
-#                print "det: ", det
+            norm = 1.0/(math.sqrt((2*math.pi)**dim * det))
+            tmp = norm * math.exp(-0.5*(np.dot(np.dot((v-mu),inv),(v-mu).T))) *self.weights[k]
+            if tmp > bestScore:
+                bestScore = tmp
+                bestKey = k
+            if tmp < worstScore:
+                worstScore = tmp
+                worstKey = k
+        if bestKey != None:
+            self.weights[bestKey] *= 0.33
+        if worstKey != None and worstKey != bestKey:
+            self.weights[worstKey] *= 3
+            
+        #Normalise weights:
+        norm = sum(self.weights.values())
+        for k in self.weights.keys():
+            self.weights[k] /= norm
+        
+                
+        
+            
+    def score(self, state, action):
+        s = 0
+
+        print "Scoring AC: ", self.variables
+#        for k,v in self.constants.items():
+#            for k2,v2 in state.relevantItems() + action.relevantItems():
+#                if k == k2:
+#                    if np.linalg.norm(v-v2) > 0.01:
+#                        return 0
+        
+        for k,v in state.relevantItems() + action.relevantItems():
+
+            if hasattr(v, "__len__"):
+                dim = len(v)
+            else:
+                dim = 1
+            mu, cov, det, inv = self.gaussians[k]
             norm = 1.0/(math.sqrt((2*math.pi)**dim * det))
 #            if norm > 1:
 ##                print "cov: ", cov
@@ -394,18 +417,18 @@ class AbstractCase(object):
 #                norm = 1
             
 #            s += norm * math.exp(-0.5*(np.dot(np.dot((v-mu),inv),(v-mu).T)))
-            tmp = norm * math.exp(-0.5*(np.dot(np.dot((v-mu),inv),(v-mu).T)))
-            if self.errorGaussians.has_key(k):
-                mu, cov, det, inv = self.errorGaussians[k]
-    #                print "det: ", det
-                norm = 1.0/(math.sqrt((2*math.pi)**dim * det))
-#                if norm > 1:
-#    #                print "cov: ", cov
-#    #                print "norm still too big: ", norm
-#                    norm = 1
-                
-                tmp -=  norm * math.exp(-0.5*(np.dot(np.dot((v-mu),inv),(v-mu).T)))
-                
+            tmp = norm * math.exp(-0.5*(np.dot(np.dot((v-mu),inv),(v-mu).T)))# *self.weights[k]
+#            if self.errorGaussians.has_key(k):
+#                mu, cov, det, inv = self.errorGaussians[k]
+#                norm = 1.0/(math.sqrt((2*math.pi)**dim * det))
+##                if norm > 1:
+##    #                print "cov: ", cov
+##    #                print "norm still too big: ", norm
+##                    norm = 1
+#                
+#                tmp -=  norm * math.exp(-0.5*(np.dot(np.dot((v-mu),inv),(v-mu).T)))
+#
+            print "k: {}, v: {} gets score: {}".format(k,v,tmp)
             s += tmp
 
         return s
@@ -417,6 +440,17 @@ class AbstractCase(object):
             raise Exception("something is going wrong when computing avgPrediction! score: {}, numPred: {}".format(score, self.numPredictions))
         
     def addRef(self, ref):
+        
+        for k in ref.preState.relKeys + ref.action.relKeys:
+            if not self.weights.has_key(k):
+                self.weights[k] = 1.0
+                
+        
+            
+        #Normalise weights:
+        norm = sum(self.weights.values())
+        for k in self.weights.keys():
+            self.weights[k] /= norm
 #        
         for k,v in ref.getListOfConstants():
             if self.constants.has_key(k):
@@ -469,8 +503,7 @@ class AbstractCase(object):
         ref.abstCase = self
         self.updatePredictorsITM(ref)
         
-        self.updateGaussians(self.gaussians, len(self.refCases), ref)
-        
+        self.updateGaussians(self.gaussians, len(self.refCases), ref)        
 #        self.updatePredictorsGP()
         
     def updateGaussians(self, gaussians, numData, ref):
@@ -576,6 +609,7 @@ class ModelCBR(object):
         self.numCorrectCase = 0
         self.numPredictions = 0
         self.target = None
+        self.weights = {}
         
     def getAction(self, state):
 
@@ -648,7 +682,7 @@ class ModelCBR(object):
     def getBestCase(self, state, action):
         bestCase = None
         bestScore = 0.0
-        for c in self.cases:
+        for c in self.abstractCases:
             s = c.score(state, action)
 #            print "case: {}  has score: {}".format(c.variables,s)
             if s >= bestScore:
@@ -665,6 +699,7 @@ class ModelCBR(object):
             if bestCase.abstCase != None:
                 print "bestCase #refs: ", len(bestCase.abstCase.refCases)
                 print "bestCase avgPrediction: ", bestCase.abstCase.avgPrediction
+                print "bestCase variables: ", bestCase.abstCase.variables
             return bestCase.abstCase
         else:
             return None
@@ -714,15 +749,20 @@ class ModelCBR(object):
 #                    self.target.updateWeights(result)
         
         newCase = BaseCase(state, action, result)
+        print "New case difs: ", newCase.dif
         attribSet = newCase.getSetOfAttribs()
         predictionScore = result.score(prediction)
+        print "Correct attribSet: ", attribSet
         print "predictionScore: ", predictionScore
-        if usedCase != None and usedCase.variables == attribSet:
-            print "correct case selected"
-            usedCase.updatePredictionScore(predictionScore)
-            self.numCorrectCase += 1
-        elif usedCase != None:
-            usedCase.addErrorCase(newCase)
+        if usedCase != None:
+            if usedCase.variables == attribSet:
+                print "correct case selected"
+                usedCase.updatePredictionScore(predictionScore)
+                self.numCorrectCase += 1
+            else:
+                pass
+#                usedCase.addErrorCase(newCase)
+#                print "Incorrect case new weights: ", usedCase.weights
         if predictionScore < PREDICTIONTHRESHOLD:
             print "adding Case"
 #            self.cases.append(newCase)
@@ -742,13 +782,24 @@ class ModelCBR(object):
 #                    print "newCase: ", newCase
 #                    raise Exception("case already present")
                 else:
-                    self.cases.append(newCase)
+                    self.addBaseCase(newCase)
+                    
             else:
                 #Create a new abstract case
                 self.abstractCases.append(AbstractCase(newCase))
-                
-            
-            
+                self.addBaseCase(newCase)
+
+    def addBaseCase(self, newCase):
+        self.cases.append(newCase)
+        for k in newCase.preState.relKeys + newCase.action.relKeys:
+            if not self.weights.has_key(k):
+                self.weights[k] = 1.0
+        self.normaliseWeights()
+        
+    def normaliseWeights(self):
+        norm = sum(self.weights.values())
+        for k in self.weights.keys():
+            self.weights[k] /= norm
     
     def update(self, state, action, prediction, result):
         for intState in state.interactionStates.keys():

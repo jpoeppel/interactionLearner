@@ -42,7 +42,7 @@ def zeroS(a,b):
 Metrics to be used when comparing features
 #TODO Fix when actual states are finalized
 """
-similarities = {"dir": expS, "linVel": expS, "orientation": cosS, "pos": expS, 
+similarities = {"dir": expS, "linVel": expS, "orientation": expS, "pos": expS, 
            "angVel": expS, "name": zeroS, "id": equalS, "cmd":equalS,
            "A": participantS, "B": participantS, "dist":expS, "contact":equalS,
            "type": equalS, "self": equalS, "other": equalS, "sname": equalS, 

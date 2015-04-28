@@ -61,7 +61,7 @@ class GazeboInterface():
          
         self.active = True
         self.lastState = None
-        self.worldModel = model5.ModelCBR()
+        self.worldModel = model.ModelCBR()
         self.lastPrediction = None
         self.lastAction = model.Action()
         

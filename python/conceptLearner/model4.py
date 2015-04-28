@@ -24,6 +24,7 @@ from network import Node
 import copy
 import math
 from sets import Set
+from operator import methodcaller
 
 THRESHOLD = 0.01
 NUMDEC = 4
@@ -51,14 +52,19 @@ class State(dict):
             self.weights[k] = 1.0
         pass
     
-    def score(self, otherState):#, gWeights):
+    def score(self, otherState, gWeights):
         assert isinstance(otherState, State), "{} is not a State object".format(otherState)
 #        s = MAXSTATESCORE
         s = 0.0
+#        s = {}
         for k in self.relKeys:
+            if gWeights.has_key(k):
+                w = gWeights[k]
+            else:
+                w = 1.0/MAXCASESCORE
 #            s -= self.weights[k]*differences[k](self[k], otherState[k]) 
-            s += self.weights[k]* similarities[k](self[k], otherState[k]) #* gWeights
-
+            s += self.weights[k]* similarities[k](self[k], otherState[k]) * w
+#            s[k] = self.weights[k]* similarities[k](self[k], otherState[k])
         return s
         
     def relevantKeys(self):
@@ -147,13 +153,21 @@ class InteractionState(State):
         self.relKeys.remove("intId")
         self.relKeys.remove("sname")
         self.relKeys.remove("oname")
+        self.relKeys.remove("stype")
+        self.relKeys.remove("otype")
+        self.relKeys.remove("contact")
 #        self.relKeys.remove("spos")
+#        self.weights["slinVel"] = 2
+#        self.weights["spos"] = 0.5
+#        self.weights["dist"] = 2
+#        self.weights["dir"] = 2
         
                      
     def fill(self, o2):
         assert isinstance(o2, ObjectState), "{} (o2) is not an ObjectState!".format(o2)
         self["dist"] = np.linalg.norm(self["spos"]-o2["pos"])
         self["dir"] = o2["pos"]-self["spos"]
+        self["dir"] /= self["dist"] # make direction unit vector
         self["oid"] = o2["id"]
         self["oname"] = o2["name"]
         self["otype"] = o2["type"]
@@ -164,8 +178,9 @@ class InteractionState(State):
 class Action(State):
     
     def __init__(self, cmd=GZCMD["NOTHING"], direction=np.array([0.0,0.0,0.0])):
-        State.__init__(self)
+        
         self.update({"cmd":int(round(cmd)), "mvDir": direction})
+        State.__init__(self)
         self.relKeys = self.keys()
 
         
@@ -249,11 +264,11 @@ class BaseCase(object):
         """
             Returns the list of attributes that changed more than THRESHOLD.
         """
-        r = []
+        r = Set()
         for k in self.dif.keys():
             if np.linalg.norm(self.dif[k]) > THRESHOLD:
-                r.append(k)
-        return Set(r)
+                r.add(k)
+        return r
         
         
     def getListOfConstants(self):
@@ -267,22 +282,25 @@ class BaseCase(object):
     def predict(self, state,action, attrib):
         return self.dif[attrib]
         
-    def score(self, state, action):
-        s = MAXCASESCORE
-        for k in state.relevantKeys():
-            if self.preState.has_key(k):
-                bestScore = 1
-                
-                tmpScore = differences[k](state[k], self.preState[k])
-                if tmpScore < bestScore:
-                    bestScore = tmpScore
-                s -= bestScore
-        for k in action.relevantKeys():
-            bestScore = 1
-            tmpScore = differences[k](action[k], self.action[k])
-            if tmpScore < bestScore:
-                bestScore = tmpScore
-            s -= bestScore
+    def score(self, state, action, weights):
+        s = self.preState.score(state, weights)
+#        s.update(self.action.score(action))
+        s += self.action.score(action, weights)
+#        s = MAXCASESCORE
+#        for k in state.relevantKeys():
+#            if self.preState.has_key(k):
+#                bestScore = 1
+#                
+#                tmpScore = differences[k](state[k], self.preState[k])
+#                if tmpScore < bestScore:
+#                    bestScore = tmpScore
+#                s -= bestScore
+#        for k in action.relevantKeys():
+#            bestScore = 1
+#            tmpScore = differences[k](action[k], self.action[k])
+#            if tmpScore < bestScore:
+#                bestScore = tmpScore
+#            s -= bestScore
         return s
         
     def __eq__(self, other):
@@ -396,7 +414,7 @@ class AbstractCase(object):
     def score(self, state, action):
         s = 0
 
-        print "Scoring AC: ", self.variables
+#        print "Scoring AC: ", self.variables
 #        for k,v in self.constants.items():
 #            for k2,v2 in state.relevantItems() + action.relevantItems():
 #                if k == k2:
@@ -428,7 +446,7 @@ class AbstractCase(object):
 #                
 #                tmp -=  norm * math.exp(-0.5*(np.dot(np.dot((v-mu),inv),(v-mu).T)))
 #
-            print "k: {}, v: {} gets score: {}".format(k,v,tmp)
+#            print "k: {}, v: {} gets score: {}".format(k,v,tmp)
             s += tmp
 
         return s
@@ -436,8 +454,8 @@ class AbstractCase(object):
     def updatePredictionScore(self, score):
         self.numPredictions += 1
         self.avgPrediction += (score-self.avgPrediction)/(float(self.numPredictions))
-        if self.avgPrediction <= 0.0001:
-            raise Exception("something is going wrong when computing avgPrediction! score: {}, numPred: {}".format(score, self.numPredictions))
+#        if self.avgPrediction <= 0.0001:
+#            raise Exception("something is going wrong when computing avgPrediction! score: {}, numPred: {}".format(score, self.numPredictions))
         
     def addRef(self, ref):
         
@@ -597,6 +615,16 @@ class AbstractCase(object):
                 
         target.relKeys = self.variables
         return target
+    
+    def getBestRef(self, state, action, weights):
+        bestCase = None
+        bestScore = 0.0
+        for c in self.refCases:
+            s = c.score(state,action, weights)
+            if s > bestScore:
+                bestScore = s
+                bestCase = c
+        return bestCase
         
     
     
@@ -681,25 +709,21 @@ class ModelCBR(object):
     
     def getBestCase(self, state, action):
         bestCase = None
-        bestScore = 0.0
-        for c in self.abstractCases:
-            s = c.score(state, action)
-#            print "case: {}  has score: {}".format(c.variables,s)
-            if s >= bestScore:
-                bestCase = c
-                bestScore = s
+        sortedList = sorted(self.cases, key=methodcaller('score', state, action, self.weights), reverse= True)
+        if len(sortedList) > 0:
+            bestCase = sortedList[0].abstCase
         if isinstance(bestCase, AbstractCase):
-            print "bestCase #refs: ", len(bestCase.refCases)
-            print "bestCase variables: ", bestCase.variables
+#            print "bestCase #refs: ", len(bestCase.refCases)
+#            print "bestCase variables: ", bestCase.variables
             if bestCase.variables == []:
                 self.numZeroCase += 1
 #            print "bestCase preConditions: ", bestCase.preCons
             return bestCase
         elif isinstance(bestCase, BaseCase):
-            if bestCase.abstCase != None:
-                print "bestCase #refs: ", len(bestCase.abstCase.refCases)
-                print "bestCase avgPrediction: ", bestCase.abstCase.avgPrediction
-                print "bestCase variables: ", bestCase.abstCase.variables
+#            if bestCase.abstCase != None:
+#                print "bestCase #refs: ", len(bestCase.abstCase.refCases)
+#                print "bestCase avgPrediction: ", bestCase.abstCase.avgPrediction
+#                print "bestCase variables: ", bestCase.abstCase.variables
             return bestCase.abstCase
         else:
             return None
@@ -749,11 +773,17 @@ class ModelCBR(object):
 #                    self.target.updateWeights(result)
         
         newCase = BaseCase(state, action, result)
-        print "New case difs: ", newCase.dif
+#        print "New case difs: ", newCase.dif
         attribSet = newCase.getSetOfAttribs()
-        predictionScore = result.score(prediction)
-        print "Correct attribSet: ", attribSet
+        predictionScore = result.score(prediction, self.weights)
+#        print "Correct attribSet: ", attribSet
         print "predictionScore: ", predictionScore
+        abstractCase = None
+        for ac in self.abstractCases:
+            if ac.variables == attribSet:
+                abstractCase = ac
+                #TODO consider search for all of them in case we distinguis by certain features
+                break
         if usedCase != None:
             if usedCase.variables == attribSet:
                 print "correct case selected"
@@ -761,17 +791,39 @@ class ModelCBR(object):
                 self.numCorrectCase += 1
             else:
                 pass
+#                if abstractCase != None:
+#                    bestBaseCaseWrong = usedCase.getBestRef(state, action, self.weights)
+#                    bestBaseCaseRight = abstractCase.getBestRef(state, action, self.weights)
+#                    dif = {}
+#                    for k in bestBaseCaseWrong.preState.relKeys:
+#                        dif[k] = similarities[k](bestBaseCaseRight.preState[k],state[k]) - similarities[k](bestBaseCaseWrong.preState[k], state[k])
+#                        
+#                    for k in bestBaseCaseWrong.action.relKeys:
+#                        dif[k] = similarities[k](bestBaseCaseRight.action[k], action[k]) - similarities[k](bestBaseCaseWrong.action[k],action[k])
+#                    
+#                    print "difs: ", dif
+#                    for k in dif.keys():
+#                        norm = np.linalg.norm(dif[k])
+#                        if norm > 0:
+#                            self.weights[k] += 0.1 * dif[k]#/norm
+#                            if self.weights[k] < 0:
+#                                self.weights[k] = 0
+##                        if dif[k] == 0:
+###                            print "reducing weight for ", k
+##                            self.weights[k] *= 0.9
+#                        
+#                    self.normaliseWeights()
+#                    
+#                    print "weights: ", self.weights
+#                    with open("weights" , 'a') as f:
+#                        f.write(", ".join([str(x) for x in self.weights.values()]) + '\n')
+                
 #                usedCase.addErrorCase(newCase)
 #                print "Incorrect case new weights: ", usedCase.weights
-        if predictionScore < PREDICTIONTHRESHOLD:
+        if predictionScore < 0.9: #PREDICTIONTHRESHOLD:
             print "adding Case"
 #            self.cases.append(newCase)
-            abstractCase = None
-            for ac in self.abstractCases:
-                if ac.variables == attribSet:
-                    abstractCase = ac
-                    #TODO consider search for all of them in case we distinguis by certain features
-                    break
+            
             if abstractCase != None:
                 #If an abstract case is found add the reference
                 try:

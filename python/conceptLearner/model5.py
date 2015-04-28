@@ -3,12 +3,15 @@
 """
 Created on Mon Apr 27 12:00:15 2015
 Try connected ACs with transition probabilities to hopefully increase selection rate
+Update: Simply counting relative transitions does not improve selection rate.
 @author: jpoeppel
 """
 
 from model4 import State, ObjectState, InteractionState, WorldState, BaseCase, AbstractCase, Action
 from common import GAZEBOCMDS as GZCMD
 import numpy as np
+from operator import methodcaller
+from sets import Set
 
 THRESHOLD = 0.01
 NUMDEC = 4
@@ -31,19 +34,63 @@ class ModelCBR(object):
         self.numCorrectCase= 0
         
     def getBestCase(self, state, action):
+#        bestCases = {}
+#        bestScores = {}
         bestCase = None
         bestScore = 0.0
 #        print "acTransitions: ", self.acTransistions
-        for acId, ac in self.abstractCases.items():
-            s = ac.score(state, action) #+ self.acTransistions[self.lastAc][acId]
-            if s >= bestScore:
-                bestCase = ac
-                bestScore = s
-        return bestCase
+#        for acId, ac in self.abstractCases.items():
+        
+        sortedList = sorted(self.cases, key=methodcaller('score', state, action), reverse= True)
+        if len(sortedList) > 0:
+            bestCase = sortedList[0].abstCase
+#        for ac in self.cases:
+#            s = ac.score(state, action) #* self.acTransistions[self.lastAc][ac.abstCase.id]
+#            
+#            if s > bestScore:
+#                bestCase = ac.abstCase
+#                bestScore = s
+                
+#            for k in s.keys():
+#                if not bestScores.has_key(k):
+#                        bestScores[k] = s[k]
+#                        bestCases[k] = Set([ac.abstCase.id])
+#
+#                else:
+#                    if s[k] > bestScores[k]:
+#                        bestScores[k] = s[k]
+#                        bestCases[k] = Set([ac.abstCase.id])
+#                    elif s[k] == bestScores[k]:
+#                        bestCases[k].add(ac.abstCase.id)
+                    
+#        bestCaseId = None
+#        bestCaseNum = 0
+#        if self.numAbstractCases > 0:
+#            tmp = np.zeros(self.numAbstractCases)
+##            print "bestCases: ", bestCases
+#            for sets in bestCases.values():
+#                for ids in sets:
+#                    tmp[ids] += 1
+#            print "tmp: ", tmp
+#            bestCaseId = np.argmax(tmp)
+#            if s >= bestScore:
+#                bestCase = ac
+#                bestScore = s
+#        return bestCase
+        
+        if bestCase != None:
+            print "bestCase ID: {}, {} ".format(bestCase.id, bestCase.variables)
+#            if bestCase2 != None:
+#                print "bestCase2 ID: {}, {} ".format(bestCase2.id, bestCase2.variables)
+            return bestCase
+        else:
+            print "return None"
+            return None
         
     def predictIntState(self, state, action):
         
         bestCase = self.getBestCase(state, action)
+        
         if bestCase != None:
             return bestCase.predict(state, action), bestCase
         else:
@@ -70,11 +117,20 @@ class ModelCBR(object):
         """
         newCase = BaseCase(state, action, result)
         attribSet = newCase.getSetOfAttribs()
-
+#        predictionScore = sum(result.score(prediction).values())
+        predictionScore = result.score(prediction)
         if usedCase != None and usedCase.variables == attribSet:
             self.numCorrectCase += 1
+            print "correct AC with predictionscore: ", predictionScore
+            if predictionScore < PREDICTIONTHRESHOLD:
+                try:
+                    usedCase.addRef(newCase)
+                except Exception, e:
+                    print "case was already present"
+                else:
+                    self.cases.append(newCase)
         
-        predictionScore = result.score(prediction)
+        
         abstractCase = None        
         for acId, ac in self.abstractCases.items():
             if ac.variables == attribSet:
@@ -88,16 +144,7 @@ class ModelCBR(object):
             self.numAbstractCases += 1
             self.abstractCases[abstractCase.id] = abstractCase
             self.cases.append(newCase)
-        else:
-                           
-            if predictionScore < PREDICTIONTHRESHOLD:
-                try:
-                    abstractCase.addRef(newCase)
-                except Exception, e:
-                    print "case was already present"
-                else:
-                    self.cases.append(newCase)
-                    
+
         self.updateTransitions(self.lastAc, abstractCase.id)
         self.lastAc = abstractCase.id
         

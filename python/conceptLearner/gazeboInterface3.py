@@ -30,6 +30,7 @@ import numpy as np
 import math
 import copy
 from common import GAZEBOCMDS
+import math
 
 
 logger = logging.getLogger(__name__)
@@ -45,7 +46,7 @@ PUSHTASK = 1
 PUSHTASKSIMULATION = 2
 MOVE_TO_TARGET = 3
 MODE = PUSHTASKSIMULATION
-#MODE = FREE_EXPLORATION
+MODE = FREE_EXPLORATION
 
 
 
@@ -82,6 +83,7 @@ class GazeboInterface():
         self.blockErrors = []
         self.tmpBlockErrorPos = 0.0
         self.tmpBlockErrorOri = 0.0
+        np.random.seed(1234)
         
     @trollius.coroutine
     def loop(self):

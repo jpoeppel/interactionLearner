@@ -117,6 +117,7 @@ class ITM(Network):
                     wc = math.exp(-np.linalg.norm(wIn-n.vecInA())**2/(SIGMAE**2))
                     norm += wc
                     res += wc * n.wOut
+                    
                 return res/norm
             elif PREDICTIONMODE == BESTTWO:
                 if secNode != None:

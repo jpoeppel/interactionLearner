@@ -24,7 +24,7 @@ from network import Node
 import copy
 import math
 from sets import Set
-from operator import methodcaller
+from operator import methodcaller, itemgetter
 
 THRESHOLD = 0.01
 NUMDEC = 4
@@ -52,18 +52,18 @@ class State(dict):
             self.weights[k] = 1.0
         pass
     
-    def score(self, otherState, gWeights):
+    def score(self, otherState):#, gWeights):
         assert isinstance(otherState, State), "{} is not a State object".format(otherState)
 #        s = MAXSTATESCORE
         s = 0.0
 #        s = {}
         for k in self.relKeys:
-            if gWeights.has_key(k):
-                w = gWeights[k]
-            else:
-                w = 1.0/MAXCASESCORE
+#            if gWeights.has_key(k):
+#                w = gWeights[k]
+#            else:
+#                w = 1.0/MAXCASESCORE
 #            s -= self.weights[k]*differences[k](self[k], otherState[k]) 
-            s += self.weights[k]* similarities[k](self[k], otherState[k]) * w
+            s += self.weights[k]* similarities[k](self[k], otherState[k]) #* w
 #            s[k] = self.weights[k]* similarities[k](self[k], otherState[k])
         return s
         
@@ -153,9 +153,11 @@ class InteractionState(State):
         self.relKeys.remove("intId")
         self.relKeys.remove("sname")
         self.relKeys.remove("oname")
-        self.relKeys.remove("stype")
-        self.relKeys.remove("otype")
-        self.relKeys.remove("contact")
+#        self.relKeys.remove("stype")
+#        self.relKeys.remove("otype")
+#        self.relKeys.remove("contact")
+#        self.relKeys.remove("sid")
+#        self.relKeys.remove("oid")
 #        self.relKeys.remove("spos")
 #        self.weights["slinVel"] = 2
 #        self.weights["spos"] = 0.5
@@ -216,6 +218,9 @@ class WorldState(object):
                 tmp["type"] = m.type
                 self.objectStates[m.id] = tmp
                 
+#            if m.name == "blockA":
+#                print "BlockA angVel: ", tmp["angVel"]
+                
     def parseInteractions(self, ws):
         tmpList = self.objectStates.values()
         for o1 in self.objectStates.values():
@@ -256,7 +261,7 @@ class BaseCase(object):
         self.action = action
         self.dif = {}
         self.abstCase = None
-        for k in pre.relevantKeys():
+        for k in pre.relKeys:
             self.dif[k] = post[k]-pre[k]
             
         
@@ -266,7 +271,7 @@ class BaseCase(object):
         """
         r = Set()
         for k in self.dif.keys():
-            if np.linalg.norm(self.dif[k]) > THRESHOLD:
+            if np.linalg.norm(self.dif[k]) > 0.01:
                 r.add(k)
         return r
         
@@ -275,17 +280,17 @@ class BaseCase(object):
         #TODO make more efficient by storing these values
         r = []
         for k in self.dif.keys():
-            if np.linalg.norm(self.dif[k]) <= THRESHOLD:
+            if np.linalg.norm(self.dif[k]) <= 0.01:
                 r.append((k,self.preState[k]))
         return r
     
     def predict(self, state,action, attrib):
         return self.dif[attrib]
         
-    def score(self, state, action, weights):
-        s = self.preState.score(state, weights)
+    def score(self, state, action):#, weights):
+        s = self.preState.score(state)#, weights)
 #        s.update(self.action.score(action))
-        s += self.action.score(action, weights)
+        s += self.action.score(action)#, weights)
 #        s = MAXCASESCORE
 #        for k in state.relevantKeys():
 #            if self.preState.has_key(k):
@@ -339,6 +344,7 @@ class AbstractCase(object):
         
     def predict(self, state, action):
 #        print "predicting for variables: ", self.variables
+#        print "number of refs: ", len(self.refCases)
     
         resultState = copy.deepcopy(state)
         if len(self.refCases) > 1:
@@ -413,43 +419,48 @@ class AbstractCase(object):
             
     def score(self, state, action):
         s = 0
-
-#        print "Scoring AC: ", self.variables
-#        for k,v in self.constants.items():
-#            for k2,v2 in state.relevantItems() + action.relevantItems():
-#                if k == k2:
-#                    if np.linalg.norm(v-v2) > 0.01:
-#                        return 0
-        
-        for k,v in state.relevantItems() + action.relevantItems():
-
-            if hasattr(v, "__len__"):
-                dim = len(v)
-            else:
-                dim = 1
-            mu, cov, det, inv = self.gaussians[k]
-            norm = 1.0/(math.sqrt((2*math.pi)**dim * det))
-#            if norm > 1:
-##                print "cov: ", cov
-##                print "norm still too big: ", norm
-#                norm = 1
-            
-#            s += norm * math.exp(-0.5*(np.dot(np.dot((v-mu),inv),(v-mu).T)))
-            tmp = norm * math.exp(-0.5*(np.dot(np.dot((v-mu),inv),(v-mu).T)))# *self.weights[k]
-#            if self.errorGaussians.has_key(k):
-#                mu, cov, det, inv = self.errorGaussians[k]
-#                norm = 1.0/(math.sqrt((2*math.pi)**dim * det))
-##                if norm > 1:
-##    #                print "cov: ", cov
-##    #                print "norm still too big: ", norm
-##                    norm = 1
-#                
-#                tmp -=  norm * math.exp(-0.5*(np.dot(np.dot((v-mu),inv),(v-mu).T)))
 #
-#            print "k: {}, v: {} gets score: {}".format(k,v,tmp)
-            s += tmp
+#        print "Scoring AC: ", self.variables
+        for k,v in self.constants.items():
+            for k2,v2 in state.relevantItems() + action.relevantItems():
+                if k == k2:
+                    if np.linalg.norm(v-v2) > 0.05:
+                        return 0
+#        
+        for k,v in state.relevantItems() + action.relevantItems():
+            
+            if not k in self.constants.keys():
+    
+                if hasattr(v, "__len__"):
+                    dim = len(v)
+                else:
+                    dim = 1
+                mu, cov, det, inv = self.gaussians[k]
+                norm = 1.0/(math.sqrt((2*math.pi)**dim * det))
+                if norm > 1:
+    #                print "cov: ", cov
+    #                print "norm still too big: ", norm
+                    norm = 1
+    #            
+    #            s += norm * math.exp(-0.5*(np.dot(np.dot((v-mu),inv),(v-mu).T)))
+                tmp = norm * math.exp(-0.5*(np.dot(np.dot((v-mu),inv),(v-mu).T)))# *self.weights[k]
+#                if self.errorGaussians.has_key(k):
+#                    mu, cov, det, inv = self.errorGaussians[k]
+#                    norm = 1.0/(math.sqrt((2*math.pi)**dim * det))
+#    #                if norm > 1:
+#    #    #                print "cov: ", cov
+#    #    #                print "norm still too big: ", norm
+#    #                    norm = 1
+#                    
+#                    tmp -=  norm * math.exp(-0.5*(np.dot(np.dot((v-mu),inv),(v-mu).T)))
+    ##
+    ##            print "k: {}, v: {} gets score: {}".format(k,v,tmp)
+                s += tmp
+            else:
+                s += 1
 
         return s
+#        return 1
     
     def updatePredictionScore(self, score):
         self.numPredictions += 1
@@ -470,9 +481,9 @@ class AbstractCase(object):
         for k in self.weights.keys():
             self.weights[k] /= norm
 #        
-        for k,v in ref.getListOfConstants():
+        for k,v in ref.getListOfConstants() + ref.action.relevantItems():
             if self.constants.has_key(k):
-                if np.linalg.norm(v-self.constants[k]) > THRESHOLD:
+                if np.linalg.norm(v-self.constants[k]) > 0.01:
                     del self.constants[k]
                     self.retrain()
             else:
@@ -709,9 +720,13 @@ class ModelCBR(object):
     
     def getBestCase(self, state, action):
         bestCase = None
-        sortedList = sorted(self.cases, key=methodcaller('score', state, action, self.weights), reverse= True)
+        scoreList = [(c.abstCase,c.score(state,action)) for c in self.cases]
+        
+#        sortedList = sorted(self.abstractCases, key=methodcaller('score', state, action), reverse= True)
+        sortedList = sorted(scoreList, key=itemgetter(1), reverse=True) 
+        print "ScoreList: ", [(s, sorted(c.variables), len(c.refCases)) for c,s in sortedList]
         if len(sortedList) > 0:
-            bestCase = sortedList[0].abstCase
+            bestCase = sortedList[0][0]
         if isinstance(bestCase, AbstractCase):
 #            print "bestCase #refs: ", len(bestCase.refCases)
 #            print "bestCase variables: ", bestCase.variables
@@ -775,8 +790,8 @@ class ModelCBR(object):
         newCase = BaseCase(state, action, result)
 #        print "New case difs: ", newCase.dif
         attribSet = newCase.getSetOfAttribs()
-        predictionScore = result.score(prediction, self.weights)
-#        print "Correct attribSet: ", attribSet
+        predictionScore = result.score(prediction)#, self.weights)
+        print "Correct attribSet for state: {} : {}".format(result["sname"], sorted(attribSet))
         print "predictionScore: ", predictionScore
         abstractCase = None
         for ac in self.abstractCases:
@@ -786,7 +801,7 @@ class ModelCBR(object):
                 break
         if usedCase != None:
             if usedCase.variables == attribSet:
-                print "correct case selected"
+                print "correct case selected!!!!!!!!!!!!!!!!!"
                 usedCase.updatePredictionScore(predictionScore)
                 self.numCorrectCase += 1
             else:
@@ -810,17 +825,18 @@ class ModelCBR(object):
 #                                self.weights[k] = 0
 ##                        if dif[k] == 0:
 ###                            print "reducing weight for ", k
-##                            self.weights[k] *= 0.9
-#                        
+##                            self.weights[k] *= 0.0
+#                       
 #                    self.normaliseWeights()
 #                    
 #                    print "weights: ", self.weights
 #                    with open("weights" , 'a') as f:
 #                        f.write(", ".join([str(x) for x in self.weights.values()]) + '\n')
                 
-#                usedCase.addErrorCase(newCase)
+                usedCase.addErrorCase(newCase)
+                
 #                print "Incorrect case new weights: ", usedCase.weights
-        if predictionScore < 0.9: #PREDICTIONTHRESHOLD:
+        if predictionScore < PREDICTIONTHRESHOLD:
             print "adding Case"
 #            self.cases.append(newCase)
             
@@ -828,6 +844,7 @@ class ModelCBR(object):
                 #If an abstract case is found add the reference
                 try:
                     abstractCase.addRef(newCase)
+                    print "correctAbstractCase consts: ", abstractCase.constants
                 except Exception, e:
                     print "case was already present"
 #                    print "Responsible abstractCase: ", abstractCase.variables
@@ -838,6 +855,7 @@ class ModelCBR(object):
                     
             else:
                 #Create a new abstract case
+                print "new Abstract case: ", attribSet
                 self.abstractCases.append(AbstractCase(newCase))
                 self.addBaseCase(newCase)
 

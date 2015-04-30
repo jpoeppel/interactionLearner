@@ -16,7 +16,8 @@ SIGMAE = 0.5
 WINNER = 0
 NEIGHBOURS = 1
 BESTTWO = 2
-PREDICTIONMODE = NEIGHBOURS
+LINEAR = 3
+PREDICTIONMODE = LINEAR
 
 class ITM(Network):
     
@@ -110,6 +111,8 @@ class ITM(Network):
         if minNode != None:
             if PREDICTIONMODE == WINNER:
                 return minNode.wOut
+            elif PREDICTIONMODE == LINEAR:
+                return minNode.wOut + minNode.A.dot(wIn-minNode.vecInA())
             elif PREDICTIONMODE == NEIGHBOURS:                    
                 norm = math.exp(-np.linalg.norm(wIn-minNode.vecInA())**2/(SIGMAE**2))
                 res = norm*minNode.wOut

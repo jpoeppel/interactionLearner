@@ -15,14 +15,18 @@ class Node(object):
         self.wIn = wIn
         if hasattr(action, "__len__"):
             self.action = action
+            lA = len(action)
         else:
             self.action = np.array([action])
+            lA = 1
         
         if hasattr(wOut, "__len__"):
             self.wOut = wOut
+            lO = len(wOut)
         else:
             self.wOut = np.array([wOut])
-        self.A = A
+            lO = 1
+        self.A = np.zeros((lO, len(wIn)+lA))
     
     def addNeighbour(self,n):
         self.neighbours[n.name] = n
@@ -31,9 +35,17 @@ class Node(object):
         del self.neighbours[name]
     
     def adapt(self, x, eta):
-        self.wIn += eta*(x.wIn - self.wIn)
-        self.action += eta*(x.action - self.action)
-        self.wOut += eta*(x.wOut - self.wOut)
+        dwIn = eta*(x.wIn - self.wIn)
+        self.wIn += dwIn
+        da = eta*(x.action - self.action)
+        self.action += da
+        dwInA = np.concatenate((dwIn,da))
+        
+        er = x.wOut-(self.wOut + self.A.dot(x.vecInA()-self.vecInA()))
+        dwOut =  eta*er + self.A.dot(dwInA)
+        self.wOut += dwOut
+        d = x.vecInA()-self.vecInA()
+        self.A += eta*np.outer(er,d/(np.linalg.norm(d)**2))
         
     def vec(self):
         return np.concatenate((self.wIn, self.action, self.wOut))

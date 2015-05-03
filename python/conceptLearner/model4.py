@@ -444,16 +444,18 @@ class AbstractCase(object):
                     
 #
 #        print "Scoring AC: ", self.variables
+#        print "scoring AC: {}, with \n constants: {} against \n state: {}, \n action: {}".format(self.variables, self.constants, state, action)
         for k,v in self.constants.items():
             for k2,v2 in state.relevantItems() + action.relevantItems():
                 if k == k2:
                     if np.linalg.norm(v-v2) > 0.01:
+                        print "AC: {} failed because of k: {}, constant: {}, actual: {}".format(self.variables, k, v, v2)
                         return 0
 ##        
         for k,v in state.relevantItems() + action.relevantItems():
-            
+#            
             if not k in self.constants.keys():
-
+#
                 score = 0.0                
                 bestScore = 0.0
                 for ref in self.refCases:
@@ -464,7 +466,7 @@ class AbstractCase(object):
                     if score > bestScore:
                         bestScore = score
                 s += bestScore
-    
+#    
 #                if hasattr(v, "__len__"):
 #                    dim = len(v)
 #                else:
@@ -525,11 +527,12 @@ class AbstractCase(object):
 #            else:
 #                self.values[k] = [v]
 #        
-        for k,v in ref.getListOfConstants() + ref.action.relevantItems():
+#        for k,v in ref.getListOfConstants() + ref.action.relevantItems():
+        for k,v in ref.preState.relevantItems() + ref.action.relevantItems():
             if self.constants.has_key(k):
                 if np.linalg.norm(v-self.constants[k]) > 0.01:
                     del self.constants[k]
-                    self.retrain()
+#                    self.retrain()
             else:
                 if len(self.refCases) == 0:
                     self.constants[k] = v
@@ -573,7 +576,7 @@ class AbstractCase(object):
          
         self.refCases.append(ref)
         ref.abstCase = self
-        self.updatePredictorsITM(ref)
+#        self.updatePredictorsITM(ref)
         
         self.updateGaussians(self.gaussians, len(self.refCases), ref)        
 #        self.updatePredictorsGP()
@@ -764,6 +767,7 @@ class ModelCBR(object):
     def getBestCase(self, state, action):
         bestCase = None
         scoreList = [(c,c.score(state,action)) for c in self.abstractCases]
+#        scoreList = [(c.abstCase,c.score(state,action)) for c in self.cases]
         
 #        sortedList = sorted(self.abstractCases, key=methodcaller('score', state, action), reverse= True)
         sortedList = sorted(scoreList, key=itemgetter(1), reverse=True) 

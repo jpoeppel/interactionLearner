@@ -36,7 +36,7 @@ import math
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
 import model4 as model
-import model5
+import model6
 
 logging.basicConfig()
 #
@@ -50,7 +50,7 @@ MODE = PUSHTASKSIMULATION
 
 
 
-NUM_TRAIN_RUNS = 20
+NUM_TRAIN_RUNS = 10
 NUM_TEST_RUNS = 100
 
 class GazeboInterface():
@@ -62,7 +62,7 @@ class GazeboInterface():
          
         self.active = True
         self.lastState = None
-        self.worldModel = model.ModelCBR()
+        self.worldModel = model6.ModelCBR()
         self.lastPrediction = None
         self.lastAction = model.Action()
         
@@ -100,7 +100,6 @@ class GazeboInterface():
         self.posePublisher = yield From(
                 self.manager.advertise('/gazebo/default/poses',
                     'gazebo.msgs.Pose'))
-#                    'gazeboPlugins.msgs.ModelState_V'))
                     
                           
         self.cmdPublisher = yield From(

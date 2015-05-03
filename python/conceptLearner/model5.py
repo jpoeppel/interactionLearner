@@ -8,18 +8,12 @@ Update: Simply counting relative transitions does not improve selection rate.
 """
 
 from model4 import State, ObjectState, InteractionState, WorldState, BaseCase, AbstractCase, Action
+from model4 import THRESHOLD, NUMDEC, MAXCASESCORE, MAXSTATESCORE, PREDICTIONTHRESHOLD, TARGETTHRESHOLD
 from common import GAZEBOCMDS as GZCMD
 import numpy as np
 from operator import methodcaller
 from sets import Set
 
-THRESHOLD = 0.01
-NUMDEC = 4
-MAXCASESCORE = 16
-MAXSTATESCORE = 14
-#PREDICTIONTHRESHOLD = 0.5
-PREDICTIONTHRESHOLD = MAXSTATESCORE - 0.01
-TARGETTHRESHOLD = MAXCASESCORE - 0.05
 
 class ModelCBR(object):
     
@@ -41,42 +35,10 @@ class ModelCBR(object):
 #        print "acTransitions: ", self.acTransistions
 #        for acId, ac in self.abstractCases.items():
         
-        sortedList = sorted(self.cases, key=methodcaller('score', state, action), reverse= True)
+        sortedList = sorted(self.abstractCases.values(), key=methodcaller('score', state, action), reverse= True)
         if len(sortedList) > 0:
-            bestCase = sortedList[0].abstCase
-#        for ac in self.cases:
-#            s = ac.score(state, action) #* self.acTransistions[self.lastAc][ac.abstCase.id]
-#            
-#            if s > bestScore:
-#                bestCase = ac.abstCase
-#                bestScore = s
-                
-#            for k in s.keys():
-#                if not bestScores.has_key(k):
-#                        bestScores[k] = s[k]
-#                        bestCases[k] = Set([ac.abstCase.id])
-#
-#                else:
-#                    if s[k] > bestScores[k]:
-#                        bestScores[k] = s[k]
-#                        bestCases[k] = Set([ac.abstCase.id])
-#                    elif s[k] == bestScores[k]:
-#                        bestCases[k].add(ac.abstCase.id)
-                    
-#        bestCaseId = None
-#        bestCaseNum = 0
-#        if self.numAbstractCases > 0:
-#            tmp = np.zeros(self.numAbstractCases)
-##            print "bestCases: ", bestCases
-#            for sets in bestCases.values():
-#                for ids in sets:
-#                    tmp[ids] += 1
-#            print "tmp: ", tmp
-#            bestCaseId = np.argmax(tmp)
-#            if s >= bestScore:
-#                bestCase = ac
-#                bestScore = s
-#        return bestCase
+            bestCase = sortedList[0]
+
         
         if bestCase != None:
             print "bestCase ID: {}, {} ".format(bestCase.id, bestCase.variables)

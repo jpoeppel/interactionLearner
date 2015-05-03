@@ -86,4 +86,13 @@ class Network(object):
             self.removeEdge(node.name, n.name)
         if self.nodes.has_key(node.name):
             del self.nodes[node.name]
+            
+class TreeNode(object):
+    
+    def __init__(self):
+        self.predecessor = None
+        self.successors = []
+        self.isRoot = False
+        self.rule = {}
+        
     

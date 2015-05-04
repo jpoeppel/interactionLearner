@@ -6,6 +6,7 @@ Created on Mon Apr 13 00:32:22 2015
 """
 
 import numpy as np
+from sets import Set
 
 class Node(object):
     def __init__(self, name, pos=np.array([]), wIn=np.array([]), action = np.array([]), wOut = np.array([]), A = np.array([])):
@@ -89,10 +90,173 @@ class Network(object):
             
 class TreeNode(object):
     
+    def __init__(self, pre = None, elem = None):
+        self.predecessor = pre
+        self.leftChild = None
+        self.rightChild = None
+        self.isLeave = True
+        self.ruleKey = None
+        self.ruleValue = None
+        self.load = []
+        if elem != None:
+            self.load.append(elem)
+            
+        
+    def getChild(self, values):
+        print "Child ruleKey: {}, ruleValue: {}".format(self.ruleKey, self.ruleValue)
+        if np.all(values[self.ruleKey] < self.ruleValue):
+            return self.leftChild
+        else:
+            return self.rightChild
+            
+    def getBestChild(self, const, minima, maxima):
+        if const.has_key(self.ruleKey):
+            if np.all(const[self.ruleKey] < self.ruleValue):
+                return self.leftChild
+            else:
+                return self.rightChild
+        else:
+            
+#                
+#        if np.all(maxima[self.ruleKey] < self.ruleValue):
+#            return self.leftChild
+#        if np.all(minima[self.ruleKey] > self.ruleValue):
+#            return self.rightChild
+            
+    def addElement(self, elem):
+        self.load.append(elem)
+        if len(self.load) > 1:
+            print "addElement before Split"
+            splitAttrib, splitValue = self.getSplitAttrib()
+            print "splitAttrib: ", splitAttrib
+            if splitAttrib != None:
+                lc = TreeNode(pre=self)
+                rc = TreeNode(pre=self)
+                self.leftChild = lc
+                self.rightChild = rc
+                #TODO get best Split already from getSplitAttrib!
+                #TODO This does not take the minima into consideration!!
+                for el in self.load:
+#                    if np.all(el.maxima[splitAttrib] < splitValue):
+                    if el.constants.has_key(splitAttrib):
+                        if np.all(el.constants[splitAttrib] < splitValue):
+                            lc.addElement(el)
+                        else:
+                            rc.addElement(el)
+                    else:
+                        lc.addElement(el)
+                        rc.addElement(el)
+                self.isLeave = False
+                self.ruleKey = splitAttrib
+                self.ruleValue = splitValue
+                self.load = None
+                return lc, rc
+            
+        return None, None
+        
+    def getSharedConsts(self):
+        constsKeys = Set(self.load[0].constants)
+        for el in self.load:
+            constsKeys = constsKeys.intersection(Set(el.constants.keys()))
+        return constsKeys
+            
+    def getSplitAttrib(self):
+        splitValues = {}
+        biggestMin = {}
+        smallestMax = {}
+        for k in self.load[0].minima.keys():
+#        for k in self.getSharedConsts():
+            biggestMin[k] = -float('inf')
+            smallestMax[k] = float('inf')
+            for el in self.load:
+                if el.constants.has_key(k):
+                    if np.all(biggestMin[k] < el.constants[k]):
+                        biggestMin[k] = el.constants[k]
+                    if np.all(smallestMax[k] > el.constants[k]):
+                        smallestMax[k] = el.constants[k]
+#                if np.all(biggestMin[k] < el.minima[k]):
+#                    biggestMin[k] = el.minima[k]
+#                if np.all(smallestMax[k] > el.maxima[k]):
+#                    smallestMax[k] = el.maxima[k]
+                    
+            splitValues[k] = 0.5*(biggestMin[k] + smallestMax[k])
+            
+#        print "splitvalues: ", splitValues
+        splits = {}
+        for k,v in splitValues.items():
+            splits[k] = 0
+            for el in self.load:
+#                if np.all(el.maxima[k] < v):
+                if el.constants.has_key(k): # Acs that do not have that constant will be present in both children so do not count them here
+                    if np.all(el.constants[k] < v):
+                        splits[k] += 1
+                    else:
+                        splits[k] -= 1
+        bestSplit = min(splits.items(), key=lambda pair: abs(pair[1]))
+#        print "splits: ", splits
+#        print "load: ", [c.variables for c in self.load]
+#        print "load numRefs: ", [len(c.refCases) for c in self.load]
+#        print "load maxima: ", [c.maxima for c in self.load]
+#        print "load minima: ", [c.minima for c in self.load]
+#        print "Best split: {}, {}".format(bestSplit[0], splitValues[bestSplit[0]])
+        if abs(bestSplit[1]) == len(self.load):
+            return None, None
+        else:
+            return bestSplit[0], splitValues[bestSplit[0]]
+        
+        
+class Tree(object):
+    
     def __init__(self):
-        self.predecessor = None
-        self.successors = []
-        self.isRoot = False
-        self.rule = {}
+        self.leaves = []
+        self.root = None
+        
+    def addElement(self, element, const, minima, maxima):
+        node = self.root
+        while node != None and not node.isLeave:
+            node = node.getBestChild(const, minima, maxima)
+        
+        if node != None:
+            lc, rc = node.addElement(element)
+            if lc != None:
+                self.leaves.remove(node)
+                self.leaves.append(lc)
+                self.leaves.append(rc)
+        else:
+            self.root = TreeNode(pre=None, elem=element)
+            self.leaves.append(self.root)
+            
+            
+    
+    def removeElement(self, element):
+        targetLeave = None
+        for l in self.leaves:
+            for load in l.load:
+                if load == element:
+                    targetLeave = l
+                    break
+        if targetLeave != None:
+            targetLeave.load.remove(element)
+        #Check if tree needs to be reordered because of empty leave
+        if len(targetLeave.load) == 0:            
+            self.leaves.remove(targetLeave)
+            pre = targetLeave.predecessor
+            if pre != None:
+                other = pre.leftChild if pre.leftChild != targetLeave else pre.rightChild
+                other.predecessor = pre.predecessor
+                if pre.predecessor.leftChild == pre:
+                    pre.predecessor.leftChild = other
+                else:
+                    pre.predecessor.rightChild = other
+    
+    def getElements(self, values):
+        print "get Elements for values: ", values
+        node = self.root
+        while node != None and not node.isLeave:
+            node = node.getChild(values)
+        if node != None:
+            return node.load
+        else:
+            return None
         
     

@@ -50,7 +50,7 @@ MODE = PUSHTASKSIMULATION
 
 
 
-NUM_TRAIN_RUNS = 10
+NUM_TRAIN_RUNS = 20
 NUM_TEST_RUNS = 100
 
 class GazeboInterface():
@@ -390,6 +390,7 @@ class GazeboInterface():
             self.pauseWorld()
         
         print "% correctCase selected: ", self.worldModel.numCorrectCase/(float)(self.worldModel.numPredictions)
+        print "numPredictions: ", self.worldModel.numPredictions
         
             
     def updateModel(self, worldState):

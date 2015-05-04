@@ -118,8 +118,9 @@ class State(dict):
     def __eq__(self, other):
         if not isinstance(other, State):
             return False
+            
         for k, v in self.relevantItems():
-            if np.linalg.norm(v-other[k]) > THRESHOLD:
+            if np.linalg.norm(v-other[k]) > 0.001:
                 return False
         
         return True
@@ -449,7 +450,7 @@ class AbstractCase(object):
             for k2,v2 in state.relevantItems() + action.relevantItems():
                 if k == k2:
                     if np.linalg.norm(v-v2) > 0.01:
-                        print "AC: {} failed because of k: {}, constant: {}, actual: {}".format(self.variables, k, v, v2)
+#                        print "AC: {} failed because of k: {}, constant: {}, actual: {}".format(self.variables, k, v, v2)
                         return 0
 ##        
         for k,v in state.relevantItems() + action.relevantItems():
@@ -532,10 +533,11 @@ class AbstractCase(object):
             if self.constants.has_key(k):
                 if np.linalg.norm(v-self.constants[k]) > 0.01:
                     del self.constants[k]
-#                    self.retrain()
+                    self.retrain()
             else:
                 if len(self.refCases) == 0:
                     self.constants[k] = v
+
         
 #        for k,v in ref.getSetOfConstants():
 #            if self.attribs.has_key(k):
@@ -576,7 +578,7 @@ class AbstractCase(object):
          
         self.refCases.append(ref)
         ref.abstCase = self
-#        self.updatePredictorsITM(ref)
+        self.updatePredictorsITM(ref)
         
         self.updateGaussians(self.gaussians, len(self.refCases), ref)        
 #        self.updatePredictorsGP()

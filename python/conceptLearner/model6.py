@@ -16,6 +16,7 @@ import copy
 from topoMaps import ITM
 from operator import methodcaller, itemgetter
 from network import Node
+from network import Tree
 
 from metrics import similarities
 
@@ -34,6 +35,8 @@ class AbstractCase(model4.AbstractCase):
         self.constants = {}
         self.gaussians = {}
         self.weights= {}
+        self.minima = {}
+        self.maxima = {}
         for k in self.variables:
             self.weights[k] = 1.0
         self.addRef(case)
@@ -47,27 +50,33 @@ class AbstractCase(model4.AbstractCase):
             error = result[k] - prediction[k]
             self.weights[k] += 0.05 * error
             
-        print "AC: {}, weights: {}".format(self.variables, self.weights)
+#        print "AC: {}, weights: {}".format(self.variables, self.weights)
 
     def addRef(self, ref):
         
         if ref in self.refCases:
             raise TypeError("ref already in refCases")
-        
+        constChanged = False
 #        
 #        for k,v in ref.getListOfConstants() + ref.action.relevantItems():
         for k,v in ref.preState.relevantItems() + ref.action.relevantItems():
             if self.constants.has_key(k):
-                if np.linalg.norm(v-self.constants[k]) > 0.01:
+                if np.linalg.norm(v-self.constants[k]) > 0.001:
                     del self.constants[k]
+                    constsChanged = True
             else:
                 if len(self.refCases) == 0:
                     self.constants[k] = v
-
+            if not self.minima.has_key(k) or np.all(v < self.minima[k]):
+                self.minima[k] = v
+            if not self.maxima.has_key(k) or np.all(v > self.maxima[k]):
+                self.maxima[k] = v
         
         self.refCases.append(ref)
         ref.abstCase = self
-        self.updateGaussians(self.gaussians, len(self.refCases), ref)       
+        self.updateGaussians(self.gaussians, len(self.refCases), ref)     
+        print "addRef has constChanged: ", constChanged
+        return constChanged
 
 class ModelCBR(object):
     
@@ -78,19 +87,31 @@ class ModelCBR(object):
         self.numACs = 0
         self.numPredictions = 0
         self.numCorrectCase = 0
-        
+        self.aCTree = Tree()
         #TODO try building a decision tree for AC selection
         
     def getBestCase(self, state, action):
-        bestCase = None
-        scoreList = [(c,c.score(state,action)) for c in self.abstractCases.values()]
-#        scoreList = [(c.abstCase,c.score(state,action)) for c in self.cases]
         
-#        sortedList = sorted(self.abstractCases, key=methodcaller('score', state, action), reverse= True)
-        sortedList = sorted(scoreList, key=itemgetter(1), reverse=True) 
+        values = dict(state.relevantItems()+action.relevantItems())
+        bestCases = self.aCTree.getElements(values)
+        
+        bestCase = None
+        if bestCases != None:
+            print "len pockets: ", len(bestCases)
+            print "consts of all elements in pocket: ", [c.constants for c in bestCases]
+            scoreList = [(c,c.score(state,action)) for c in bestCases]
+            sortedList = sorted(scoreList, key=itemgetter(1), reverse=True) 
+            if len(sortedList) > 0:
+                bestCase = sortedList[0][0]
+#        bestCase = None
+#        scoreList = [(c,c.score(state,action)) for c in self.abstractCases.values()]
+##        scoreList = [(c.abstCase,c.score(state,action)) for c in self.cases]
+#        
+##        sortedList = sorted(self.abstractCases, key=methodcaller('score', state, action), reverse= True)
+#        sortedList = sorted(scoreList, key=itemgetter(1), reverse=True) 
 #        print "ScoreList: ", [(s, sorted(c.variables), len(c.refCases)) for c,s in sortedList]
-        if len(sortedList) > 0:
-            bestCase = sortedList[0][0]
+#        if len(sortedList) > 0:
+#            bestCase = sortedList[0][0]
         if isinstance(bestCase, AbstractCase):
 #            print "bestCase variables: ", bestCase.variables
             return bestCase
@@ -147,29 +168,49 @@ class ModelCBR(object):
         if abstractCase != None:
             if predictionScore < PREDICTIONTHRESHOLD:
                 abstractCase.updateWeights(prediction, result)
+                
+            if usedCase != None:
+                if usedCase.variables != attribSet:
+                    constChanged = False
+                    #TODO improve scoring
+                    try:
+                        print "ADDING REF"
+                        constChanged = abstractCase.addRef(newCase)
+                        print "adding new ref to AC: {}, new constants: {}".format(abstractCase.variables, abstractCase.constants)
+                    except TypeError:
+                        print "Case already present."
+                    else:
+                        self.cases.append(newCase)
+                        
+                    print "has constChanged? ", constChanged
+                    if constChanged:
+                        print "updating Tree"
+                        self.aCTree.removeElement(abstractCase)
+                        self.aCTree.addElement(abstractCase, abstractCase.constants, abstractCase.minima, abstractCase.maxima)
+                    pass      
+                else:
+                    print "Correct case was selected!!!!"
+                    self.numCorrectCase += 1
             
         else:
+            print "Create new AC: ", attribSet
             abstractCase = AbstractCase(newCase)
             abstractCase.id = self.numACs
             self.cases.append(newCase)
             self.numACs += 1
             self.abstractCases[abstractCase.id] = abstractCase
+            self.aCTree = Tree()
+            for ac in self.abstractCases.values():
+                self.aCTree.addElement(ac, ac.constants, ac.minima, ac.maxima)
             
-        if usedCase != None:
-            if usedCase.variables != attribSet:
-                #TODO improve scoring
-                try:
-                    abstractCase.addRef(newCase)
-#                    print "adding new ref to AC: {}, new constants: {}".format(abstractCase.variables, abstractCase.constants)
-                except TypeError:
-                    print "Case already present."
-                else:
-                    self.cases.append(newCase)
-                pass      
-            else:
-                self.numCorrectCase += 1
-            
-                
+        
+
+#        s = "\n".join([str(ac.variables) + ", " + str(ac.minima) + ", " + str(ac.maxima) for ac in self.abstractCases.values()])
+#            
+#        with open("ACs.txt", 'a') as f:
+#            f.write("_____________________________________\n")
+#            f.write(s)
+#                
 
             
     def toNode(self, state, action, result, attrib):

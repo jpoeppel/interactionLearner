@@ -91,27 +91,27 @@ class ModelCBR(object):
         #TODO try building a decision tree for AC selection
         
     def getBestCase(self, state, action):
-        
-        values = dict(state.relevantItems()+action.relevantItems())
-        bestCases = self.aCTree.getElements(values)
-        
-        bestCase = None
-        if bestCases != None:
-            print "len pockets: ", len(bestCases)
-            print "consts of all elements in pocket: ", [c.constants for c in bestCases]
-            scoreList = [(c,c.score(state,action)) for c in bestCases]
-            sortedList = sorted(scoreList, key=itemgetter(1), reverse=True) 
-            if len(sortedList) > 0:
-                bestCase = sortedList[0][0]
-#        bestCase = None
-#        scoreList = [(c,c.score(state,action)) for c in self.abstractCases.values()]
-##        scoreList = [(c.abstCase,c.score(state,action)) for c in self.cases]
 #        
-##        sortedList = sorted(self.abstractCases, key=methodcaller('score', state, action), reverse= True)
-#        sortedList = sorted(scoreList, key=itemgetter(1), reverse=True) 
-#        print "ScoreList: ", [(s, sorted(c.variables), len(c.refCases)) for c,s in sortedList]
-#        if len(sortedList) > 0:
-#            bestCase = sortedList[0][0]
+#        values = dict(state.relevantItems()+action.relevantItems())
+#        bestCases = self.aCTree.getElements(values)
+#        
+#        bestCase = None
+#        if bestCases != None:
+#            print "len pockets: ", len(bestCases)
+#            print "consts of all elements in pocket: ", [c.constants for c in bestCases]
+#            scoreList = [(c,c.score(state,action)) for c in bestCases]
+#            sortedList = sorted(scoreList, key=itemgetter(1), reverse=True) 
+#            if len(sortedList) > 0:
+#                bestCase = sortedList[0][0]
+        bestCase = None
+        scoreList = [(c,c.score(state,action)) for c in self.abstractCases.values()]
+#        scoreList = [(c.abstCase,c.score(state,action)) for c in self.cases]
+        
+#        sortedList = sorted(self.abstractCases, key=methodcaller('score', state, action), reverse= True)
+        sortedList = sorted(scoreList, key=itemgetter(1), reverse=True) 
+        print "ScoreList: ", [(s, sorted(c.variables), len(c.refCases)) for c,s in sortedList]
+        if len(sortedList) > 0:
+            bestCase = sortedList[0][0]
         if isinstance(bestCase, AbstractCase):
 #            print "bestCase variables: ", bestCase.variables
             return bestCase
@@ -185,8 +185,10 @@ class ModelCBR(object):
                     print "has constChanged? ", constChanged
                     if constChanged:
                         print "updating Tree"
-                        self.aCTree.removeElement(abstractCase)
-                        self.aCTree.addElement(abstractCase, abstractCase.constants, abstractCase.minima, abstractCase.maxima)
+#                        self.aCTree = Tree()
+#                        self.aCTree.addElements(self.abstractCases.values())                        
+#                        self.aCTree.removeElement(abstractCase)
+#                        self.aCTree.addElement(abstractCase, abstractCase.constants, abstractCase.minima, abstractCase.maxima)
                     pass      
                 else:
                     print "Correct case was selected!!!!"
@@ -199,10 +201,9 @@ class ModelCBR(object):
             self.cases.append(newCase)
             self.numACs += 1
             self.abstractCases[abstractCase.id] = abstractCase
-            self.aCTree = Tree()
-            for ac in self.abstractCases.values():
-                self.aCTree.addElement(ac, ac.constants, ac.minima, ac.maxima)
-            
+#            self.aCTree = Tree()
+#            self.aCTree.addElements(self.abstractCases.values())
+#            
         
 
 #        s = "\n".join([str(ac.variables) + ", " + str(ac.minima) + ", " + str(ac.maxima) for ac in self.abstractCases.values()])

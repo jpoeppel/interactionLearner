@@ -20,7 +20,7 @@ from metrics import differences
 from common import GAZEBOCMDS as GZCMD
 from sklearn.gaussian_process import GaussianProcess
 from topoMaps import ITM
-from network import Node
+from network import Node, Tree
 import copy
 import math
 from sets import Set
@@ -174,9 +174,14 @@ class InteractionState(State):
                      
     def fill(self, o2):
         assert isinstance(o2, ObjectState), "{} (o2) is not an ObjectState!".format(o2)
-        self["dist"] = np.linalg.norm(self["spos"]-o2["pos"])
+
+
+#        self["dist"] = np.linalg.norm(self["spos"]-o2["pos"])
+        self["dist"] = self.computeDistance(o2)
+#        print "distance from {} to {}: {}".format(self["sid"], self["oid"], self["dist"])
         self["dir"] = o2["pos"]-self["spos"]
-        self["dir"] /= self["dist"] # make direction unit vector
+#        self["dir"] /= self["dist"] # make direction unit vector
+#        self["dir"] /= np.linalg.norm(self["dir"])
         self["oid"] = o2["id"]
         self["oname"] = o2["name"]
         self["otype"] = o2["type"]
@@ -185,7 +190,41 @@ class InteractionState(State):
         self["dangVel"] = o2["angVel"] - self["sangVel"]
         if o2["contact"] == self["sname"]:
             self["contact"] = 1
-    
+            
+    def computeDistance(self, o2):
+        if self["sid"] == 8:
+            mp = o2["pos"]
+            mp[2] = self["spos"][2]
+            sign = o2["orientation"][2]
+            c = o2["orientation"][3]
+            s = math.sin(math.acos(o2["orientation"][3]))
+            x0x,x0y,x0z = self["spos"]
+        elif self["sid"] == 15:
+            mp = self["spos"]
+            mp[2] = o2["pos"][2]
+            sign = self["sori"][2]
+            c = self["sori"][3]
+            s = math.sin(math.acos(self["sori"][3]))
+            x0x,x0y,x0z = o2["pos"]
+            
+        if sign != 0:
+            s *= sign/abs(sign)
+        x1x = -0.25
+        x1y = -0.05
+        x2x = 0.25
+        x2y = -0.05
+        x1xn = x1x*c - x1y*s
+        x1yn = x1x*s + x1y*c
+        x2xn = x2x*c - x2y*s
+        x2yn = x2x*s + x2y*c
+        x1n = np.array([x1xn,x1yn,0]) + mp
+        x2n = np.array([x2xn,x2yn,0]) + mp
+        
+#        print "x1n: {}, x2n: {}".format(x1n,x2n)
+        d = abs((x2n[0]-x1n[0])*(x1n[1]-x0y)-(x1n[0]-x0x)*(x2n[1]-x1n[1]))/math.sqrt((x2n[0]-x1n[0])**2+(x2n[1]-x1n[1])**2)
+#            d = np.linalg.norm(np.cross(x2n-x1n, x1n-self["spos"]))/np.linalg.norm(x2n-x1n)
+        return d - 0.025
+            
 class Action(State):
     
     def __init__(self, cmd=GZCMD["NOTHING"], direction=np.array([0.0,0.0,0.0])):
@@ -217,7 +256,7 @@ class WorldState(object):
                 continue
             else:
                 tmp = ObjectState()
-                tmp["pos"] = np.round(np.array([m.pose.position.x,m.pose.position.y,m.pose.position.z]), NUMDEC)
+                tmp["pos"] = np.round(np.array([m.pose.position.x,m.pose.position.y,m.pose.position.z]), NUMDEC) #/ 2.0
                 tmp["orientation"]  = np.round(np.array([m.pose.orientation.x,m.pose.orientation.y,
                                             m.pose.orientation.z,m.pose.orientation.w]), NUMDEC)
                 tmp["linVel"] = np.round(np.array([m.linVel.x,m.linVel.y,m.linVel.z]), NUMDEC)
@@ -698,6 +737,7 @@ class ModelCBR(object):
         self.target = None
         self.weights = {}
         
+        
     def getAction(self, state):
 
         print "target: ", self.target
@@ -767,6 +807,21 @@ class ModelCBR(object):
         self.target = postState
     
     def getBestCase(self, state, action):
+        
+
+#        values = dict(state.relevantItems()+action.relevantItems())
+#        bestCases = self.acTree.getElements(values)
+#        
+#        bestCase = None
+#        if bestCases != None:
+#            print "len pockets: ", len(bestCases)
+#            print "consts of all elements in pocket: ", [c.constants for c in bestCases]
+#            scoreList = [(c,c.score(state,action)) for c in bestCases]
+#            sortedList = sorted(scoreList, key=itemgetter(1), reverse=True) 
+#            if len(sortedList) > 0:
+#                bestCase = sortedList[0][0]        
+        
+        
         bestCase = None
         scoreList = [(c,c.score(state,action)) for c in self.abstractCases]
 #        scoreList = [(c.abstCase,c.score(state,action)) for c in self.cases]
@@ -778,7 +833,8 @@ class ModelCBR(object):
             bestCase = sortedList[0][0]
         if isinstance(bestCase, AbstractCase):
 #            print "bestCase #refs: ", len(bestCase.refCases)
-#            print "bestCase variables: ", bestCase.variables
+            print "bestCase variables: ", bestCase.variables
+            print "bestCase constants: ", bestCase.constants
             if bestCase.variables == []:
                 self.numZeroCase += 1
 #            print "bestCase preConditions: ", bestCase.preCons
@@ -855,12 +911,12 @@ class ModelCBR(object):
                 usedCase.updatePredictionScore(predictionScore)
                 self.numCorrectCase += 1
             else:
-                with open('wrongCases.txt','a') as f:
-                    correctScore = abstractCase.score(state,action) if abstractCase != None else -1
-                    numConstants = len(abstractCase.constants) if abstractCase != None else -1
-                    s = "CorrectSet: {}, Score: {}, numConstants: {}, SelectedSet: {}, Score: {}, numConstants: {} \n".format(attribSet, correctScore, 
-                        numConstants, usedCase.variables, usedCase.score(state,action), len(usedCase.constants))
-                    f.write(s)
+#                with open('wrongCases.txt','a') as f:
+#                    correctScore = abstractCase.score(state,action) if abstractCase != None else -1
+#                    numConstants = len(abstractCase.constants) if abstractCase != None else -1
+#                    s = "CorrectSet: {}, Score: {}, numConstants: {}, SelectedSet: {}, Score: {}, numConstants: {} \n".format(attribSet, correctScore, 
+#                        numConstants, usedCase.variables, usedCase.score(state,action), len(usedCase.constants))
+#                    f.write(s)
                 usedCase.addErrorCase(newCase)
                 pass
 #                if abstractCase != None:

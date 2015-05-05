@@ -50,7 +50,7 @@ MODE = PUSHTASKSIMULATION
 
 
 
-NUM_TRAIN_RUNS = 20
+NUM_TRAIN_RUNS = 30
 NUM_TEST_RUNS = 100
 
 class GazeboInterface():
@@ -62,7 +62,7 @@ class GazeboInterface():
          
         self.active = True
         self.lastState = None
-        self.worldModel = model6.ModelCBR()
+        self.worldModel = model.ModelCBR()
         self.lastPrediction = None
         self.lastAction = model.Action()
         
@@ -182,9 +182,9 @@ class GazeboInterface():
         msg = modelState_pb2.ModelState()
         msg.name = name
         msg.id = 99
-        msg.pose.position.x = pos[0]
-        msg.pose.position.y = pos[1]
-        msg.pose.position.z = pos[2]
+        msg.pose.position.x = pos[0] #* 2.0
+        msg.pose.position.y = pos[1] #* 2.0
+        msg.pose.position.z = pos[2] #* 2.0
         msg.pose.orientation.x = ori[0]
         msg.pose.orientation.y = ori[1]
         msg.pose.orientation.z = ori[2]
@@ -254,7 +254,7 @@ class GazeboInterface():
             return True
         return False
 
-    def startRun(self):
+    def startRun(self, randomRange=0.5):
         """
         Function to start a new Run. This means that the inital action is set and the first
         prediction is made.
@@ -263,7 +263,7 @@ class GazeboInterface():
         
         self.runStarted = True
          #Set up Starting position
-        posX = np.random.rand()*0.5-0.25
+        posX = ((np.random.rand()-0.5)*randomRange) #* 0.5
         self.sendPose("gripper", np.array([posX,0.0,0.0]), np.array([0.0,0.0,0.0,0.0]))
         self.stepCounter = 0
         
@@ -357,13 +357,15 @@ class GazeboInterface():
         print "num abstract cases: " + str(len(self.worldModel.abstractCases))
         
         if self.runStarted:
-            if self.trainRun > NUM_TRAIN_RUNS and self.lastPrediction != None:
-                worldState = self.lastPrediction
             if self.runEnded(worldState):
                 self.resetWorld()
                 self.runStarted = False
         else:
-            self.startRun()
+            if self.testRun > 0:
+                print "bigger starting variance"
+                self.startRun(0.8)
+            else:
+                self.startRun(0.8)
             return
             
         if self.trainRun < NUM_TRAIN_RUNS:

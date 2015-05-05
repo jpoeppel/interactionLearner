@@ -49,6 +49,8 @@ MODE = PUSHTASKSIMULATION
 #MODE = FREE_EXPLORATION
 
 
+RANDOM_BLOCK_ORI = False
+#RANDOM_BLOCK_ORI = True
 
 NUM_TRAIN_RUNS = 30
 NUM_TEST_RUNS = 100
@@ -265,6 +267,8 @@ class GazeboInterface():
          #Set up Starting position
         posX = ((np.random.rand()-0.5)*randomRange) #* 0.5
         self.sendPose("gripper", np.array([posX,0.0,0.0]), np.array([0.0,0.0,0.0,0.0]))
+        if RANDOM_BLOCK_ORI:
+            self.sendPose("blockA", np.array([0.0, 0.5, 0.05]) , np.array([0.0,0.0,1.0,np.random.rand()-0.5]))
         self.stepCounter = 0
         
     def updateTmpErrors(self, worldState):
@@ -363,9 +367,9 @@ class GazeboInterface():
         else:
             if self.testRun > 0:
                 print "bigger starting variance"
-                self.startRun(0.8)
+                self.startRun(0.7)
             else:
-                self.startRun(0.8)
+                self.startRun(0.7)
             return
             
         if self.trainRun < NUM_TRAIN_RUNS:

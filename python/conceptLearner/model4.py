@@ -176,8 +176,8 @@ class InteractionState(State):
         assert isinstance(o2, ObjectState), "{} (o2) is not an ObjectState!".format(o2)
 
 
-#        self["dist"] = np.linalg.norm(self["spos"]-o2["pos"])
-        self["dist"] = self.computeDistance(o2)
+        self["dist"] = np.linalg.norm(self["spos"]-o2["pos"])
+#        self["dist"] = self.computeDistance(o2)
 #        print "distance from {} to {}: {}".format(self["sid"], self["oid"], self["dist"])
         self["dir"] = o2["pos"]-self["spos"]
 #        self["dir"] /= self["dist"] # make direction unit vector

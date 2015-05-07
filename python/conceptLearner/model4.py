@@ -175,10 +175,10 @@ class InteractionState(State):
     def fill(self, o2):
         assert isinstance(o2, ObjectState), "{} (o2) is not an ObjectState!".format(o2)
 
-
-        self["dist"] = np.linalg.norm(self["spos"]-o2["pos"])
-#        self["dist"] = self.computeDistance(o2)
-#        print "distance from {} to {}: {}".format(self["sid"], self["oid"], self["dist"])
+        print "own orientation: ", self["sori"]
+#        self["dist"] = np.linalg.norm(self["spos"]-o2["pos"])
+        self["dist"] = self.computeDistance(o2)
+        print "distance from {} to {}: {}".format(self["sid"], self["oid"], self["dist"])
         self["dir"] = o2["pos"]-self["spos"]
 #        self["dir"] /= self["dist"] # make direction unit vector
 #        self["dir"] /= np.linalg.norm(self["dir"])
@@ -196,17 +196,18 @@ class InteractionState(State):
             mp = o2["pos"]
             mp[2] = self["spos"][2]
             sign = o2["orientation"][2]
-            c = o2["orientation"][3]
-            s = math.sin(math.acos(o2["orientation"][3]))
+            ang = 2.0*math.acos(o2["orientation"][3])
+            
             x0x,x0y,x0z = self["spos"]
         elif self["sid"] == 15:
             mp = self["spos"]
             mp[2] = o2["pos"][2]
             sign = self["sori"][2]
-            c = self["sori"][3]
-            s = math.sin(math.acos(self["sori"][3]))
+            ang = 2.0*math.acos(self["sori"][3])
             x0x,x0y,x0z = o2["pos"]
             
+        c = math.cos(ang)
+        s = math.sin(ang)
         if sign != 0:
             s *= sign/abs(sign)
         x1x = -0.25
@@ -823,8 +824,8 @@ class ModelCBR(object):
         
         
         bestCase = None
-        scoreList = [(c,c.score(state,action)) for c in self.abstractCases]
-#        scoreList = [(c.abstCase,c.score(state,action)) for c in self.cases]
+#        scoreList = [(c,c.score(state,action)) for c in self.abstractCases]
+        scoreList = [(c.abstCase,c.score(state,action)) for c in self.cases]
         
 #        sortedList = sorted(self.abstractCases, key=methodcaller('score', state, action), reverse= True)
         sortedList = sorted(scoreList, key=itemgetter(1), reverse=True) 

@@ -143,6 +143,32 @@ class ObjectState(State):
                          "angVel": np.zeros(3), "contact": None})
         self.relKeys = self.keys()
         
+    def getTranformationMatrix(self):
+        px,py,pz = self["pos"]
+        x,y,z,w = self["orientation"]
+        y = -y
+        z = -z
+        w = -w
+        return np.matrix([[1-2*y*y-2*z*z, 2*x*y + 2*w*z, 2*x*z - 2*w*y, -px],[2*x*y-2*w*z, 1-2*x*x-2*z*z, 2*y*z+2*w*x, -py],
+                          [2*x*z+2*w*y,2*y*z-2*w*x, 1-2*x*x-2*y*y, -pz],[0.0,0.0,0.0,1.0]])
+                          
+    def transform(self, matrix, q1):
+        print "calling transform for: ", self["name"]
+        tmpPos = np.matrix(np.concatenate((self["pos"],[1])))
+        print "tmpPos: {}, matrix: {}".format(tmpPos, matrix)
+        self["pos"] = np.array((matrix*tmpPos.T)[:3]).flatten()
+        print "result: ", self["pos"]
+        q2 = self["orientation"]
+        self["orientation"] = np.array([q1[0]*q2[3]+q1[1]*q2[2]-q1[2]*q2[1]+q1[3]*q2[0],
+                                -q1[0]*q2[2]+q1[1]*q2[3]+q1[2]*q2[0]+q1[3]*q2[1],
+                                q1[0]*q2[1]-q1[1]*q2[0]+q1[2]*q2[3]+q1[3]*q2[2],
+                                -q1[0]*q2[0]-q1[1]*q2[1]-q1[2]*q2[2]+q1[3]*q2[3]])
+        tmplV = np.matrix(np.concatenate((self["linVel"],[0])))
+        self["linVel"] = np.array((matrix*tmplV.T)[:3]).flatten()
+        tmpaV = np.matrix(np.concatenate((self["angVel"],[0])))
+        self["angVel"] = np.array((matrix*tmpaV.T)[:3]).flatten()
+        
+        
 class InteractionState(State):
     
     def __init__(self, intId, o1):
@@ -170,15 +196,16 @@ class InteractionState(State):
 #        self.weights["spos"] = 0.5
 #        self.weights["dist"] = 2
 #        self.weights["dir"] = 2
-        
+                   
+                    
                      
     def fill(self, o2):
         assert isinstance(o2, ObjectState), "{} (o2) is not an ObjectState!".format(o2)
+                    
 
-        print "own orientation: ", self["sori"]
 #        self["dist"] = np.linalg.norm(self["spos"]-o2["pos"])
         self["dist"] = self.computeDistance(o2)
-        print "distance from {} to {}: {}".format(self["sid"], self["oid"], self["dist"])
+#        print "distance from {} to {}: {}".format(self["sid"], self["oid"], self["dist"])
         self["dir"] = o2["pos"]-self["spos"]
 #        self["dir"] /= self["dist"] # make direction unit vector
 #        self["dir"] /= np.linalg.norm(self["dir"])
@@ -220,7 +247,7 @@ class InteractionState(State):
         x2yn = x2x*s + x2y*c
         x1n = np.array([x1xn,x1yn,0]) + mp
         x2n = np.array([x2xn,x2yn,0]) + mp
-        
+#        print "mp: ", mp
 #        print "x1n: {}, x2n: {}".format(x1n,x2n)
         d = abs((x2n[0]-x1n[0])*(x1n[1]-x0y)-(x1n[0]-x0x)*(x2n[1]-x1n[1]))/math.sqrt((x2n[0]-x1n[0])**2+(x2n[1]-x1n[1])**2)
 #            d = np.linalg.norm(np.cross(x2n-x1n, x1n-self["spos"]))/np.linalg.norm(x2n-x1n)
@@ -242,6 +269,8 @@ class WorldState(object):
         self.interactionStates = {}
         self.numIntStates = 0
         self.predictionCases = {}
+        self.transM = None
+        self.quat = None
 
     def addInteractionState(self, intState, usedCase = None):
 #        print "adding interactionState: ", intState["intId"]
@@ -251,6 +280,7 @@ class WorldState(object):
         self.predictionCases[intState["intId"]] = usedCase
     
     def parseModels(self, models):
+        
         for m in models:
             if m.name == "ground_plane" or "wall" in m.name or "Shadow" in m.name:
                 #Do not model the ground plane or walls for now
@@ -268,17 +298,21 @@ class WorldState(object):
                 tmp["type"] = m.type
                 self.objectStates[m.name] = tmp
                 
-#            if m.name == "blockA":
+                if m.name == "blockA":
+                    self.transM = tmp.getTranformationMatrix()
+                    self.quat = tmp["orientation"]
 #                print "BlockA angVel: ", tmp["angVel"]
                 
     def parseInteractions(self, ws):
         tmpList = self.objectStates.values()
+        for o in tmpList:
+            o.transform(self.transM, self.quat)
         for o1 in self.objectStates.values():
 #            print "interactionState for o1: ", o1
             intState = InteractionState(self.numIntStates, o1)
 #            self.addInteractionState(intState)
             for o2 in tmpList:
-                if not np.array_equal(o1,o2):                    
+                if not np.array_equal(o1,o2):             
                     intState.fill(o2)
                     self.addInteractionState(intState)
 #                    
@@ -297,6 +331,8 @@ class WorldState(object):
         self.parseModels(gzWS.model_v.models)
         self.parseContacts(gzWS.contacts.contact)
         self.parseInteractions(gzWS)
+        
+        print "InteractionStates: ", self.interactionStates.values()
 
     def getInteractionState(self, sname):
         for i in self.interactionStates.values():
@@ -824,8 +860,8 @@ class ModelCBR(object):
         
         
         bestCase = None
-#        scoreList = [(c,c.score(state,action)) for c in self.abstractCases]
-        scoreList = [(c.abstCase,c.score(state,action)) for c in self.cases]
+        scoreList = [(c,c.score(state,action)) for c in self.abstractCases]
+#        scoreList = [(c.abstCase,c.score(state,action)) for c in self.cases]
         
 #        sortedList = sorted(self.abstractCases, key=methodcaller('score', state, action), reverse= True)
         sortedList = sorted(scoreList, key=itemgetter(1), reverse=True) 
@@ -861,6 +897,8 @@ class ModelCBR(object):
     def predict(self, worldState, action):
         
         predictionWs = WorldState()
+        predictionWs.transM = worldState.transM
+        predictionWs.quat = worldState.quat
         for intState in worldState.interactionStates.values():
             self.numPredictions += 1
 #            print "predicting for ", intState["intId"]

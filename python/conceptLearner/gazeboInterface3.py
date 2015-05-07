@@ -52,7 +52,7 @@ MODE = PUSHTASKSIMULATION
 RANDOM_BLOCK_ORI = False
 #RANDOM_BLOCK_ORI = True
 
-NUM_TRAIN_RUNS = 30
+NUM_TRAIN_RUNS = 10
 NUM_TEST_RUNS = 100
 
 class GazeboInterface():
@@ -159,11 +159,13 @@ class GazeboInterface():
         """
         msg = pygazebo.msg.modelState_v_pb2.ModelState_V()
         for intState in self.lastPrediction.interactionStates.values():
-            tmp = self.getModelState(intState["sname"] + "Shadow", intState["spos"], intState["sori"])
+            tmp = self.getModelState(intState["sname"] + "Shadow", intState["spos"], intState["sori"], 
+                                     self.lastPrediction.transM, self.lastPrediction.quat)
             msg.models.extend([tmp])
         self.posePublisher.publish(msg)
         
-    def getModelState(self, name, pos, ori):
+        
+    def getModelState(self, name, pos, ori, transM=None, quat=None):
         """
         Function to create a ModeLState object from a name and the desired position and orientation.
         
@@ -184,13 +186,42 @@ class GazeboInterface():
         msg = modelState_pb2.ModelState()
         msg.name = name
         msg.id = 99
-        msg.pose.position.x = pos[0] #* 2.0
-        msg.pose.position.y = pos[1] #* 2.0
-        msg.pose.position.z = pos[2] #* 2.0
-        msg.pose.orientation.x = ori[0]
-        msg.pose.orientation.y = ori[1]
-        msg.pose.orientation.z = ori[2]
-        msg.pose.orientation.w = ori[3]
+        print "getting model State for: ", name
+        if transM != None:
+#            matrix = np.matrix([[transM[0,0],transM[1,0], transM[2,0], -transM[0,3]],
+#                                [transM[0,1], transM[1,1], transM[2,1], -transM[1,3]],
+#                                [transM[0,2], transM[1,2], transM[2,2], -transM[2,3]],
+#                                [0.0,0.0,0.0,1.0]])
+            matrix = np.matrix(np.zeros((4,4)))
+            matrix[:3,:3] = transM[:3,:3].T
+            matrix[:3,3] = -transM[:3,:3].T*transM[:3,3]
+            matrix[3,3] = 1.0
+            print "Original matrix: {} \n, transpose: {}".format(transM, matrix)
+            tmpPos = np.matrix(np.concatenate((pos,[1])))
+            tpos = np.array((matrix*tmpPos.T)[:3]).flatten()   
+            print "OriginalPosition: {}, resulting position: {}".format(tmpPos, pos)
+            msg.pose.position.x = tpos[0] #* 2.0
+            msg.pose.position.y = tpos[1] #* 2.0
+            msg.pose.position.z = tpos[2] #* 2.0
+        else:
+            msg.pose.position.x = pos[0] #* 2.0
+            msg.pose.position.y = pos[1] #* 2.0
+            msg.pose.position.z = pos[2] #* 2.0
+        
+        if quat != None:
+            q2 = ori
+            q1 = quat
+            q1[:3] *= -1
+            print "q1: ", q1
+            msg.pose.orientation.x = q1[0]*q2[3]+q1[1]*q2[2]-q1[2]*q2[1]+q1[3]*q2[0]
+            msg.pose.orientation.y = -q1[0]*q2[2]+q1[1]*q2[3]+q1[2]*q2[0]+q1[3]*q2[1]
+            msg.pose.orientation.z = q1[0]*q2[1]-q1[1]*q2[0]+q1[2]*q2[3]+q1[3]*q2[2]
+            msg.pose.orientation.w = -q1[0]*q2[0]-q1[1]*q2[1]-q1[2]*q2[2]+q1[3]*q2[3]
+        else:
+            msg.pose.orientation.x = ori[0]
+            msg.pose.orientation.y = ori[1]
+            msg.pose.orientation.z = ori[2]
+            msg.pose.orientation.w = ori[3]
         return msg
         
     def sendPose(self, name, pos, ori):
@@ -269,6 +300,14 @@ class GazeboInterface():
         self.sendPose("gripper", np.array([posX,0.0,0.0]), np.array([0.0,0.0,0.0,0.0]))
         if RANDOM_BLOCK_ORI:
             self.sendPose("blockA", np.array([0.0, 0.5, 0.05]) , np.array([0.0,0.0,1.0,np.random.rand()-0.5]))
+        self.stepCounter = 0
+        
+    def startRun2(self, randomRange=0.5):
+        self.runStarted = True
+         #Set up Starting position
+        posy = ((np.random.rand()-0.5)*randomRange) #* 0.5
+        self.sendPose("gripper", np.array([0.0,posy,0.0]), np.array([0.0,0.0,0.0,0.0]))
+        self.sendPose("blockA", np.array([-0.5, 0.0, 0.05]) , np.array([0.0,0.0,1.0,1.0]))
         self.stepCounter = 0
         
     def updateTmpErrors(self, worldState):
@@ -365,11 +404,11 @@ class GazeboInterface():
                 self.resetWorld()
                 self.runStarted = False
         else:
-            if self.testRun > 0:
-                print "bigger starting variance"
-                self.startRun(0.7)
-            else:
-                self.startRun(0.7)
+#            if self.trainRun > NUM_TRAIN_RUNS-2:
+#                print "bigger starting variance"
+#                self.startRun2(0.7)
+#            else:
+            self.startRun(0.7)
             return
             
         if self.trainRun < NUM_TRAIN_RUNS:
@@ -414,6 +453,7 @@ class GazeboInterface():
         
         self.lastState = worldState
 #        if self.stepCounter == 1:
+#        if self.trainRun < NUM_TRAIN_RUNS-1:
         self.lastAction = model.Action(cmd = GAZEBOCMDS["MOVE"], direction=np.array([0.0,0.5,0.0]))
 #        else:
 #            self.lastAction = model.Action(cmd=GAZEBOCMDS["NOTHING"])

@@ -56,14 +56,12 @@ class AbstractCase(model4.AbstractCase):
         
         if ref in self.refCases:
             raise TypeError("ref already in refCases")
-        constChanged = False
 #        
 #        for k,v in ref.getListOfConstants() + ref.action.relevantItems():
         for k,v in ref.preState.relevantItems() + ref.action.relevantItems():
             if self.constants.has_key(k):
                 if np.linalg.norm(v-self.constants[k]) > 0.001:
                     del self.constants[k]
-                    constsChanged = True
             else:
                 if len(self.refCases) == 0:
                     self.constants[k] = v
@@ -75,9 +73,8 @@ class AbstractCase(model4.AbstractCase):
         self.refCases.append(ref)
         ref.abstCase = self
         self.updateGaussians(self.gaussians, len(self.refCases), ref)     
-        print "addRef has constChanged: ", constChanged
-        return constChanged
-
+#        return constChanged
+#
 class ModelCBR(object):
     
     def __init__(self):
@@ -130,10 +127,12 @@ class ModelCBR(object):
             for k in weightDic:
                 prediction = self.predictors[k].predict(np.concatenate((state.toVec(),action.toVec())))
                 if prediction != None:
-                    resultState[k] = state[k] + weightDic[k] * prediction
+                    resultState[k] = state[k] +  prediction #* weightDic[k] 
                 else:
                     resultState[k] = state[k] + bestCase.refCases[0].predict(state, action, k)
 
+        if resultState["sname"] == "gripper":
+            print "Predicted gripper state: ", resultState
         return resultState, bestCase
     
     def predict(self, worldState, action):
@@ -168,7 +167,7 @@ class ModelCBR(object):
         if abstractCase != None:
             if predictionScore < PREDICTIONTHRESHOLD:
                 abstractCase.updateWeights(prediction, result)
-                
+                abstractCase.addRef(newCase)
             if usedCase != None:
                 if usedCase.variables != attribSet:
                     constChanged = False

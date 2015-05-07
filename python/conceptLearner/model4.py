@@ -146,23 +146,27 @@ class ObjectState(State):
     def getTranformationMatrix(self):
         px,py,pz = self["pos"]
         x,y,z,w = self["orientation"]
-        y = -y
-        z = -z
-        w = -w
-        return np.matrix([[1-2*y*y-2*z*z, 2*x*y + 2*w*z, 2*x*z - 2*w*y, -px],[2*x*y-2*w*z, 1-2*x*x-2*z*z, 2*y*z+2*w*x, -py],
-                          [2*x*z+2*w*y,2*y*z-2*w*x, 1-2*x*x-2*y*y, -pz],[0.0,0.0,0.0,1.0]])
+        return np.matrix([[1-2*y*y-2*z*z, 2*x*y + 2*w*z, 2*x*z - 2*w*y, px],[2*x*y-2*w*z, 1-2*x*x-2*z*z, 2*y*z+2*w*x, py],
+                          [2*x*z+2*w*y,2*y*z-2*w*x, 1-2*x*x-2*y*y, pz],[0.0,0.0,0.0,1.0]])
                           
     def transform(self, matrix, q1):
         print "calling transform for: ", self["name"]
         tmpPos = np.matrix(np.concatenate((self["pos"],[1])))
-        print "tmpPos: {}, matrix: {}".format(tmpPos, matrix)
+#        print "tmpPos: {}, matrix: {}".format(tmpPos, matrix)
         self["pos"] = np.array((matrix*tmpPos.T)[:3]).flatten()
-        print "result: ", self["pos"]
+        print "original pos: {}, result pos: {}".format(tmpPos, self["pos"])
         q2 = self["orientation"]
-        self["orientation"] = np.array([q1[0]*q2[3]+q1[1]*q2[2]-q1[2]*q2[1]+q1[3]*q2[0],
-                                -q1[0]*q2[2]+q1[1]*q2[3]+q1[2]*q2[0]+q1[3]*q2[1],
-                                q1[0]*q2[1]-q1[1]*q2[0]+q1[2]*q2[3]+q1[3]*q2[2],
-                                -q1[0]*q2[0]-q1[1]*q2[1]-q1[2]*q2[2]+q1[3]*q2[3]])
+        q1[:3] *= -1
+#        self["orientation"] = np.array([q1[0]*q2[3]+q1[1]*q2[2]-q1[2]*q2[1]+q1[3]*q2[0],
+#                                -q1[0]*q2[2]+q1[1]*q2[3]+q1[2]*q2[0]+q1[3]*q2[1],
+#                                q1[0]*q2[1]-q1[1]*q2[0]+q1[2]*q2[3]+q1[3]*q2[2],
+#                                -q1[0]*q2[0]-q1[1]*q2[1]-q1[2]*q2[2]+q1[3]*q2[3]])
+        self["orientation"] = np.array([q1[0]*q2[1]+q1[1]*q2[0]+q1[2]*q2[3]-q1[3]*q2[2],
+                                q1[0]*q2[2]-q1[1]*q2[3]+q1[2]*q2[0]+q1[3]*q2[1],
+                                q1[0]*q2[3]+q1[1]*q2[2]-q1[2]*q2[1]+q1[3]*q2[0],
+                                q1[0]*q2[0]-q1[1]*q2[1]-q1[2]*q2[2]-q1[3]*q2[3]])
+        self["orientation"] /= np.linalg.norm(self["orientation"])
+        print "original ori: {}, resulting ori: {}".format(q2, self["orientation"])
         tmplV = np.matrix(np.concatenate((self["linVel"],[0])))
         self["linVel"] = np.array((matrix*tmplV.T)[:3]).flatten()
         tmpaV = np.matrix(np.concatenate((self["angVel"],[0])))
@@ -260,6 +264,10 @@ class Action(State):
         self.update({"cmd":int(round(cmd)), "mvDir": direction})
         State.__init__(self)
         self.relKeys = self.keys()
+        
+    def transform(self, matrix):
+        tmpMVDir = np.matrix(np.concatenate((self["mvDir"],[0])))
+        self["mvDir"] = np.array((matrix*tmpMVDir.T)[:3]).flatten()
 
         
 class WorldState(object):
@@ -270,6 +278,7 @@ class WorldState(object):
         self.numIntStates = 0
         self.predictionCases = {}
         self.transM = None
+        self.invTrans = None
         self.quat = None
 
     def addInteractionState(self, intState, usedCase = None):
@@ -300,13 +309,18 @@ class WorldState(object):
                 
                 if m.name == "blockA":
                     self.transM = tmp.getTranformationMatrix()
+                    self.invTrans = np.matrix(np.zeros((4,4)))
+                    self.invTrans[:3,:3] = self.transM[:3,:3].T
+                    self.invTrans[:3,3] = -self.transM[:3,:3].T*self.transM[:3,3]
+                    self.invTrans[3,3] = 1.0
                     self.quat = tmp["orientation"]
+#                    self.quat[:3] *= -1
 #                print "BlockA angVel: ", tmp["angVel"]
                 
     def parseInteractions(self, ws):
         tmpList = self.objectStates.values()
         for o in tmpList:
-            o.transform(self.transM, self.quat)
+            o.transform(self.invTrans, self.quat)
         for o1 in self.objectStates.values():
 #            print "interactionState for o1: ", o1
             intState = InteractionState(self.numIntStates, o1)
@@ -821,9 +835,9 @@ class ModelCBR(object):
 #                return self.getAction(state)
                 
             
-        return self.getRandomAction()
+        return self.getRandomAction(state)
             
-    def getRandomAction(self):
+    def getRandomAction(self, state):
         print "getting random action"
         rnd = np.random.rand()
         a = Action()
@@ -899,13 +913,16 @@ class ModelCBR(object):
         predictionWs = WorldState()
         predictionWs.transM = worldState.transM
         predictionWs.quat = worldState.quat
+        transformedAction = copy.deepcopy(action)
+        transformedAction.transform(worldState.transM)
+        print "WorldState: ", worldState.interactionStates
         for intState in worldState.interactionStates.values():
             self.numPredictions += 1
 #            print "predicting for ", intState["intId"]
-            prediction, usedCase = self.predictIntState(intState, action)
+            prediction, usedCase = self.predictIntState(intState, transformedAction)
 #            print "predicted intId: ", prediction["intId"]
             predictionWs.addInteractionState(prediction, usedCase)
-#        print "resulting prediction: ", predictionWs.interactionStates
+        print "resulting prediction: ", predictionWs.interactionStates
         return predictionWs
         
     def updateState(self, state, action, prediction, result, usedCase):
@@ -918,7 +935,7 @@ class ModelCBR(object):
         result: Interaction
         usedCase: AbstractCase
         """
-        
+
         if self.target != None and self.target["sname"] == result["sname"]:
             if result.score(self.target) > TARGETTHRESHOLD:
                 print "Target reached!"
@@ -1026,14 +1043,11 @@ class ModelCBR(object):
         for k in self.weights.keys():
             self.weights[k] /= norm
     
-    def update(self, state, action, prediction, result):
-        for intState in state.interactionStates.keys():
-            if not prediction.interactionStates.has_key(intState):
-                print "prediction: ", prediction.interactionStates
-            if not result.interactionStates.has_key(intState):
-                print "result: ", result.interactionStates
-            if not prediction.predictionCases.has_key(intState):
-                print "prediction.predictionCases: ", prediction.predictionCases
-            self.updateState(state.interactionStates[intState], action, prediction.interactionStates[intState], 
+    def update(self, worldState, action, prediction, result):
+        transformedAction = copy.deepcopy(action)
+        transformedAction.transform(worldState.transM)
+        #TODO Transform result state into the same coordinate system as worldState is in, otherwise block will not have changed!!!
+        for intState in worldState.interactionStates.keys():
+            self.updateState(worldState.interactionStates[intState], transformedAction, prediction.interactionStates[intState], 
                              result.interactionStates[intState], prediction.predictionCases[intState])
         

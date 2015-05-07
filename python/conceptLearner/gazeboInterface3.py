@@ -186,20 +186,17 @@ class GazeboInterface():
         msg = modelState_pb2.ModelState()
         msg.name = name
         msg.id = 99
-        print "getting model State for: ", name
+#        print "getting model State for: ", name
         if transM != None:
-#            matrix = np.matrix([[transM[0,0],transM[1,0], transM[2,0], -transM[0,3]],
-#                                [transM[0,1], transM[1,1], transM[2,1], -transM[1,3]],
-#                                [transM[0,2], transM[1,2], transM[2,2], -transM[2,3]],
-#                                [0.0,0.0,0.0,1.0]])
-            matrix = np.matrix(np.zeros((4,4)))
-            matrix[:3,:3] = transM[:3,:3].T
-            matrix[:3,3] = -transM[:3,:3].T*transM[:3,3]
-            matrix[3,3] = 1.0
-            print "Original matrix: {} \n, transpose: {}".format(transM, matrix)
+            #Build inverse transformation matrix
+#            matrix = np.matrix(np.zeros((4,4)))
+#            matrix[:3,:3] = transM[:3,:3].T
+#            matrix[:3,3] = -transM[:3,:3].T*transM[:3,3]
+#            matrix[3,3] = 1.0
+##            print "Original matrix: {} \n, transpose: {}".format(transM, matrix)
             tmpPos = np.matrix(np.concatenate((pos,[1])))
-            tpos = np.array((matrix*tmpPos.T)[:3]).flatten()   
-            print "OriginalPosition: {}, resulting position: {}".format(tmpPos, pos)
+            tpos = np.array((transM*tmpPos.T)[:3]).flatten()   
+#            print "OriginalPosition: {}, resulting position: {}".format(tmpPos, pos)
             msg.pose.position.x = tpos[0] #* 2.0
             msg.pose.position.y = tpos[1] #* 2.0
             msg.pose.position.z = tpos[2] #* 2.0
@@ -211,12 +208,15 @@ class GazeboInterface():
         if quat != None:
             q2 = ori
             q1 = quat
-            q1[:3] *= -1
-            print "q1: ", q1
-            msg.pose.orientation.x = q1[0]*q2[3]+q1[1]*q2[2]-q1[2]*q2[1]+q1[3]*q2[0]
-            msg.pose.orientation.y = -q1[0]*q2[2]+q1[1]*q2[3]+q1[2]*q2[0]+q1[3]*q2[1]
-            msg.pose.orientation.z = q1[0]*q2[1]-q1[1]*q2[0]+q1[2]*q2[3]+q1[3]*q2[2]
-            msg.pose.orientation.w = -q1[0]*q2[0]-q1[1]*q2[1]-q1[2]*q2[2]+q1[3]*q2[3]
+#            q1[:3] *= -1
+#            msg.pose.orientation.x = q1[0]*q2[3]+q1[1]*q2[2]-q1[2]*q2[1]+q1[3]*q2[0]
+#            msg.pose.orientation.y = -q1[0]*q2[2]+q1[1]*q2[3]+q1[2]*q2[0]+q1[3]*q2[1]
+#            msg.pose.orientation.z = q1[0]*q2[1]-q1[1]*q2[0]+q1[2]*q2[3]+q1[3]*q2[2]
+#            msg.pose.orientation.w = -q1[0]*q2[0]-q1[1]*q2[1]-q1[2]*q2[2]+q1[3]*q2[3]
+            msg.pose.orientation.x = q1[0]*q2[1]+q1[1]*q2[0]+q1[2]*q2[3]-q1[3]*q2[2]
+            msg.pose.orientation.y = q1[0]*q2[2]-q1[1]*q2[3]+q1[2]*q2[0]+q1[3]*q2[1]
+            msg.pose.orientation.z = q1[0]*q2[3]+q1[1]*q2[2]-q1[2]*q2[1]+q1[3]*q2[0]
+            msg.pose.orientation.w = q1[0]*q2[0]-q1[1]*q2[1]-q1[2]*q2[2]-q1[3]*q2[3]
         else:
             msg.pose.orientation.x = ori[0]
             msg.pose.orientation.y = ori[1]
@@ -283,7 +283,14 @@ class GazeboInterface():
             The current world state.
         """
         gripperInt = worldState.getInteractionState("gripper")
-        if np.linalg.norm(gripperInt["spos"]) > 1.0 or self.stepCounter > 50:
+#        matrix = np.matrix(np.zeros((4,4)))
+#        matrix[:3,:3] = worldState.transM[:3,:3].T
+#        matrix[:3,3] = -worldState.transM[:3,:3].T*worldState.transM[:3,3]
+#        matrix[3,3] = 1.0
+        tmpPos = np.matrix(np.concatenate((gripperInt["spos"],[1])))
+        tpos = np.array((worldState.transM*tmpPos.T)[:3]).flatten()   
+        
+        if np.linalg.norm(tpos) > 1.0 or self.stepCounter > 50:
             return True
         return False
 
@@ -434,7 +441,8 @@ class GazeboInterface():
         else:
             self.pauseWorld()
         
-        print "% correctCase selected: ", self.worldModel.numCorrectCase/(float)(self.worldModel.numPredictions)
+        if self.worldModel.numPredictions > 0:
+            print "% correctCase selected: ", self.worldModel.numCorrectCase/(float)(self.worldModel.numPredictions)
         print "numPredictions: ", self.worldModel.numPredictions
         
             
@@ -449,7 +457,7 @@ class GazeboInterface():
             The current world state
         """
         if self.lastPrediction != None:
-            self.worldModel.update(self.lastState, self.lastAction,self.lastPrediction, worldState)
+            self.worldModel.update(self.lastState, self.lastAction, self.lastPrediction, worldState)
         
         self.lastState = worldState
 #        if self.stepCounter == 1:

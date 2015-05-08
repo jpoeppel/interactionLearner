@@ -150,23 +150,30 @@ class ObjectState(State):
                           [2*x*z+2*w*y,2*y*z-2*w*x, 1-2*x*x-2*y*y, pz],[0.0,0.0,0.0,1.0]])
                           
     def transform(self, matrix, q1):
-        print "calling transform for: ", self["name"]
+#        print "calling transform for: ", self["name"]
         tmpPos = np.matrix(np.concatenate((self["pos"],[1])))
 #        print "tmpPos: {}, matrix: {}".format(tmpPos, matrix)
         self["pos"] = np.array((matrix*tmpPos.T)[:3]).flatten()
-        print "original pos: {}, result pos: {}".format(tmpPos, self["pos"])
+#        print "original pos: {}, result pos: {}".format(tmpPos, self["pos"])
         q2 = self["orientation"]
         q1[:3] *= -1
 #        self["orientation"] = np.array([q1[0]*q2[3]+q1[1]*q2[2]-q1[2]*q2[1]+q1[3]*q2[0],
 #                                -q1[0]*q2[2]+q1[1]*q2[3]+q1[2]*q2[0]+q1[3]*q2[1],
 #                                q1[0]*q2[1]-q1[1]*q2[0]+q1[2]*q2[3]+q1[3]*q2[2],
 #                                -q1[0]*q2[0]-q1[1]*q2[1]-q1[2]*q2[2]+q1[3]*q2[3]])
-        self["orientation"] = np.array([q1[0]*q2[1]+q1[1]*q2[0]+q1[2]*q2[3]-q1[3]*q2[2],
-                                q1[0]*q2[2]-q1[1]*q2[3]+q1[2]*q2[0]+q1[3]*q2[1],
-                                q1[0]*q2[3]+q1[1]*q2[2]-q1[2]*q2[1]+q1[3]*q2[0],
-                                q1[0]*q2[0]-q1[1]*q2[1]-q1[2]*q2[2]-q1[3]*q2[3]])
-        self["orientation"] /= np.linalg.norm(self["orientation"])
-        print "original ori: {}, resulting ori: {}".format(q2, self["orientation"])
+#        self["orientation"] = np.array([q1[0]*q2[1]+q1[1]*q2[0]+q1[2]*q2[3]-q1[3]*q2[2],
+#                                q1[0]*q2[2]-q1[1]*q2[3]+q1[2]*q2[0]+q1[3]*q2[1],
+#                                q1[0]*q2[3]+q1[1]*q2[2]-q1[2]*q2[1]+q1[3]*q2[0],
+#                                q1[0]*q2[0]-q1[1]*q2[1]-q1[2]*q2[2]-q1[3]*q2[3]])
+        newOri = np.zeros(4)
+        newOri[0] = q1[0]*q2[3]+q1[1]*q2[2]-q1[2]*q2[1]+q1[3]*q2[0]
+        newOri[1] = -q1[0]*q2[2]+q1[1]*q2[3]+q1[2]*q2[0]+q1[3]*q2[1]
+        newOri[2] = q1[0]*q2[1]-q1[1]*q2[0]+q1[2]*q2[3]+q1[3]*q2[2]
+        newOri[3] = -q1[0]*q2[0]-q1[1]*q2[1]-q1[2]*q2[2]+q1[3]*q2[3]
+        newOri /= np.linalg.norm(newOri)
+#        self["orientation"] /= np.linalg.norm(self["orientation"])
+        self["orientation"] = newOri
+#        print "original ori: {}, resulting ori: {}".format(q2, self["orientation"])
         tmplV = np.matrix(np.concatenate((self["linVel"],[0])))
         self["linVel"] = np.array((matrix*tmplV.T)[:3]).flatten()
         tmpaV = np.matrix(np.concatenate((self["angVel"],[0])))
@@ -272,14 +279,14 @@ class Action(State):
         
 class WorldState(object):
     
-    def __init__(self):
+    def __init__(self, transM = None, invTrans = None, quat = None):
         self.objectStates = {}
         self.interactionStates = {}
         self.numIntStates = 0
         self.predictionCases = {}
-        self.transM = None
-        self.invTrans = None
-        self.quat = None
+        self.transM = transM
+        self.invTrans = invTrans
+        self.quat = quat
 
     def addInteractionState(self, intState, usedCase = None):
 #        print "adding interactionState: ", intState["intId"]
@@ -307,13 +314,13 @@ class WorldState(object):
                 tmp["type"] = m.type
                 self.objectStates[m.name] = tmp
                 
-                if m.name == "blockA":
+                if m.name == "blockA" and self.transM == None:
                     self.transM = tmp.getTranformationMatrix()
                     self.invTrans = np.matrix(np.zeros((4,4)))
                     self.invTrans[:3,:3] = self.transM[:3,:3].T
                     self.invTrans[:3,3] = -self.transM[:3,:3].T*self.transM[:3,3]
                     self.invTrans[3,3] = 1.0
-                    self.quat = tmp["orientation"]
+                    self.quat = np.copy(tmp["orientation"])
 #                    self.quat[:3] *= -1
 #                print "BlockA angVel: ", tmp["angVel"]
                 
@@ -345,14 +352,18 @@ class WorldState(object):
         self.parseModels(gzWS.model_v.models)
         self.parseContacts(gzWS.contacts.contact)
         self.parseInteractions(gzWS)
-        
-        print "InteractionStates: ", self.interactionStates.values()
+#        
+#        print "InteractionStates: ", self.interactionStates.values()
 
     def getInteractionState(self, sname):
         for i in self.interactionStates.values():
             if i["sname"] == sname:
                 return i
         return None    
+        
+    def retransform(self):
+        blockState = self.getInteractionState("blockA")
+        
 
 class BaseCase(object):
     
@@ -467,7 +478,7 @@ class AbstractCase(object):
 #            print "resultState intId after: ", resultState["intId"]
             
         else:
-            print "predicting with only one ref"
+#            print "predicting with only one ref"
             for k in self.variables:
                 resultState[k] = state[k] + self.refCases[0].predict(state, action, k)
 #            prediction= self.refCases[0].predict(state,action)
@@ -754,7 +765,7 @@ class AbstractCase(object):
         else:
             intState = worldState.getInteractionState("gripper")
             
-        print "choosing state with name: ", intState["sname"]
+#        print "choosing state with name: ", intState["sname"]
         target = copy.deepcopy(intState)
         for k in self.variables:
             if hasattr(target[k], "__len__"):
@@ -808,11 +819,11 @@ class ModelCBR(object):
                         action = ac.getAction(gripperInt,variables, self.target.weights, dif)
                         prediction = ac.predict(gripperInt, action)
                         score = self.target.score(prediction)#*ac.avgPrediction
-                        print "abstract case: ", ac.variables
-                        print "ac avgPrediction: ", ac.avgPrediction
-                        print "numPredictions: ", ac.numPredictions
-                        print "predicted pos: ", prediction["spos"]
-                        print "score to target: {}, for action: {}".format(score, action)                    
+#                        print "abstract case: ", ac.variables
+#                        print "ac avgPrediction: ", ac.avgPrediction
+#                        print "numPredictions: ", ac.numPredictions
+#                        print "predicted pos: ", prediction["spos"]
+#                        print "score to target: {}, for action: {}".format(score, action)                    
                         if score > bestScore:
                             bestScore = score
                             bestAction = action
@@ -884,8 +895,8 @@ class ModelCBR(object):
             bestCase = sortedList[0][0]
         if isinstance(bestCase, AbstractCase):
 #            print "bestCase #refs: ", len(bestCase.refCases)
-            print "bestCase variables: ", bestCase.variables
-            print "bestCase constants: ", bestCase.constants
+#            print "bestCase variables: ", bestCase.variables
+#            print "bestCase constants: ", bestCase.constants
             if bestCase.variables == []:
                 self.numZeroCase += 1
 #            print "bestCase preConditions: ", bestCase.preCons
@@ -911,18 +922,18 @@ class ModelCBR(object):
     def predict(self, worldState, action):
         
         predictionWs = WorldState()
-        predictionWs.transM = worldState.transM
-        predictionWs.quat = worldState.quat
+        predictionWs.transM = np.copy(worldState.transM)
+        predictionWs.invTrans = np.copy(worldState.invTrans)
+        predictionWs.quat = np.copy(worldState.quat)
         transformedAction = copy.deepcopy(action)
         transformedAction.transform(worldState.transM)
-        print "WorldState: ", worldState.interactionStates
         for intState in worldState.interactionStates.values():
             self.numPredictions += 1
 #            print "predicting for ", intState["intId"]
             prediction, usedCase = self.predictIntState(intState, transformedAction)
 #            print "predicted intId: ", prediction["intId"]
             predictionWs.addInteractionState(prediction, usedCase)
-        print "resulting prediction: ", predictionWs.interactionStates
+#        print "resulting prediction: ", predictionWs.interactionStates
         return predictionWs
         
     def updateState(self, state, action, prediction, result, usedCase):
@@ -1007,13 +1018,13 @@ class ModelCBR(object):
 #                print "Incorrect case new weights: ", usedCase.weights
 #        if min(predictionRating.values()) < 0.95:
         if predictionScore < PREDICTIONTHRESHOLD:
-            print "adding Case"
-            print "Prediction rating was: ", predictionRating
+#            print "adding Case"
+#            print "Prediction rating was: ", predictionRating
 #            self.cases.append(newCase)
             
             if abstractCase != None:
                 
-                print "correctAbstractCase consts: ", abstractCase.constants
+#                print "correctAbstractCase consts: ", abstractCase.constants
                 #If an abstract case is found add the reference
                 try:
                     abstractCase.addRef(newCase)
@@ -1046,6 +1057,8 @@ class ModelCBR(object):
     def update(self, worldState, action, prediction, result):
         transformedAction = copy.deepcopy(action)
         transformedAction.transform(worldState.transM)
+        if np.all(worldState.transM != result.transM):
+            raise TypeError("Wrong coordinate system!")
         #TODO Transform result state into the same coordinate system as worldState is in, otherwise block will not have changed!!!
         for intState in worldState.interactionStates.keys():
             self.updateState(worldState.interactionStates[intState], transformedAction, prediction.interactionStates[intState], 

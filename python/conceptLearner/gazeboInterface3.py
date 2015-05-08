@@ -208,15 +208,16 @@ class GazeboInterface():
         if quat != None:
             q2 = ori
             q1 = quat
-#            q1[:3] *= -1
-#            msg.pose.orientation.x = q1[0]*q2[3]+q1[1]*q2[2]-q1[2]*q2[1]+q1[3]*q2[0]
-#            msg.pose.orientation.y = -q1[0]*q2[2]+q1[1]*q2[3]+q1[2]*q2[0]+q1[3]*q2[1]
-#            msg.pose.orientation.z = q1[0]*q2[1]-q1[1]*q2[0]+q1[2]*q2[3]+q1[3]*q2[2]
-#            msg.pose.orientation.w = -q1[0]*q2[0]-q1[1]*q2[1]-q1[2]*q2[2]+q1[3]*q2[3]
-            msg.pose.orientation.x = q1[0]*q2[1]+q1[1]*q2[0]+q1[2]*q2[3]-q1[3]*q2[2]
-            msg.pose.orientation.y = q1[0]*q2[2]-q1[1]*q2[3]+q1[2]*q2[0]+q1[3]*q2[1]
-            msg.pose.orientation.z = q1[0]*q2[3]+q1[1]*q2[2]-q1[2]*q2[1]+q1[3]*q2[0]
-            msg.pose.orientation.w = q1[0]*q2[0]-q1[1]*q2[1]-q1[2]*q2[2]-q1[3]*q2[3]
+            newOri = np.zeros(4)
+            newOri[0] = q1[0]*q2[3]+q1[1]*q2[2]-q1[2]*q2[1]+q1[3]*q2[0]
+            newOri[1] = -q1[0]*q2[2]+q1[1]*q2[3]+q1[2]*q2[0]+q1[3]*q2[1]
+            newOri[2] = q1[0]*q2[1]-q1[1]*q2[0]+q1[2]*q2[3]+q1[3]*q2[2]
+            newOri[3] = -q1[0]*q2[0]-q1[1]*q2[1]-q1[2]*q2[2]+q1[3]*q2[3]
+            newOri /= np.linalg.norm(newOri)
+            msg.pose.orientation.x = newOri[0]
+            msg.pose.orientation.y = newOri[1]
+            msg.pose.orientation.z = newOri[2]
+            msg.pose.orientation.w = newOri[3]
         else:
             msg.pose.orientation.x = ori[0]
             msg.pose.orientation.y = ori[1]
@@ -255,19 +256,25 @@ class GazeboInterface():
             Protobuf bytearray containing a list of models
         """
         worldState = worldState_pb2.WorldState.FromString(data)
-
-        w = model.WorldState()
+        if self.lastPrediction != None:
+#            print "Parsing worldState with last coordinate system."
+            resultWS = model.WorldState(self.lastPrediction.transM, self.lastPrediction.invTrans, self.lastPrediction.quat)
+            resultWS.parse(worldState)
+        else:
+            resultWS = None
+#        print "parsing new WorldState"
+        newWS = model.WorldState()
         
-        w.parse(worldState)
+        newWS.parse(worldState)
         
         if MODE == FREE_EXPLORATION:
-            self.randomExploration(w)
+            self.randomExploration(newWS, resultWS)
         elif MODE == PUSHTASK:
-            self.pushTask(w)
+            self.pushTask(newWS, resultWS)
         elif MODE == PUSHTASKSIMULATION:
-            self.pushTaskSimulation(w)
+            self.pushTaskSimulation(newWS, resultWS)
         elif MODE == MOVE_TO_TARGET:
-            self.moveToTarget(w)
+            self.moveToTarget(newWS, resultWS)
         else:
             raise AttributeError("Unknown MODE: ", MODE)
 
@@ -337,7 +344,7 @@ class GazeboInterface():
             self.tmpBlockErrorPos += np.linalg.norm(blockPrediction["spos"]-blockInt["spos"]) 
             self.tmpBlockErrorOri +=  np.linalg.norm(blockPrediction["sori"]-blockInt["sori"])
 
-    def pushTask(self, worldState):
+    def pushTask(self, worldState, resultState=None):
         """
         Task to push straight against a block for NUM_TRAIN_RUNS times to train the model,
         which is then tested for NUM_TEST_RUNS afterwards to compute the prediction error.
@@ -401,7 +408,7 @@ class GazeboInterface():
             self.blockErrorPos = 0.0
             self.blockErrorOri = 0.0
             
-    def pushTaskSimulation(self, worldState):
+    def pushTaskSimulation(self, worldState, resultState=None):
         self.stepCounter += 1
         print "num cases: " + str(len(self.worldModel.cases))
         print "num abstract cases: " + str(len(self.worldModel.abstractCases))
@@ -421,7 +428,7 @@ class GazeboInterface():
         if self.trainRun < NUM_TRAIN_RUNS:
             print "Train run #: ", self.trainRun
             if self.runStarted:
-                self.updateModel(worldState)
+                self.updateModel(worldState, resultState)
             else:
                 self.trainRun += 1
                 if self.trainRun == NUM_TRAIN_RUNS:
@@ -432,7 +439,10 @@ class GazeboInterface():
                 self.lastAction = model.Action(cmd = GAZEBOCMDS["MOVE"], direction=np.array([0.0,0.5,0.0]))
                 if self.lastPrediction != None:
                     worldState = self.lastPrediction
+                    #Retransform
+                    print "lastPrediction=worldState: ", worldState.interactionStates
                 self.lastPrediction = self.worldModel.predict(worldState, self.lastAction)
+                print "lastAction: ", self.lastAction
                 self.sendPrediction()
                 self.sendCommand(self.lastAction)
             else:
@@ -446,7 +456,7 @@ class GazeboInterface():
         print "numPredictions: ", self.worldModel.numPredictions
         
             
-    def updateModel(self, worldState):
+    def updateModel(self, worldState, resultState):
         """
         Function to perform the world update and get the next prediction.
         Currently action NOTHING is performed in here.
@@ -456,8 +466,8 @@ class GazeboInterface():
         worldState: mode.WorldState
             The current world state
         """
-        if self.lastPrediction != None:
-            self.worldModel.update(self.lastState, self.lastAction, self.lastPrediction, worldState)
+        if self.lastPrediction != None and resultState != None:
+            self.worldModel.update(self.lastState, self.lastAction, self.lastPrediction, resultState)
         
         self.lastState = worldState
 #        if self.stepCounter == 1:
@@ -469,7 +479,7 @@ class GazeboInterface():
         self.sendPrediction()
         self.sendCommand(self.lastAction)
 
-    def randomExploration(self, worldState):
+    def randomExploration(self, worldState, resultState):
         """
         Task to perform random/free exploration, driven by the model itself.
                 
@@ -480,7 +490,7 @@ class GazeboInterface():
             The current world state
         """
         if self.lastPrediction != None:
-            self.worldModel.update(self.lastState, self.lastAction,self.lastPrediction, worldState)
+            self.worldModel.update(self.lastState, self.lastAction,self.lastPrediction, resultState)
             
         tmp = self.worldModel.getAction(worldState)
         

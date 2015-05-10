@@ -156,7 +156,7 @@ class ObjectState(State):
         self["pos"] = np.array((matrix*tmpPos.T)[:3]).flatten()
 #        print "original pos: {}, result pos: {}".format(tmpPos, self["pos"])
         q2 = self["orientation"]
-        q1[:3] *= -1
+#        q1[:3] *= -1
 #        self["orientation"] = np.array([q1[0]*q2[3]+q1[1]*q2[2]-q1[2]*q2[1]+q1[3]*q2[0],
 #                                -q1[0]*q2[2]+q1[1]*q2[3]+q1[2]*q2[0]+q1[3]*q2[1],
 #                                q1[0]*q2[1]-q1[1]*q2[0]+q1[2]*q2[3]+q1[3]*q2[2],
@@ -178,6 +178,13 @@ class ObjectState(State):
         self["linVel"] = np.array((matrix*tmplV.T)[:3]).flatten()
         tmpaV = np.matrix(np.concatenate((self["angVel"],[0])))
         self["angVel"] = np.array((matrix*tmpaV.T)[:3]).flatten()
+        
+    def fromInteractionState(self, intState):
+        self.update({"id": intState["sid"], "name":intState["sname"], "pos":intState["spos"], 
+                     "orientation":intState["sori"], "linVel":intState["slinVel"], 
+                     "angVel": intState["sangVel"]})
+        if intState["contact"]:
+            self["contact"] = intState["oname"]
         
         
 class InteractionState(State):
@@ -305,7 +312,7 @@ class WorldState(object):
                 tmp = ObjectState()
                 tmp["pos"] = np.round(np.array([m.pose.position.x,m.pose.position.y,m.pose.position.z]), NUMDEC) #/ 2.0
                 tmp["orientation"]  = np.round(np.array([m.pose.orientation.x,m.pose.orientation.y,
-                                            m.pose.orientation.z,m.pose.orientation.w]), NUMDEC)
+                                            m.pose.orientation.z,m.pose.orientation.w]), 6)
                 tmp["linVel"] = np.round(np.array([m.linVel.x,m.linVel.y,m.linVel.z]), NUMDEC)
 #                print "name: {}, linVel: {}".format(m.name, tmp["linVel"])
                 tmp["angVel"] = np.round(np.array([m.angVel.x,m.angVel.y,m.angVel.z]), 1)
@@ -324,10 +331,12 @@ class WorldState(object):
 #                    self.quat[:3] *= -1
 #                print "BlockA angVel: ", tmp["angVel"]
                 
-    def parseInteractions(self, ws):
+    def parseInteractions(self):
         tmpList = self.objectStates.values()
         for o in tmpList:
-            o.transform(self.invTrans, self.quat)
+            q = self.quat
+            q[:3] *= -1
+            o.transform(self.invTrans, q)
         for o1 in self.objectStates.values():
 #            print "interactionState for o1: ", o1
             intState = InteractionState(self.numIntStates, o1)
@@ -351,7 +360,28 @@ class WorldState(object):
     def parse(self, gzWS):
         self.parseModels(gzWS.model_v.models)
         self.parseContacts(gzWS.contacts.contact)
-        self.parseInteractions(gzWS)
+        self.parseInteractions()
+        
+    def reset(self, worldState):
+        self.objectStates = {}
+        self.interactionStates = {}
+        for intState in worldState.interactionStates.values():
+            tmp = ObjectState()
+            tmp.fromInteractionState(intState)
+            
+            invq = worldState.quat
+            #Transform back to world coordinate system first
+            tmp.transform(worldState.transM, invq)
+            print "Tmp after back transformation: ", tmp
+            self.objectStates[tmp["name"]] = tmp
+            if tmp["name"] == "blockA":
+                self.transM = tmp.getTranformationMatrix()
+                self.invTrans = np.matrix(np.zeros((4,4)))
+                self.invTrans[:3,:3] = self.transM[:3,:3].T
+                self.invTrans[:3,3] = -self.transM[:3,:3].T*self.transM[:3,3]
+                self.invTrans[3,3] = 1.0
+                self.quat = np.copy(tmp["orientation"])
+        self.parseInteractions()
 #        
 #        print "InteractionStates: ", self.interactionStates.values()
 

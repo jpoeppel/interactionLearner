@@ -52,6 +52,9 @@ def getInverse(matrix):
 if __name__ == "__main__":
     transM = getTransformationMatrix(quatRot, trans)
     inv = getInverse(transM)
-    print transform(trans, quatRot, inv, quatRot)
+    a,b = transform(trans, quatRot, inv, quatRot)
+    q = quatRot
+    q[:3] *= -1
+    print transform(a+np.array([0.0,0.1,0.0]), b, transM, q)
     
     

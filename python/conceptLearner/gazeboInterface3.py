@@ -438,9 +438,9 @@ class GazeboInterface():
             if self.runStarted:
                 self.lastAction = model.Action(cmd = GAZEBOCMDS["MOVE"], direction=np.array([0.0,0.5,0.0]))
                 if self.lastPrediction != None:
-                    worldState = self.lastPrediction
+                    worldState.reset(self.lastPrediction)
                     #Retransform
-                    print "lastPrediction=worldState: ", worldState.interactionStates
+                    print "lastPrediction: {}, worldState: {} ".format(self.lastPrediction.interactionStates, worldState.interactionStates)
                 self.lastPrediction = self.worldModel.predict(worldState, self.lastAction)
                 print "lastAction: ", self.lastAction
                 self.sendPrediction()

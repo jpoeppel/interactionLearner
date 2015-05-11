@@ -48,7 +48,8 @@ similarities = {"dir": expS, "linVel": expS, "orientation": expS, "pos": expS,
            "type": equalS, "self": equalS, "other": equalS, "sname": equalS, 
            "oid": equalS, "sangVel": expS, "intId": zeroS, "dori": expS, "dlinVel":expS,
            "dangVel": expS, "mvDir": expS, "otype": equalS, "sangVel":expS, "sori": expS,
-           "spos": expS, "stype":equalS, "sid": equalS, "slinVel": expS, "oname": equalS}
+           "spos": expS, "stype":equalS, "sid": equalS, "slinVel": expS, "oname": equalS,
+           "euler": expS, "seuler": expS, "deuler": expS}
            
 def cosD(a,b):
     return 1-cosS(a,b)
@@ -69,7 +70,8 @@ differences = {"sid":equalD, "stype": equalD, "spos":expD,
                      "sangVel":expD, "dist": expD, "dir": expD,
                      "contact": equalD, "oid": equalD, "otype": equalD, 
                      "dori": expD, "dlinVel": expD, "dangVel":expD, "cmd": equalD, "mvDir": expD,
-                     "sname": equalD, "intId": zeroD, "oname": equalD}
+                     "sname": equalD, "intId": zeroD, "oname": equalD,
+                     "euler": expD, "seuler": expD, "deuler": expD}
                      
 weights = {"sid":1, "stype": 1, "spos":30, 
                      "sori": 1, "slinVel": 1, 

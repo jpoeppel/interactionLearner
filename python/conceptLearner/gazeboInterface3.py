@@ -31,7 +31,7 @@ import math
 import copy
 from common import GAZEBOCMDS
 import math
-
+import common
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
@@ -51,6 +51,9 @@ MODE = PUSHTASKSIMULATION
 
 RANDOM_BLOCK_ORI = False
 #RANDOM_BLOCK_ORI = True
+
+DIRECTIONGENERALISATION = True
+#DIRECTIONGENERALISATION = False
 
 NUM_TRAIN_RUNS = 10
 NUM_TEST_RUNS = 100
@@ -159,11 +162,68 @@ class GazeboInterface():
         """
         msg = pygazebo.msg.modelState_v_pb2.ModelState_V()
         for intState in self.lastPrediction.interactionStates.values():
-            tmp = self.getModelState(intState["sname"] + "Shadow", intState["spos"], intState["sori"], 
-                                     self.lastPrediction.transM, self.lastPrediction.quat)
+#            tmp = self.getModelState(intState["sname"] + "Shadow", intState["spos"], intState["sori"], 
+#                                     self.lastPrediction.transM, self.lastPrediction.quat)
+            tmp = self.getModelState2(intState["sname"] + "Shadow", intState["spos"], intState["seuler"], 
+                             self.lastPrediction.transM, self.lastPrediction.euler)
+
             msg.models.extend([tmp])
         self.posePublisher.publish(msg)
+
+    def getModelState2(self, name, pos, euler, transM=None, eulerdif=None):
+        """
+        Function to create a ModeLState object from a name and the desired position and orientation.
         
+        Parameters
+        ----------
+        name : String
+            Name of the model
+        pos : np.array() Size 3
+            The position of the model
+        ori : np.array() Size 4
+            The quaternion for the orientation of the model
+            
+        Returns
+        -------
+        modelState_pb2.ModelState
+            Protobuf object for a model state with fixed id to 99
+        """
+        msg = modelState_pb2.ModelState()
+        msg.name = name
+        msg.id = 99
+#        print "getting model State for: ", name
+        if transM != None:
+            #Build inverse transformation matrix
+#            matrix = np.matrix(np.zeros((4,4)))
+#            matrix[:3,:3] = transM[:3,:3].T
+#            matrix[:3,3] = -transM[:3,:3].T*transM[:3,3]
+#            matrix[3,3] = 1.0
+##            print "Original matrix: {} \n, transpose: {}".format(transM, matrix)
+            tmpPos = np.matrix(np.concatenate((pos,[1])))
+            tpos = np.array((transM*tmpPos.T)[:3]).flatten()   
+#            print "OriginalPosition: {}, resulting position: {}".format(tmpPos, pos)
+            msg.pose.position.x = tpos[0] #* 2.0
+            msg.pose.position.y = tpos[1] #* 2.0
+            msg.pose.position.z = tpos[2] #* 2.0
+        else:
+            msg.pose.position.x = pos[0] #* 2.0
+            msg.pose.position.y = pos[1] #* 2.0
+            msg.pose.position.z = pos[2] #* 2.0
+        
+        if eulerdif != None:
+            newOri = common.eulerToQuat(euler+eulerdif)
+            msg.pose.orientation.x = newOri[0]
+            msg.pose.orientation.y = newOri[1]
+            msg.pose.orientation.z = newOri[2]
+            msg.pose.orientation.w = newOri[3]
+        else:
+            ori= common.eulerToQuat(euler)
+            msg.pose.orientation.x = ori[0]
+            msg.pose.orientation.y = ori[1]
+            msg.pose.orientation.z = ori[2]
+            msg.pose.orientation.w = ori[3]
+        return msg    
+    
         
     def getModelState(self, name, pos, ori, transM=None, quat=None):
         """
@@ -257,12 +317,13 @@ class GazeboInterface():
         """
         worldState = worldState_pb2.WorldState.FromString(data)
         if self.lastPrediction != None:
-#            print "Parsing worldState with last coordinate system."
-            resultWS = model.WorldState(self.lastPrediction.transM, self.lastPrediction.invTrans, self.lastPrediction.quat)
+            print "Parsing worldState with last coordinate system."
+#            resultWS = model.WorldState(self.lastPrediction.transM, self.lastPrediction.invTrans, self.lastPrediction.quat)
+            resultWS = model.WorldState(self.lastPrediction.transM, self.lastPrediction.invTrans, self.lastPrediction.euler)
             resultWS.parse(worldState)
         else:
             resultWS = None
-#        print "parsing new WorldState"
+        print "parsing new WorldState"
         newWS = model.WorldState()
         
         newWS.parse(worldState)
@@ -290,10 +351,6 @@ class GazeboInterface():
             The current world state.
         """
         gripperInt = worldState.getInteractionState("gripper")
-#        matrix = np.matrix(np.zeros((4,4)))
-#        matrix[:3,:3] = worldState.transM[:3,:3].T
-#        matrix[:3,3] = -worldState.transM[:3,:3].T*worldState.transM[:3,3]
-#        matrix[3,3] = 1.0
         tmpPos = np.matrix(np.concatenate((gripperInt["spos"],[1])))
         tpos = np.array((worldState.transM*tmpPos.T)[:3]).flatten()   
         
@@ -418,11 +475,11 @@ class GazeboInterface():
                 self.resetWorld()
                 self.runStarted = False
         else:
-#            if self.trainRun > NUM_TRAIN_RUNS-2:
+            if self.trainRun > NUM_TRAIN_RUNS-1 and DIRECTIONGENERALISATION:
 #                print "bigger starting variance"
-#                self.startRun2(0.7)
-#            else:
-            self.startRun(0.7)
+                self.startRun2(0.7)
+            else:
+                self.startRun2(0.7)
             return
             
         if self.trainRun < NUM_TRAIN_RUNS:
@@ -436,7 +493,10 @@ class GazeboInterface():
         elif self.testRun < NUM_TEST_RUNS:
             print "Test run #: ", self.testRun
             if self.runStarted:
-                self.lastAction = model.Action(cmd = GAZEBOCMDS["MOVE"], direction=np.array([0.0,0.5,0.0]))
+                if DIRECTIONGENERALISATION:
+                    self.lastAction = model.Action(cmd = GAZEBOCMDS["MOVE"], direction=np.array([-0.5,0.0,0.0]))
+                else:
+                    self.lastAction = model.Action(cmd = GAZEBOCMDS["MOVE"], direction=np.array([0.0,0.5,0.0]))
                 if self.lastPrediction != None:
                     worldState.reset(self.lastPrediction)
                     #Retransform
@@ -472,7 +532,8 @@ class GazeboInterface():
         self.lastState = worldState
 #        if self.stepCounter == 1:
 #        if self.trainRun < NUM_TRAIN_RUNS-1:
-        self.lastAction = model.Action(cmd = GAZEBOCMDS["MOVE"], direction=np.array([0.0,0.5,0.0]))
+#        self.lastAction = model.Action(cmd = GAZEBOCMDS["MOVE"], direction=np.array([0.0,0.5,0.0]))
+        self.lastAction = model.Action(cmd = GAZEBOCMDS["MOVE"], direction=np.array([-0.5,0.0,0.0]))
 #        else:
 #            self.lastAction = model.Action(cmd=GAZEBOCMDS["NOTHING"])
         self.lastPrediction = self.worldModel.predict(worldState, self.lastAction)

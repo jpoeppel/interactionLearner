@@ -168,6 +168,7 @@ class AbstractCase(object):
             print "predicting with only one ref"
             for k in self.variables:
                 resultState[k] = state[k] + self.refCases[0].predict(state, action, k)
+                print "variable: {}, prediction: {}".format(k, self.refCases[0].predict(state, action, k))
 #            prediction= self.refCases[0].predict(state,action)
 #            prediction["intId"] = state["intId"]
         return resultState
@@ -572,8 +573,8 @@ class ModelCBR(object):
         
         
         bestCase = None
-#        scoreList = [(c,c.score(state,action)) for c in self.abstractCases]
-        scoreList = [(c.abstCase,c.score(state,action)) for c in self.cases]
+        scoreList = [(c,c.score(state,action)) for c in self.abstractCases]
+#        scoreList = [(c.abstCase,c.score(state,action)) for c in self.cases]
         
 #        sortedList = sorted(self.abstractCases, key=methodcaller('score', state, action), reverse= True)
         sortedList = sorted(scoreList, key=itemgetter(1), reverse=True) 
@@ -716,15 +717,21 @@ class ModelCBR(object):
                 
 #                print "correctAbstractCase consts: ", abstractCase.constants
                 #If an abstract case is found add the reference
-                try:
-                    abstractCase.addRef(newCase)
-                except TypeError, e:
-                    print "case was already present"
-#                    print "Responsible abstractCase: ", abstractCase.variables
-#                    print "newCase: ", newCase
-#                    raise Exception("case already present")
-                else:
+                if "sid" in abstractCase.constants and state["sid"] != abstractCase.constants["sid"]:
+                    #Create a new abstract case
+                    print "new Abstract case for other object id!!!!!!!!!!!!!!!!!!!!"
+                    self.abstractCases.append(AbstractCase(newCase))
                     self.addBaseCase(newCase)
+                else:
+                    try:
+                        abstractCase.addRef(newCase)
+                    except TypeError, e:
+                        print "case was already present"
+    #                    print "Responsible abstractCase: ", abstractCase.variables
+    #                    print "newCase: ", newCase
+    #                    raise Exception("case already present")
+                    else:
+                        self.addBaseCase(newCase)
                     
             else:
                 #Create a new abstract case

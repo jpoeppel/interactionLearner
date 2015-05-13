@@ -13,6 +13,8 @@ from metrics import similarities
 from metrics import differences
 import numpy as np
 import math
+import copy
+from operator import methodcaller, itemgetter
 
 class State(dict):
     """
@@ -102,6 +104,12 @@ class State(dict):
         
     def __ne__(self, other):
         return not self.__eq__(other)
+        
+    def __repr__(self):
+        s = "\n"
+        for k,v in sorted(self.items(), key=itemgetter(0)):
+            s+= "{}: {} \n".format(k,v)
+        return s
 
 class ObjectState(State):
     """
@@ -149,7 +157,7 @@ class Action(State):
         
     def transform(self, matrix):
         tmpMVDir = np.matrix(np.concatenate((self["mvDir"],[0])))
-        self["mvDir"] = np.array((matrix*tmpMVDir.T)[:3]).flatten()            
+        self["mvDir"] = np.round(np.array((matrix*tmpMVDir.T)[:3]).flatten(), NUMDEC)            
             
 class InteractionState(State):
     
@@ -170,6 +178,8 @@ class InteractionState(State):
         self.relKeys.remove("oname")
         self.relKeys.remove("stype")
         self.relKeys.remove("otype")
+#        self.relKeys.remove("sangVel")
+#        self.relKeys.remove("dangVel")
 #        self.relKeys.remove("contact")
 #        self.relKeys.remove("sid")
 #        self.relKeys.remove("oid")
@@ -259,14 +269,16 @@ class WorldState(object):
                 tmp = ObjectState()
                 tmp["pos"] = np.round(np.array([m.pose.position.x,m.pose.position.y,m.pose.position.z]), NUMDEC) #/ 2.0
                 print "parsing model: {}, pos: {}".format(m.name, tmp["pos"])
-                tmp["euler"]  = common.quaternionToEuler(np.array([m.pose.orientation.x,m.pose.orientation.y,
-                                            m.pose.orientation.z,m.pose.orientation.w]))
+                tmp["euler"]  = np.round(common.quaternionToEuler(np.array([m.pose.orientation.x,m.pose.orientation.y,
+                                            m.pose.orientation.z,m.pose.orientation.w])), NUMDEC)
+                tmp["euler"][:2] = 0
 #                tmp["euler"]  = common.quaternionToEuler(np.array([0.0,0.0,m.pose.orientation.z,m.pose.orientation.w]))
 #                print "quaternion: {}, euler: {}".format(np.array([m.pose.orientation.x,m.pose.orientation.y,
 #                                            m.pose.orientation.z,m.pose.orientation.w]), tmp["euler"])
                 tmp["linVel"] = np.round(np.array([m.linVel.x,m.linVel.y,m.linVel.z]), NUMDEC)
 #                print "name: {}, linVel: {}".format(m.name, tmp["linVel"])
                 tmp["angVel"] = np.round(np.array([m.angVel.x,m.angVel.y,m.angVel.z]), 1)
+                print "Raw AngVel: ", tmp["angVel"]
                 tmp["name"] = m.name
                 tmp["id"] = m.id
                 tmp["type"] = m.type
@@ -314,11 +326,12 @@ class WorldState(object):
     def reset(self, worldState):
         self.objectStates = {}
         self.interactionStates = {}
-        for intState in worldState.interactionStates.values():
+        ws = copy.deepcopy(worldState)
+        for intState in ws.interactionStates.values():
             tmp = ObjectState()
             tmp.fromInteractionState(intState)
             #Transform back to world coordinate system first
-            tmp.transform(worldState.transM, worldState.euler)
+            tmp.transform(ws.transM, ws.euler)
             print "Tmp after back transformation: ", tmp
             self.objectStates[tmp["name"]] = tmp
             if tmp["name"] == "blockA":

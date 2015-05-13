@@ -53,8 +53,8 @@ def eulerToQuat(euler):
 def quatPosToTransformation(quat, pos):
     px,py,pz = pos
     x,y,z,w = quat
-    return np.matrix(np.round([[1-2*y*y-2*z*z, 2*x*y + 2*w*z, 2*x*z - 2*w*y, px],[2*x*y-2*w*z, 1-2*x*x-2*z*z, 2*y*z+2*w*x, py],
-                      [2*x*z+2*w*y,2*y*z-2*w*x, 1-2*x*x-2*y*y, pz],[0.0,0.0,0.0,1.0]], NUMDEC))
+    return np.matrix([[1-2*y*y-2*z*z, 2*x*y + 2*w*z, 2*x*z - 2*w*y, px],[2*x*y-2*w*z, 1-2*x*x-2*z*z, 2*y*z+2*w*x, py],
+                      [2*x*z+2*w*y,2*y*z-2*w*x, 1-2*x*x-2*y*y, pz],[0.0,0.0,0.0,1.0]])
                       
 def eulerPosToTransformation(euler, pos):
     b,g,a = euler
@@ -69,10 +69,10 @@ def eulerPosToTransformation(euler, pos):
 #                      [-ca*sg-sa*cb*cg, -sa*sg+ca*cb*cg, sb*cg, py],
 #                      [sa*sb, -ca*sb, cb, pz],
 #                      [0.0, 0.0, 0.0, 1.0]],NUMDEC))
-    return np.matrix(np.round([[cb*ca, sg*sb*ca-cg*sa, cg*sb*ca+sg*sa, px],
+    return np.matrix([[cb*ca, sg*sb*ca-cg*sa, cg*sb*ca+sg*sa, px],
                                [cb*sa, sg*sb*sa+cg*ca, cg*sb*sa-sg*ca, py],
                                [-sb, sg*cb, cg*cb, pz],
-                               [0.0,0.0,0.0,1.0]], NUMDEC))
+                               [0.0,0.0,0.0,1.0]])
                       
 def invertTransMatrix(matrix):
     invTrans = np.matrix(np.zeros((4,4)))
@@ -87,13 +87,13 @@ if __name__=="__main__":
     worldEuler = quaternionToEuler(worldOri)
     print "Euler: ", worldEuler
     worldPos = np.array([-0.5,0.0,0.03])
-    gPos = np.array([0.0,0.0,0.0,1.0])
+    gPos = np.array([-0.3,0.0,0.0,1.0])
     gOri= np.array([0.0,0.0,0.0,1.0])
     gEuler = quaternionToEuler(gOri)
     print "gEuler before: ", gEuler
     translation = np.array([0.0,0.04,0.0])
-    transM = quatPosToTransformation(worldOri, worldPos)
-    print "transM: ", transM
+#    transM = quatPosToTransformation(worldOri, worldPos)
+#    print "transM: ", transM
     transMEuler = eulerPosToTransformation(worldEuler, worldPos)
     print "trans from euler: ", transMEuler
     inv = invertTransMatrix(transMEuler)
@@ -106,7 +106,17 @@ if __name__=="__main__":
     transBPos = np.concatenate((worldPos,[1]))
     transBPos = np.array((inv*np.asmatrix(transBPos).T)[:3]).flatten()
     print "transBPos: ", transBPos
-    print "transBEuler: ", worldEuler+worldEuler
-    print "transBOri: ", eulerToQuat(worldEuler+worldEuler)
+    print "transBEuler: ", worldEuler-worldEuler
+    print "transBOri: ", eulerToQuat(worldEuler-worldEuler)
+    
+    transGPos += translation
+    print "translated GPos: ", transGPos
+    translatedGPos = np.concatenate((transGPos,[1]))
+    print "backTransformation of translated GPos: ", np.array((transMEuler*np.asmatrix(translatedGPos).T)[:3]).flatten()
+    
+    print "___________________________"
+    rawAngVel = np.array([0.0,-0.1,-0.6,0.0])
+    print "tranformed AngVel: ", np.array((inv*np.asmatrix(rawAngVel).T)[:3]).flatten()
+
 #    print "eulerToQuat: {}".format(eulerToQuat(testEuler))
 #    print "quatToEuker: {}".format(quaternionToEuler(trueQuat))

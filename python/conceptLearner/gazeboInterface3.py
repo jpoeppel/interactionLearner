@@ -88,6 +88,7 @@ class GazeboInterface():
         self.blockErrors = []
         self.tmpBlockErrorPos = 0.0
         self.tmpBlockErrorOri = 0.0
+        self.direction = np.array([0.0,0.5,0.0])
         np.random.seed(1234)
         
     @trollius.coroutine
@@ -325,7 +326,6 @@ class GazeboInterface():
             resultWS = None
         print "parsing new WorldState"
         newWS = model.WorldState()
-        
         newWS.parse(worldState)
         
         if MODE == FREE_EXPLORATION:
@@ -377,7 +377,7 @@ class GazeboInterface():
         self.runStarted = True
          #Set up Starting position
         posy = ((np.random.rand()-0.5)*randomRange) #* 0.5
-        self.sendPose("gripper", np.array([0.0,posy,0.0]), np.array([0.0,0.0,0.0,0.0]))
+        self.sendPose("gripper", np.array([0.0,posy,0.0]), np.array([0.0,0.0,1.0,1.0]))
         self.sendPose("blockA", np.array([-0.5, 0.0, 0.05]) , np.array([0.0,0.0,1.0,1.0]))
         self.stepCounter = 0
         
@@ -475,17 +475,20 @@ class GazeboInterface():
                 self.resetWorld()
                 self.runStarted = False
         else:
-            if self.trainRun > NUM_TRAIN_RUNS-1 and DIRECTIONGENERALISATION:
+            if self.testRun > 10 and DIRECTIONGENERALISATION:
 #                print "bigger starting variance"
                 self.startRun2(0.7)
+                self.direction = np.array([-0.5,0.0,0.0])
             else:
-                self.startRun2(0.7)
+                self.startRun(0.7)
+                self.direction = np.array([0.0,0.5,0.0])
+#                self.direction = np.array([-0.5,0.0,0.0])
             return
             
         if self.trainRun < NUM_TRAIN_RUNS:
             print "Train run #: ", self.trainRun
             if self.runStarted:
-                self.updateModel(worldState, resultState)
+                self.updateModel(worldState, resultState, self.direction)
             else:
                 self.trainRun += 1
                 if self.trainRun == NUM_TRAIN_RUNS:
@@ -493,11 +496,12 @@ class GazeboInterface():
         elif self.testRun < NUM_TEST_RUNS:
             print "Test run #: ", self.testRun
             if self.runStarted:
-                if DIRECTIONGENERALISATION:
+                if self.testRun > 10 and DIRECTIONGENERALISATION:
                     self.lastAction = model.Action(cmd = GAZEBOCMDS["MOVE"], direction=np.array([-0.5,0.0,0.0]))
                 else:
                     self.lastAction = model.Action(cmd = GAZEBOCMDS["MOVE"], direction=np.array([0.0,0.5,0.0]))
                 if self.lastPrediction != None:
+                    worldState = model.WorldState()
                     worldState.reset(self.lastPrediction)
                     #Retransform
                     print "lastPrediction: {}, worldState: {} ".format(self.lastPrediction.interactionStates, worldState.interactionStates)
@@ -516,7 +520,7 @@ class GazeboInterface():
         print "numPredictions: ", self.worldModel.numPredictions
         
             
-    def updateModel(self, worldState, resultState):
+    def updateModel(self, worldState, resultState, direction=np.array([0.0,0.5,0.0])):
         """
         Function to perform the world update and get the next prediction.
         Currently action NOTHING is performed in here.
@@ -532,8 +536,7 @@ class GazeboInterface():
         self.lastState = worldState
 #        if self.stepCounter == 1:
 #        if self.trainRun < NUM_TRAIN_RUNS-1:
-#        self.lastAction = model.Action(cmd = GAZEBOCMDS["MOVE"], direction=np.array([0.0,0.5,0.0]))
-        self.lastAction = model.Action(cmd = GAZEBOCMDS["MOVE"], direction=np.array([-0.5,0.0,0.0]))
+        self.lastAction = model.Action(cmd = GAZEBOCMDS["MOVE"], direction=direction)
 #        else:
 #            self.lastAction = model.Action(cmd=GAZEBOCMDS["NOTHING"])
         self.lastPrediction = self.worldModel.predict(worldState, self.lastAction)

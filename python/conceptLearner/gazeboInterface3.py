@@ -56,7 +56,7 @@ DIRECTIONGENERALISATION = True
 #DIRECTIONGENERALISATION = False
 
 NUM_TRAIN_RUNS = 10
-NUM_TEST_RUNS = 100
+NUM_TEST_RUNS = 20
 
 class GazeboInterface():
     """
@@ -166,7 +166,7 @@ class GazeboInterface():
 #            tmp = self.getModelState(intState["sname"] + "Shadow", intState["spos"], intState["sori"], 
 #                                     self.lastPrediction.transM, self.lastPrediction.quat)
             tmp = self.getModelState2(intState["sname"] + "Shadow", intState["spos"], intState["seuler"], 
-                             self.lastPrediction.transM, self.lastPrediction.euler)
+                             self.lastPrediction.transM, self.lastPrediction.ori)
 
             msg.models.extend([tmp])
         self.posePublisher.publish(msg)
@@ -318,13 +318,13 @@ class GazeboInterface():
         """
         worldState = worldState_pb2.WorldState.FromString(data)
         if self.lastPrediction != None:
-            print "Parsing worldState with last coordinate system."
+#            print "Parsing worldState with last coordinate system."
 #            resultWS = model.WorldState(self.lastPrediction.transM, self.lastPrediction.invTrans, self.lastPrediction.quat)
-            resultWS = model.WorldState(self.lastPrediction.transM, self.lastPrediction.invTrans, self.lastPrediction.euler)
+            resultWS = model.WorldState(self.lastPrediction.transM, self.lastPrediction.invTrans, self.lastPrediction.ori)
             resultWS.parse(worldState)
         else:
             resultWS = None
-        print "parsing new WorldState"
+#        print "parsing new WorldState"
         newWS = model.WorldState()
         newWS.parse(worldState)
         
@@ -504,7 +504,7 @@ class GazeboInterface():
                     worldState = model.WorldState()
                     worldState.reset(self.lastPrediction)
                     #Retransform
-                    print "lastPrediction: {}, worldState: {} ".format(self.lastPrediction.interactionStates, worldState.interactionStates)
+#                    print "lastPrediction: {}, worldState: {} ".format(self.lastPrediction.interactionStates, worldState.interactionStates)
                 self.lastPrediction = self.worldModel.predict(worldState, self.lastAction)
                 print "lastAction: ", self.lastAction
                 self.sendPrediction()

@@ -8,11 +8,13 @@ Created on Mon May 11 14:31:07 2015
 
 import common
 from common import NUMDEC
-import common.GAZEBOCMDS as GZCMD
+from common import GAZEBOCMDS as GZCMD
 from metrics import similarities
 from metrics import differences
 import numpy as np
 import math
+import copy
+from operator import methodcaller, itemgetter
 
 class State(dict):
     """
@@ -264,14 +266,14 @@ class Action(State):
         
 class WorldState(object):
     
-    def __init__(self, transM = None, invTrans = None, quat = None):
+    def __init__(self, transM = None, invTrans = None, ori = None):
         self.objectStates = {}
         self.interactionStates = {}
         self.numIntStates = 0
         self.predictionCases = {}
         self.transM = transM
         self.invTrans = invTrans
-        self.quat = quat
+        self.ori = ori
 
     def addInteractionState(self, intState, usedCase = None):
 #        print "adding interactionState: ", intState["intId"]
@@ -307,14 +309,14 @@ class WorldState(object):
                     self.invTrans[:3,:3] = self.transM[:3,:3].T
                     self.invTrans[:3,3] = -self.transM[:3,:3].T*self.transM[:3,3]
                     self.invTrans[3,3] = 1.0
-                    self.quat = np.copy(tmp["orientation"])
+                    self.ori = np.copy(tmp["orientation"])
 #                    self.quat[:3] *= -1
 #                print "BlockA angVel: ", tmp["angVel"]
                 
     def parseInteractions(self):
         tmpList = self.objectStates.values()
         for o in tmpList:
-            q = self.quat
+            q = self.ori
             q[:3] *= -1
             #Transform to local block coordinate system
             o.transform(self.invTrans, q)
@@ -350,7 +352,7 @@ class WorldState(object):
             tmp = ObjectState()
             tmp.fromInteractionState(intState)
             
-            invq = worldState.quat
+            invq = worldState.ori
             #Transform back to world coordinate system first
             tmp.transform(worldState.transM, invq)
             print "Tmp after back transformation: ", tmp
@@ -361,7 +363,7 @@ class WorldState(object):
                 self.invTrans[:3,:3] = self.transM[:3,:3].T
                 self.invTrans[:3,3] = -self.transM[:3,:3].T*self.transM[:3,3]
                 self.invTrans[3,3] = 1.0
-                self.quat = np.copy(tmp["orientation"])
+                self.ori = np.copy(tmp["orientation"])
         self.parseInteractions()
 #        
 #        print "InteractionStates: ", self.interactionStates.values()

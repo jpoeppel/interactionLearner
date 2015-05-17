@@ -242,14 +242,14 @@ class InteractionState(State):
             
 class WorldState(object):
     
-    def __init__(self, transM = None, invTrans = None, euler = None):
+    def __init__(self, transM = None, invTrans = None, ori = None):
         self.objectStates = {}
         self.interactionStates = {}
         self.numIntStates = 0
         self.predictionCases = {}
         self.transM = transM
         self.invTrans = invTrans
-        self.euler = euler
+        self.ori = ori
 
     def addInteractionState(self, intState, usedCase = None):
 #        print "adding interactionState: ", intState["intId"]
@@ -268,7 +268,7 @@ class WorldState(object):
 #                print "parsing: ", m.name
                 tmp = ObjectState()
                 tmp["pos"] = np.round(np.array([m.pose.position.x,m.pose.position.y,m.pose.position.z]), NUMDEC) #/ 2.0
-                print "parsing model: {}, pos: {}".format(m.name, tmp["pos"])
+#                print "parsing model: {}, pos: {}".format(m.name, tmp["pos"])
                 tmp["euler"]  = np.round(common.quaternionToEuler(np.array([m.pose.orientation.x,m.pose.orientation.y,
                                             m.pose.orientation.z,m.pose.orientation.w])), NUMDEC)
                 tmp["euler"][:2] = 0
@@ -276,9 +276,11 @@ class WorldState(object):
 #                print "quaternion: {}, euler: {}".format(np.array([m.pose.orientation.x,m.pose.orientation.y,
 #                                            m.pose.orientation.z,m.pose.orientation.w]), tmp["euler"])
                 tmp["linVel"] = np.round(np.array([m.linVel.x,m.linVel.y,m.linVel.z]), NUMDEC)
+                if np.linalg.norm(tmp["linVel"]) < 0.01:
+                    tmp["linVel"] = np.array([0.0,0.0,0.0])
 #                print "name: {}, linVel: {}".format(m.name, tmp["linVel"])
                 tmp["angVel"] = np.round(np.array([m.angVel.x,m.angVel.y,m.angVel.z]), 1)
-                print "Raw AngVel: ", tmp["angVel"]
+#                print "Raw AngVel: ", tmp["angVel"]
                 tmp["name"] = m.name
                 tmp["id"] = m.id
                 tmp["type"] = m.type
@@ -288,14 +290,14 @@ class WorldState(object):
                     self.transM = common.eulerPosToTransformation(tmp["euler"],tmp["pos"])
                     self.invTrans = common.invertTransMatrix(self.transM)
 #                    print "invTrans: ", self.invTrans
-                    self.euler = np.copy(tmp["euler"])
+                    self.ori = np.copy(tmp["euler"])
 
                 
     def parseInteractions(self):
         tmpList = self.objectStates.values()
         for o in tmpList:
             #Transform to local block coordinate system
-            o.transform(self.invTrans, -self.euler)
+            o.transform(self.invTrans, -self.ori)
         for o1 in self.objectStates.values():
 #            print "interactionState for o1: ", o1
             intState = InteractionState(self.numIntStates, o1)
@@ -303,8 +305,8 @@ class WorldState(object):
             for o2 in tmpList:
                 if not np.array_equal(o1,o2):             
                     intState.fill(o2)
-                    if intState["sname"] == "blockA":
-                        print "intState blockA spos: ", intState["spos"]
+#                    if intState["sname"] == "blockA":
+#                        print "intState blockA spos: ", intState["spos"]
                     self.addInteractionState(intState)
 #                    
 
@@ -331,13 +333,13 @@ class WorldState(object):
             tmp = ObjectState()
             tmp.fromInteractionState(intState)
             #Transform back to world coordinate system first
-            tmp.transform(ws.transM, ws.euler)
-            print "Tmp after back transformation: ", tmp
+            tmp.transform(ws.transM, ws.ori)
+#            print "Tmp after back transformation: ", tmp
             self.objectStates[tmp["name"]] = tmp
             if tmp["name"] == "blockA":
                 self.transM = common.eulerPosToTransformation(tmp["euler"],tmp["pos"])
                 self.invTrans = common.invertTransMatrix(self.transM)
-                self.euler = np.copy(tmp["euler"])
+                self.ori = np.copy(tmp["euler"])
         self.parseInteractions()
 #        
 #        print "InteractionStates: ", self.interactionStates.values()

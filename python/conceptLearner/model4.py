@@ -146,7 +146,7 @@ class AbstractCase(object):
 #        print "predicting for variables: ", self.variables
 #        print "number of refs: ", len(self.refCases)
         
-        print "Selected AC for {}: {}".format(state["sname"], self.variables)
+#        print "Selected AC for {}: {}".format(state["sname"], self.variables)
     
         resultState = copy.deepcopy(state)
         if len(self.refCases) > 1:
@@ -154,7 +154,7 @@ class AbstractCase(object):
             for k in self.variables:
                 prediction = self.predictors[k].predict(np.concatenate((state.toVec(self.constants),action.toVec(self.constants))))
 #                if state["sname"] == "blockA":
-                print "variable: {}, prediction: {}".format(k, prediction)
+#                print "variable: {}, prediction: {}".format(k, prediction)
                 if prediction != None:
                     resultState[k] = state[k] + prediction
                 else:
@@ -165,10 +165,10 @@ class AbstractCase(object):
 #            print "resultState intId after: ", resultState["intId"]
             
         else:
-            print "predicting with only one ref"
+#            print "predicting with only one ref"
             for k in self.variables:
                 resultState[k] = state[k] + self.refCases[0].predict(state, action, k)
-                print "variable: {}, prediction: {}".format(k, self.refCases[0].predict(state, action, k))
+#                print "variable: {}, prediction: {}".format(k, self.refCases[0].predict(state, action, k))
 #            prediction= self.refCases[0].predict(state,action)
 #            prediction["intId"] = state["intId"]
         return resultState
@@ -239,7 +239,7 @@ class AbstractCase(object):
             for k2,v2 in state.relevantItems() + action.relevantItems():
                 if k == k2:
                     if np.linalg.norm(v-v2) > 0.01:
-#                        print "AC: {} failed because of k: {}, constant: {}, actual: {}".format(self.variables, k, v, v2)
+#                        print "AC: {} failed because of k: {}, constant: {}, actual: {}, all constants: {}".format(self.variables, k, v, v2, self.constants)
                         return 0
 ##        
         for k,v in state.relevantItems() + action.relevantItems():
@@ -295,7 +295,7 @@ class AbstractCase(object):
 #            raise Exception("something is going wrong when computing avgPrediction! score: {}, numPred: {}".format(score, self.numPredictions))
         
     def addRef(self, ref):
-        
+#        print "adding ref, old constants: ", self.constants
         if ref in self.refCases:
             raise TypeError("ref already in refCases")
         
@@ -320,14 +320,15 @@ class AbstractCase(object):
 #        for k,v in ref.getListOfConstants() + ref.action.relevantItems():
         for k,v in ref.preState.relevantItems() + ref.action.relevantItems():
             if self.constants.has_key(k):
-                if np.linalg.norm(v-self.constants[k]) > 0.01:
+                if np.linalg.norm(v-self.constants[k]) > 0.001:
+                    print "deleting constant {} in ac {}".format(k, self.variables)
                     del self.constants[k]
                     self.retrain()
             else:
                 if len(self.refCases) == 0:
                     self.constants[k] = v
 
-        
+#        print "new constants: ", self.constants
 #        for k,v in ref.getSetOfConstants():
 #            if self.attribs.has_key(k):
 #                if np.array_equal()
@@ -486,7 +487,7 @@ class ModelCBR(object):
         self.numPredictions = 0
         self.target = None
         self.weights = {}
-        
+        self.lastScorelist = []
         
     def getAction(self, state):
 
@@ -578,6 +579,7 @@ class ModelCBR(object):
         
 #        sortedList = sorted(self.abstractCases, key=methodcaller('score', state, action), reverse= True)
         sortedList = sorted(scoreList, key=itemgetter(1), reverse=True) 
+        self.lastScorelist = [(s, sorted(c.variables), len(c.refCases)) for c,s in sortedList]
 #        print "ScoreList: ", [(s, sorted(c.variables), len(c.refCases)) for c,s in sortedList]
         if len(sortedList) > 0:
             bestCase = sortedList[0][0]
@@ -612,15 +614,14 @@ class ModelCBR(object):
         predictionWs = WorldState()
         predictionWs.transM = np.copy(worldState.transM)
         predictionWs.invTrans = np.copy(worldState.invTrans)
-#        predictionWs.quat = np.copy(worldState.quat)
-        predictionWs.euler = np.copy(worldState.euler)
+        predictionWs.ori = np.copy(worldState.ori)
         transformedAction = copy.deepcopy(action)
         transformedAction.transform(worldState.invTrans)
-        print "Transformed action: ", transformedAction
+#        print "Transformed action: ", transformedAction
         for intState in worldState.interactionStates.values():
             self.numPredictions += 1
             
-            print "predicting for {}, pos: {}".format(intState["sname"], intState["spos"])
+#            print "predicting for {}".format(intState["sname"])
             prediction, usedCase = self.predictIntState(intState, transformedAction)
 #            print "predicted intId: ", prediction["intId"]
             predictionWs.addInteractionState(prediction, usedCase)
@@ -669,14 +670,23 @@ class ModelCBR(object):
                 usedCase.updatePredictionScore(predictionScore)
                 self.numCorrectCase += 1
             else:
-#                with open('wrongCases.txt','a') as f:
-#                    correctScore = abstractCase.score(state,action) if abstractCase != None else -1
-#                    numConstants = len(abstractCase.constants) if abstractCase != None else -1
-#                    s = "CorrectSet: {}, Score: {}, numConstants: {}, SelectedSet: {}, Score: {}, numConstants: {} \n".format(attribSet, correctScore, 
-#                        numConstants, usedCase.variables, usedCase.score(state,action), len(usedCase.constants))
-#                    f.write(s)
-                usedCase.addErrorCase(newCase)
-                pass
+                print "LastScorelist: ", self.lastScorelist
+                if abstractCase != None:
+                    print "Correct case constants: ", abstractCase.constants
+                    print "Old state: ", state
+                    print "Old action: ", action
+                    s = abstractCase.score(state, action)
+                    print "Ac got score: ", s
+#                    
+#                    
+##                with open('wrongCases.txt','a') as f:
+##                    correctScore = abstractCase.score(state,action) if abstractCase != None else -1
+##                    numConstants = len(abstractCase.constants) if abstractCase != None else -1
+##                    s = "CorrectSet: {}, Score: {}, numConstants: {}, SelectedSet: {}, Score: {}, numConstants: {} \n".format(attribSet, correctScore, 
+##                        numConstants, usedCase.variables, usedCase.score(state,action), len(usedCase.constants))
+##                    f.write(s)
+#                usedCase.addErrorCase(newCase)
+#                pass
 #                if abstractCase != None:
 #                    bestBaseCaseWrong = usedCase.getBestRef(state, action, self.weights)
 #                    bestBaseCaseRight = abstractCase.getBestRef(state, action, self.weights)
@@ -719,7 +729,7 @@ class ModelCBR(object):
                 #If an abstract case is found add the reference
                 if "sid" in abstractCase.constants and state["sid"] != abstractCase.constants["sid"]:
                     #Create a new abstract case
-                    print "new Abstract case for other object id!!!!!!!!!!!!!!!!!!!!"
+#                    print "new Abstract case for other object id!!!!!!!!!!!!!!!!!!!!"
                     self.abstractCases.append(AbstractCase(newCase))
                     self.addBaseCase(newCase)
                 else:
@@ -735,7 +745,7 @@ class ModelCBR(object):
                     
             else:
                 #Create a new abstract case
-                print "new Abstract case: ", attribSet
+#                print "new Abstract case: ", attribSet
                 self.abstractCases.append(AbstractCase(newCase))
                 self.addBaseCase(newCase)
 

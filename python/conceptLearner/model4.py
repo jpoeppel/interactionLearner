@@ -234,12 +234,16 @@ class AbstractCase(object):
                     
 #
 #        print "Scoring AC: ", self.variables
-#        print "scoring AC: {}, with \n constants: {} against \n state: {}, \n action: {}".format(self.variables, self.constants, state, action)
+        if len(self.refCases) < 2:
+            # Only use ACs with at least 2 references
+            return 0
+        
         for k,v in self.constants.items():
             for k2,v2 in state.relevantItems() + action.relevantItems():
                 if k == k2:
                     if np.linalg.norm(v-v2) > 0.01:
-#                        print "AC: {} failed because of k: {}, constant: {}, actual: {}, all constants: {}".format(self.variables, k, v, v2, self.constants)
+                        if state["sid"] == 15:
+                            print "AC: {} failed because of k: {}, constant: {}, actual: {}, with {} numRefs".format(self.variables, k, v, v2, len(self.refCases))
                         return 0
 ##        
         for k,v in state.relevantItems() + action.relevantItems():
@@ -284,7 +288,10 @@ class AbstractCase(object):
             else:
                 # Reward ACs with many constants that were met!
                 s += 1
-
+        
+        if state["sname"] == "blockA":
+#            print "scoring AC: {}, with \n state: {}, \n action: {}".format(self.variables, state, action)
+            print "AC: {} got score: {}".format(self.variables,s)
         return s
 #        return 1
     
@@ -571,7 +578,8 @@ class ModelCBR(object):
 #            sortedList = sorted(scoreList, key=itemgetter(1), reverse=True) 
 #            if len(sortedList) > 0:
 #                bestCase = sortedList[0][0]        
-        
+        if state["sid"] == 15:
+            print "getBestCase with state: {} \n action: {}".format(state, action)
         
         bestCase = None
         scoreList = [(c,c.score(state,action)) for c in self.abstractCases]
@@ -580,9 +588,12 @@ class ModelCBR(object):
 #        sortedList = sorted(self.abstractCases, key=methodcaller('score', state, action), reverse= True)
         sortedList = sorted(scoreList, key=itemgetter(1), reverse=True) 
         self.lastScorelist = [(s, sorted(c.variables), len(c.refCases)) for c,s in sortedList]
-#        print "ScoreList: ", [(s, sorted(c.variables), len(c.refCases)) for c,s in sortedList]
+#        if state["sid"] == 15:
+        print "ScoreList: ", [(s, sorted(c.variables), len(c.refCases)) for c,s in sortedList]
         if len(sortedList) > 0:
             bestCase = sortedList[0][0]
+            
+            print "selected AC: ", bestCase.variables
         if isinstance(bestCase, AbstractCase):
 #            print "bestCase #refs: ", len(bestCase.refCases)
 #            print "bestCase variables: ", bestCase.variables
@@ -727,12 +738,12 @@ class ModelCBR(object):
                 
 #                print "correctAbstractCase consts: ", abstractCase.constants
                 #If an abstract case is found add the reference
-                if "sid" in abstractCase.constants and state["sid"] != abstractCase.constants["sid"]:
-                    #Create a new abstract case
+#                if "sid" in abstractCase.constants and state["sid"] != abstractCase.constants["sid"]:
+#                    #Create a new abstract case
 #                    print "new Abstract case for other object id!!!!!!!!!!!!!!!!!!!!"
-                    self.abstractCases.append(AbstractCase(newCase))
-                    self.addBaseCase(newCase)
-                else:
+#                    self.abstractCases.append(AbstractCase(newCase))
+#                    self.addBaseCase(newCase)
+#                else:
                     try:
                         abstractCase.addRef(newCase)
                     except TypeError, e:
@@ -745,7 +756,7 @@ class ModelCBR(object):
                     
             else:
                 #Create a new abstract case
-#                print "new Abstract case: ", attribSet
+                print "new Abstract case: ", attribSet
                 self.abstractCases.append(AbstractCase(newCase))
                 self.addBaseCase(newCase)
 

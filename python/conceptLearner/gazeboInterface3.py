@@ -493,6 +493,7 @@ class GazeboInterface():
                 self.trainRun += 1
                 if self.trainRun == NUM_TRAIN_RUNS:
                     self.pauseWorld()
+#                    np.random.seed(1234)
         elif self.testRun < NUM_TEST_RUNS:
             print "Test run #: ", self.testRun
             if self.runStarted:
@@ -506,7 +507,7 @@ class GazeboInterface():
                     #Retransform
 #                    print "lastPrediction: {}, worldState: {} ".format(self.lastPrediction.interactionStates, worldState.interactionStates)
                 self.lastPrediction = self.worldModel.predict(worldState, self.lastAction)
-                print "lastAction: ", self.lastAction
+#                print "lastAction: ", self.lastAction
                 self.sendPrediction()
                 self.sendCommand(self.lastAction)
             else:

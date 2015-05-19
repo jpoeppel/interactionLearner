@@ -122,6 +122,8 @@ class AbstractCase(object):
         self.numErrorCases = 0
         self.weights= {}
         self.values = {}
+        self.minima = {}
+        self.maxima = {}
         for k in self.variables:
             self.predictors[k] = ITM()
         self.addRef(case)
@@ -170,33 +172,45 @@ class AbstractCase(object):
         s = 0.0
         
         # Only use ACs with at least 2 references
-        if len(self.refCases) < 2:
-            return 0
+#        if len(self.refCases) < 2:
+#            return 0
         
-        for k,v in self.constants.items():
-            for k2,v2 in state.relevantItems() + action.relevantItems():
-                if k == k2:
-                    if np.linalg.norm(v-v2) > 0.01:
-#                        if state["sid"] == 15:
-                        print "AC: {} failed because of k: {}, constant: {}, actual: {}, with {} numRefs".format(self.variables, k, v, v2, len(self.refCases))
-                        return 0
+#        for k,v in self.constants.items():
+#            for k2,v2 in state.relevantItems() + action.relevantItems():
+#                if k == k2:
+#                    if np.linalg.norm(v-v2) > 0.01:
+##                        if state["sid"] == 15:
+#                        print "AC: {} failed because of k: {}, constant: {}, actual: {}, with {} numRefs".format(self.variables, k, v, v2, len(self.refCases))
+#                        return 0
 ##        
         for k,v in state.relevantItems() + action.relevantItems():
 #            
             if not k in self.constants.keys():
-#
-                score = 0.0                
-                bestScore = 0.0
-                for ref in self.refCases:
-                    if ref.preState.has_key(k):
-                        score = similarities[k](ref.preState[k], v)
-                    else:
-                        score = similarities[k](ref.action[k], v)
-                    if score > bestScore:
-                        bestScore = score
-                s += bestScore
+                if hasattr(v, "__len__"):
+                    ori = np.zeros(len(v))
+                else:
+                    ori = 0
+                distToOri = np.linalg.norm(v-ori)
+                if distToOri < self.minima[k]:
+                    s += 0
+                elif distToOri > self.maxima[k]:
+                    s += 0
+                else:
+                    score = 0.0                
+                    bestScore = 0.0
+                    for ref in self.refCases:
+                        if ref.preState.has_key(k):
+                            score = similarities[k](ref.preState[k], v)
+                        else:
+                            score = similarities[k](ref.action[k], v)
+                        if score > bestScore:
+                            bestScore = score
+                    s += bestScore
             else:
                 # Reward ACs with many constants that were met!
+                if np.linalg.norm(v-self.constants[k]) > 0.01:
+                    print "AC: {} failed because of k: {}, constant: {}, actual: {}, with {} numRefs".format(self.variables, k, self.constants[k], v, len(self.refCases))
+                    return 0
                 s += 1
         
         if state["sname"] == "blockA":
@@ -224,6 +238,16 @@ class AbstractCase(object):
             else:
                 if len(self.refCases) == 0:
                     self.constants[k] = v
+            if hasattr(v, "__len__"):
+                ori = np.zeros(len(v))
+            else:
+                ori = 0
+            distToOri = np.linalg.norm(v-ori)
+            if not self.minima.has_key(k) or distToOri < self.minima[k]:
+                self.minima[k] = distToOri
+            if not self.maxima.has_key(k) or distToOri > self.maxima[k]:
+                self.maxima[k] = distToOri
+                
          
         self.refCases.append(ref)
         ref.abstCase = self
@@ -344,6 +368,7 @@ class ModelCBR(object):
         self.numPredictions = 0
         self.target = None
         self.weights = {}
+        self.lastAC = None
         
     def getAction(self, state):
 
@@ -413,7 +438,10 @@ class ModelCBR(object):
 #        if state["sid"] == 15:
         print "ScoreList: ", [(s, sorted(c.variables), len(c.refCases)) for c,s in sortedList]
         if len(sortedList) > 0:
-            bestCase = sortedList[0][0]
+            if sortedList[0][1] == 0 and self.lastAC != None:
+                bestCase = self.lastAC
+            else:
+                bestCase = sortedList[0][0]
             
             print "selected AC: ", bestCase.variables
         if isinstance(bestCase, AbstractCase):
@@ -428,6 +456,7 @@ class ModelCBR(object):
         print "predict: ", state["sname"]
         bestCase = self.getBestCase(state, action)
         if bestCase != None:
+            self.lastAC = bestCase
             return bestCase.predict(state, action), bestCase
         else:
             return state, bestCase

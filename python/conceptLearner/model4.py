@@ -29,7 +29,7 @@ from sets import Set
 from operator import methodcaller, itemgetter
 
 #from state1 import State, ObjectState, Action, InteractionState, WorldState
-from state2 import State, ObjectState, Action, InteractionState, WorldState
+from state3 import State, ObjectState, Action, InteractionState, WorldState
 
 THRESHOLD = 0.01
 
@@ -234,16 +234,16 @@ class AbstractCase(object):
                     
 #
 #        print "Scoring AC: ", self.variables
+        # Only use ACs with at least 2 references
         if len(self.refCases) < 2:
-            # Only use ACs with at least 2 references
             return 0
         
         for k,v in self.constants.items():
             for k2,v2 in state.relevantItems() + action.relevantItems():
                 if k == k2:
                     if np.linalg.norm(v-v2) > 0.01:
-                        if state["sid"] == 15:
-                            print "AC: {} failed because of k: {}, constant: {}, actual: {}, with {} numRefs".format(self.variables, k, v, v2, len(self.refCases))
+#                        if state["sid"] == 15:
+                        print "AC: {} failed because of k: {}, constant: {}, actual: {}, with {} numRefs".format(self.variables, k, v, v2, len(self.refCases))
                         return 0
 ##        
         for k,v in state.relevantItems() + action.relevantItems():
@@ -494,7 +494,6 @@ class ModelCBR(object):
         self.numPredictions = 0
         self.target = None
         self.weights = {}
-        self.lastScorelist = []
         
     def getAction(self, state):
 
@@ -578,8 +577,8 @@ class ModelCBR(object):
 #            sortedList = sorted(scoreList, key=itemgetter(1), reverse=True) 
 #            if len(sortedList) > 0:
 #                bestCase = sortedList[0][0]        
-        if state["sid"] == 15:
-            print "getBestCase with state: {} \n action: {}".format(state, action)
+#        if state["sid"] == 15:
+        print "getBestCase with state: {} \n action: {}".format(state, action)
         
         bestCase = None
         scoreList = [(c,c.score(state,action)) for c in self.abstractCases]
@@ -587,7 +586,7 @@ class ModelCBR(object):
         
 #        sortedList = sorted(self.abstractCases, key=methodcaller('score', state, action), reverse= True)
         sortedList = sorted(scoreList, key=itemgetter(1), reverse=True) 
-        self.lastScorelist = [(s, sorted(c.variables), len(c.refCases)) for c,s in sortedList]
+#        self.lastScorelist = [(s, sorted(c.variables), len(c.refCases)) for c,s in sortedList]
 #        if state["sid"] == 15:
         print "ScoreList: ", [(s, sorted(c.variables), len(c.refCases)) for c,s in sortedList]
         if len(sortedList) > 0:
@@ -612,7 +611,7 @@ class ModelCBR(object):
             return None
     
     def predictIntState(self, state, action):
-        
+        print "predict: ", state["sname"]
         bestCase = self.getBestCase(state, action)
         if bestCase != None:
             return bestCase.predict(state, action), bestCase
@@ -621,7 +620,7 @@ class ModelCBR(object):
             return state, bestCase
     
     def predict(self, worldState, action):
-        print "predict"
+        
         predictionWs = WorldState()
         predictionWs.transM = np.copy(worldState.transM)
         predictionWs.invTrans = np.copy(worldState.invTrans)
@@ -681,7 +680,6 @@ class ModelCBR(object):
                 usedCase.updatePredictionScore(predictionScore)
                 self.numCorrectCase += 1
             else:
-                print "LastScorelist: ", self.lastScorelist
                 if abstractCase != None:
                     print "Correct case constants: ", abstractCase.constants
                     print "Old state: ", state

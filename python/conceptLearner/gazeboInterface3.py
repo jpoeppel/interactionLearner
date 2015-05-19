@@ -36,7 +36,7 @@ import common
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
 import model4 as model
-import model6
+#import model6
 
 logging.basicConfig()
 #
@@ -52,10 +52,15 @@ MODE = PUSHTASKSIMULATION
 RANDOM_BLOCK_ORI = False
 #RANDOM_BLOCK_ORI = True
 
+DIFFERENTBLOCKORIENTATION = True
+DIFFERENTBLOCKORIENTATION = False
+
 DIRECTIONGENERALISATION = True
 #DIRECTIONGENERALISATION = False
 
-NUM_TRAIN_RUNS = 10
+SINGLE_INTSTATE= True
+
+NUM_TRAIN_RUNS = 20
 NUM_TEST_RUNS = 20
 
 class GazeboInterface():
@@ -169,7 +174,13 @@ class GazeboInterface():
                              self.lastPrediction.transM, self.lastPrediction.ori)
 
             msg.models.extend([tmp])
+            if SINGLE_INTSTATE:
+                tmp = self.getModelState2(intState["oname"] + "Shadow", intState["spos"]+intState["dir"], intState["seuler"]+intState["deuler"], 
+                             self.lastPrediction.transM, self.lastPrediction.ori)
+
+                msg.models.extend([tmp])
         self.posePublisher.publish(msg)
+        
 
     def getModelState2(self, name, pos, euler, transM=None, eulerdif=None):
         """
@@ -368,7 +379,7 @@ class GazeboInterface():
         self.runStarted = True
          #Set up Starting position
         posX = ((np.random.rand()-0.5)*randomRange) #* 0.5
-        self.sendPose("gripper", np.array([posX,0.0,0.0]), np.array([0.0,0.0,0.0,0.0]))
+        self.sendPose("gripper", np.array([posX,0.0,0.03]), np.array([0.0,0.0,0.0,0.0]))
         if RANDOM_BLOCK_ORI:
             self.sendPose("blockA", np.array([0.0, 0.5, 0.05]) , np.array([0.0,0.0,1.0,np.random.rand()-0.5]))
         self.stepCounter = 0
@@ -377,8 +388,13 @@ class GazeboInterface():
         self.runStarted = True
          #Set up Starting position
         posy = ((np.random.rand()-0.5)*randomRange) #* 0.5
-        self.sendPose("gripper", np.array([0.0,posy,0.0]), np.array([0.0,0.0,1.0,1.0]))
+        self.sendPose("gripper", np.array([0.0,posy,0.03]), np.array([0.0,0.0,1.0,1.0]))
         self.sendPose("blockA", np.array([-0.5, 0.0, 0.05]) , np.array([0.0,0.0,1.0,1.0]))
+        self.stepCounter = 0
+        
+    def startRun3(self):
+        self.runStarted = True
+        self.sendPose("gripper", np.array([-0.5, 0.5,0.03]), np.array([0.0,0.0,1.0,-1.0]))
         self.stepCounter = 0
         
     def updateTmpErrors(self, worldState):
@@ -475,14 +491,20 @@ class GazeboInterface():
                 self.resetWorld()
                 self.runStarted = False
         else:
-            if self.testRun > 10 and DIRECTIONGENERALISATION:
-#                print "bigger starting variance"
-                self.startRun2(0.7)
-                self.direction = np.array([-0.5,0.0,0.0])
+            if self.testRun > 0:
+                if DIRECTIONGENERALISATION:
+    #                print "bigger starting variance"
+                    self.startRun2(0.7)
+                    self.direction = np.array([-0.5,0.0,0.0])
+                elif DIFFERENTBLOCKORIENTATION:
+                    self.startRun3()
+                    self.direction = np.array([0.5,0.0,0.0])
+                else:
+                    self.startRun(0.7)
+                    self.direction = np.array([0.0,0.5,0.0])
             else:
                 self.startRun(0.7)
                 self.direction = np.array([0.0,0.5,0.0])
-#                self.direction = np.array([-0.5,0.0,0.0])
             return
             
         if self.trainRun < NUM_TRAIN_RUNS:
@@ -497,16 +519,15 @@ class GazeboInterface():
         elif self.testRun < NUM_TEST_RUNS:
             print "Test run #: ", self.testRun
             if self.runStarted:
-                if self.testRun > 10 and DIRECTIONGENERALISATION:
-                    self.lastAction = model.Action(cmd = GAZEBOCMDS["MOVE"], direction=np.array([-0.5,0.0,0.0]))
-                else:
-                    self.lastAction = model.Action(cmd = GAZEBOCMDS["MOVE"], direction=np.array([0.0,0.5,0.0]))
+                self.lastAction = model.Action(cmd = GAZEBOCMDS["MOVE"], direction=self.direction)
                 if self.lastPrediction != None:
-                    worldState = model.WorldState()
-                    worldState.reset(self.lastPrediction)
+                    predictedWorldState = model.WorldState()
+                    predictedWorldState.reset(self.lastPrediction)
+                else:
+                    predictedWorldState = worldState
                     #Retransform
 #                    print "lastPrediction: {}, worldState: {} ".format(self.lastPrediction.interactionStates, worldState.interactionStates)
-                self.lastPrediction = self.worldModel.predict(worldState, self.lastAction)
+                self.lastPrediction = self.worldModel.predict(predictedWorldState, self.lastAction)
 #                print "lastAction: ", self.lastAction
                 self.sendPrediction()
                 self.sendCommand(self.lastAction)
@@ -543,6 +564,7 @@ class GazeboInterface():
         self.lastPrediction = self.worldModel.predict(worldState, self.lastAction)
         self.sendPrediction()
         self.sendCommand(self.lastAction)
+
 
     def randomExploration(self, worldState, resultState):
         """

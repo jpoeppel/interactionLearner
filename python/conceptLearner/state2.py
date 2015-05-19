@@ -140,9 +140,9 @@ class ObjectState(State):
         self["angVel"] = np.round(np.array((matrix*tmpaV.T)[:3]).flatten(), NUMDEC)
         
     def fromInteractionState(self, intState):
-        self.update({"id": intState["sid"], "name":intState["sname"], "pos":intState["spos"], 
-                     "euler":intState["seuler"], "linVel":intState["slinVel"], 
-                     "angVel": intState["sangVel"]})
+        self.update({"id": intState["sid"], "name":intState["sname"], "pos":np.copy(intState["spos"]), 
+                     "euler":np.copy(intState["seuler"]), "linVel":np.copy(intState["slinVel"]), 
+                     "angVel": np.copy(intState["sangVel"])})
         if intState["contact"]:
             self["contact"] = intState["oname"]
             
@@ -178,6 +178,7 @@ class InteractionState(State):
         self.relKeys.remove("oname")
         self.relKeys.remove("stype")
         self.relKeys.remove("otype")
+    
 #        self.relKeys.remove("sangVel")
 #        self.relKeys.remove("dangVel")
 #        self.relKeys.remove("contact")

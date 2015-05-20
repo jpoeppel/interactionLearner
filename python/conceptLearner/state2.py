@@ -232,7 +232,10 @@ class InteractionState(State):
         x2yn = x2x*s + x2y*c
         x1n = np.array([x1xn,x1yn,0]) + mp
         x2n = np.array([x2xn,x2yn,0]) + mp
-        d1 = abs((x2n[0]-x1n[0])*(x1n[1]-x0y)-(x1n[0]-x0x)*(x2n[1]-x1n[1]))/math.sqrt((x2n[0]-x1n[0])**2+(x2n[1]-x1n[1])**2) - 0.025
+        if x0x <= x2x and x0x >= x1x: 
+            d1 = abs((x2n[0]-x1n[0])*(x1n[1]-x0y)-(x1n[0]-x0x)*(x2n[1]-x1n[1]))/math.sqrt((x2n[0]-x1n[0])**2+(x2n[1]-x1n[1])**2) - 0.025
+        else:
+            d1 = min(np.linalg.norm(x1n-np.array([x0x,x0y,x0z])), np.linalg.norm(x2n-np.array([x0x,x0y,x0z])))
         x1x = -0.25
         x1y = 0.05
         x2x = 0.25
@@ -243,7 +246,10 @@ class InteractionState(State):
         x2yn = x2x*s + x2y*c
         x1n = np.array([x1xn,x1yn,0]) + mp
         x2n = np.array([x2xn,x2yn,0]) + mp
-        d2 = abs((x2n[0]-x1n[0])*(x1n[1]-x0y)-(x1n[0]-x0x)*(x2n[1]-x1n[1]))/math.sqrt((x2n[0]-x1n[0])**2+(x2n[1]-x1n[1])**2) - 0.025
+        if x0x <= x2x and x0x >= x1x: 
+            d2 = abs((x2n[0]-x1n[0])*(x1n[1]-x0y)-(x1n[0]-x0x)*(x2n[1]-x1n[1]))/math.sqrt((x2n[0]-x1n[0])**2+(x2n[1]-x1n[1])**2) - 0.025
+        else:
+            d2 = min(np.linalg.norm(x1n-np.array([x0x,x0y,x0z])), np.linalg.norm(x2n-np.array([x0x,x0y,x0z])))
         x1x = -0.25
         x1y = 0.05
         x2x = -0.25
@@ -254,7 +260,10 @@ class InteractionState(State):
         x2yn = x2x*s + x2y*c
         x1n = np.array([x1xn,x1yn,0]) + mp
         x2n = np.array([x2xn,x2yn,0]) + mp
-        d3 = abs((x2n[0]-x1n[0])*(x1n[1]-x0y)-(x1n[0]-x0x)*(x2n[1]-x1n[1]))/math.sqrt((x2n[0]-x1n[0])**2+(x2n[1]-x1n[1])**2) - 0.025
+        if x0y <= x1y and x0y >= x2y: 
+            d3 = abs((x2n[0]-x1n[0])*(x1n[1]-x0y)-(x1n[0]-x0x)*(x2n[1]-x1n[1]))/math.sqrt((x2n[0]-x1n[0])**2+(x2n[1]-x1n[1])**2) - 0.025
+        else:
+            d3 = min(np.linalg.norm(x1n-np.array([x0x,x0y,x0z])), np.linalg.norm(x2n-np.array([x0x,x0y,x0z])))
         x1x = 0.25
         x1y = 0.05
         x2x = 0.25
@@ -265,7 +274,10 @@ class InteractionState(State):
         x2yn = x2x*s + x2y*c
         x1n = np.array([x1xn,x1yn,0]) + mp
         x2n = np.array([x2xn,x2yn,0]) + mp
-        d4 = abs((x2n[0]-x1n[0])*(x1n[1]-x0y)-(x1n[0]-x0x)*(x2n[1]-x1n[1]))/math.sqrt((x2n[0]-x1n[0])**2+(x2n[1]-x1n[1])**2) - 0.025
+        if x0y <= x1y and x0y >= x2y: 
+            d4 = abs((x2n[0]-x1n[0])*(x1n[1]-x0y)-(x1n[0]-x0x)*(x2n[1]-x1n[1]))/math.sqrt((x2n[0]-x1n[0])**2+(x2n[1]-x1n[1])**2) - 0.025
+        else:
+            d4 = min(np.linalg.norm(x1n-np.array([x0x,x0y,x0z])), np.linalg.norm(x2n-np.array([x0x,x0y,x0z])))
         return max(0.0,min((d1,d2,d3,d4)))
             
 class WorldState(object):

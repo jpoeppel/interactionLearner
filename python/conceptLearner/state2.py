@@ -232,14 +232,41 @@ class InteractionState(State):
         x2yn = x2x*s + x2y*c
         x1n = np.array([x1xn,x1yn,0]) + mp
         x2n = np.array([x2xn,x2yn,0]) + mp
-#        print "mp: ", mp
-#        print "x1n: {}, x2n: {}".format(x1n,x2n)
-        d = abs((x2n[0]-x1n[0])*(x1n[1]-x0y)-(x1n[0]-x0x)*(x2n[1]-x1n[1]))/math.sqrt((x2n[0]-x1n[0])**2+(x2n[1]-x1n[1])**2) - 0.025
-#            d = np.linalg.norm(np.cross(x2n-x1n, x1n-self["spos"]))/np.linalg.norm(x2n-x1n)
-        if d < 0.002:
-            return 0.0
-        else:
-            return d
+        d1 = abs((x2n[0]-x1n[0])*(x1n[1]-x0y)-(x1n[0]-x0x)*(x2n[1]-x1n[1]))/math.sqrt((x2n[0]-x1n[0])**2+(x2n[1]-x1n[1])**2) - 0.025
+        x1x = -0.25
+        x1y = 0.05
+        x2x = 0.25
+        x2y = 0.05
+        x1xn = x1x*c - x1y*s
+        x1yn = x1x*s + x1y*c
+        x2xn = x2x*c - x2y*s
+        x2yn = x2x*s + x2y*c
+        x1n = np.array([x1xn,x1yn,0]) + mp
+        x2n = np.array([x2xn,x2yn,0]) + mp
+        d2 = abs((x2n[0]-x1n[0])*(x1n[1]-x0y)-(x1n[0]-x0x)*(x2n[1]-x1n[1]))/math.sqrt((x2n[0]-x1n[0])**2+(x2n[1]-x1n[1])**2) - 0.025
+        x1x = -0.25
+        x1y = 0.05
+        x2x = -0.25
+        x2y = -0.05
+        x1xn = x1x*c - x1y*s
+        x1yn = x1x*s + x1y*c
+        x2xn = x2x*c - x2y*s
+        x2yn = x2x*s + x2y*c
+        x1n = np.array([x1xn,x1yn,0]) + mp
+        x2n = np.array([x2xn,x2yn,0]) + mp
+        d3 = abs((x2n[0]-x1n[0])*(x1n[1]-x0y)-(x1n[0]-x0x)*(x2n[1]-x1n[1]))/math.sqrt((x2n[0]-x1n[0])**2+(x2n[1]-x1n[1])**2) - 0.025
+        x1x = 0.25
+        x1y = 0.05
+        x2x = 0.25
+        x2y = -0.05
+        x1xn = x1x*c - x1y*s
+        x1yn = x1x*s + x1y*c
+        x2xn = x2x*c - x2y*s
+        x2yn = x2x*s + x2y*c
+        x1n = np.array([x1xn,x1yn,0]) + mp
+        x2n = np.array([x2xn,x2yn,0]) + mp
+        d4 = abs((x2n[0]-x1n[0])*(x1n[1]-x0y)-(x1n[0]-x0x)*(x2n[1]-x1n[1]))/math.sqrt((x2n[0]-x1n[0])**2+(x2n[1]-x1n[1])**2) - 0.025
+        return max(0.0,min((d1,d2,d3,d4)))
             
 class WorldState(object):
     

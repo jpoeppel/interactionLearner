@@ -39,7 +39,7 @@ import model4 as model
 #import model6
 
 logging.basicConfig()
-#
+
 
 FREE_EXPLORATION = 0
 PUSHTASK = 1
@@ -580,15 +580,12 @@ class GazeboInterface():
             self.worldModel.update(self.lastState, self.lastAction,self.lastPrediction, resultState)
             
         tmp = self.worldModel.getAction(worldState)
-        
-        norm = np.linalg.norm(tmp["mvDir"])
-        if norm > 1:
-            tmp["mvDir"] /= 2*norm
+        tmp.transform(worldState.transM)
 #        tmp = self.getRightAction()
 #        tmp["cmd"] = GAZEBOCMDS["MOVE"]
 #        tmp["dir"] = np.array([0.0,-1.2,0.0])
         self.lastAction = tmp
-#        print "lastAction: " + str(self.lastAction)
+        print "lastAction: " + str(self.lastAction)
         
         self.lastState = worldState
         self.lastPrediction = self.worldModel.predict(worldState, self.lastAction)
@@ -599,6 +596,7 @@ class GazeboInterface():
         print "num abstract cases: " + str(len(self.worldModel.abstractCases))
         print "num Predictions: ", self.worldModel.numPredictions
         print "% correctCase selected: ", self.worldModel.numCorrectCase/(float)(self.worldModel.numPredictions)
+        print "avgCorrectPredictionScore: ", self.worldModel.avgCorrectPrediction
 #        if len(self.worldModel.cases) == 400 or len(self.worldModel.cases) == 401:
 #            self.worldModel.setTarget(self.getTarget(worldState))
             

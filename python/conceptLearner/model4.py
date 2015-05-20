@@ -32,6 +32,7 @@ from operator import methodcaller, itemgetter
 from state3 import State, ObjectState, Action, InteractionState, WorldState
 
 THRESHOLD = 0.01
+BLOCK_BIAS = 0.2
 
 MAXCASESCORE = 14
 MAXSTATESCORE = 12
@@ -207,17 +208,13 @@ class AbstractCase(object):
                             bestScore = score
                     s += bestScore
             else:
-                # Reward ACs with many constants that were met!
                 if np.linalg.norm(v-self.constants[k]) > 0.01:
-                    print "AC: {} failed because of k: {}, constant: {}, actual: {}, with {} numRefs".format(self.variables, k, self.constants[k], v, len(self.refCases))
+#                    print "AC: {} failed because of k: {}, constant: {}, actual: {}, with {} numRefs".format(self.variables, k, self.constants[k], v, len(self.refCases))
                     return 0
+                # Reward ACs with many constants that were met!
                 s += 1
         
-        if state["sname"] == "blockA":
-#            print "scoring AC: {}, with \n state: {}, \n action: {}".format(self.variables, state, action)
-            print "AC: {} got score: {}".format(self.variables,s)
         return s
-#        return 1
     
     def updatePredictionScore(self, score):
         self.numPredictions += 1
@@ -369,6 +366,8 @@ class ModelCBR(object):
         self.target = None
         self.weights = {}
         self.lastAC = None
+        self.avgCorrectPrediction = 0.0
+        self.correctPredictions = 0
         
     def getAction(self, state):
 
@@ -402,23 +401,30 @@ class ModelCBR(object):
                 print "using Action: ", bestAction
                 return bestAction
 
-        return self.getRandomAction(state)
+        return self.getRandomAction(state, BLOCK_BIAS)
             
-    def getRandomAction(self, state):
+    def getRandomAction(self, state, blockbias = 0):
         print "getting random action"
         rnd = np.random.rand()
         a = Action()
-        if rnd < 0.3:
+        if rnd < 0.4:
             a["cmd"] = GZCMD["MOVE"]
+            if np.random.rand() < blockbias:
+                gripperInt = state.getInteractionState("gripper")
+                a["mvDir"] = gripperInt["dir"]/np.linalg.norm(gripperInt["dir"]) + (np.random.rand(3)-0.5)
+            else:
 #            a["dir"] = np.array([1.2,0,0])
-            a["mvDir"] = np.random.rand(3)*2-1
-        elif rnd < 0.4:
+                a["mvDir"] = np.random.rand(3)*2-1
+        elif rnd < 0.5:
             a["cmd"] = GZCMD["MOVE"]
             a["mvDir"] = np.array([0,0,0])
         else:
             a["cmd"] = GZCMD["NOTHING"]
 #        a["mvDir"] *= 2.0
         a["mvDir"][2] = 0
+        norm = np.linalg.norm(a["mvDir"])
+        if norm > 0.25:
+            a["mvDir"] /= 5*np.linalg.norm(a["mvDir"])
         return a
     
     def setTarget(self, postState = None):
@@ -426,7 +432,7 @@ class ModelCBR(object):
     
     def getBestCase(self, state, action):
         
-        print "getBestCase with state: {} \n action: {}".format(state, action)
+#        print "getBestCase with state: {} \n action: {}".format(state, action)
         
         bestCase = None
         scoreList = [(c,c.score(state,action)) for c in self.abstractCases]
@@ -436,12 +442,12 @@ class ModelCBR(object):
         sortedList = sorted(scoreList, key=itemgetter(1), reverse=True) 
 #        self.lastScorelist = [(s, sorted(c.variables), len(c.refCases)) for c,s in sortedList]
 #        if state["sid"] == 15:
-        print "ScoreList: ", [(s, sorted(c.variables), len(c.refCases)) for c,s in sortedList]
+#        print "ScoreList: ", [(s, sorted(c.variables), len(c.refCases)) for c,s in sortedList]
         if len(sortedList) > 0:
-            if sortedList[0][1] == 0 and self.lastAC != None:
-                bestCase = self.lastAC
-            else:
-                bestCase = sortedList[0][0]
+#            if sortedList[0][1] == 0 and self.lastAC != None:
+#                bestCase = self.lastAC
+#            else:
+            bestCase = sortedList[0][0]
             
             print "selected AC: ", bestCase.variables
         if isinstance(bestCase, AbstractCase):
@@ -502,6 +508,14 @@ class ModelCBR(object):
                 abstractCase = ac
                 #TODO consider search for all of them in case we distinguis by certain features
                 break
+            
+        if abstractCase != None:    
+            correctPrediction = abstractCase.predict(state, action)
+            correctRating = result.rate(correctPrediction)
+            worstRating = min(correctRating.items(), key=itemgetter(1))
+            self.correctPredictions += 1
+            self.avgCorrectPrediction += (sum(correctRating.values())-self.avgCorrectPrediction)/(float(self.correctPredictions))
+#            print "Prediction Score of correctCase prediction: {}, worst attrib: {} ({})".format(sum(correctRating.values()), worstRating[0], worstRating[1]) 
         if usedCase != None:
             if usedCase.variables == attribSet:
                 print "correct case selected!!!!!!!!!!!!!!!!!"

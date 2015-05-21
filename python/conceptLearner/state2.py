@@ -44,6 +44,16 @@ class State(dict):
 #            s[k] = self.weights[k]* similarities[k](self[k], otherState[k])
         return s
         
+    def score2(self, otherState):
+        a = 0.0
+        for k,v in self.relevantItems():
+            if hasattr(v, "__len__"):
+                norm = len(v)
+            else:
+                norm = 1.0
+            a += math.exp(-1.0/float(norm) * np.linalg.norm(v-otherState[k])**2)#*1.0/variances[k]
+        return a
+        
     def rate(self, otherState):
         s = {}
         for k in self.relKeys:
@@ -61,13 +71,16 @@ class State(dict):
         
     def toVec(self, const = {}):
         r = np.array([])
+        keyOrder = []
         for k in self.relKeys:
+            keyOrder.append(k)
             if k not in const.keys():
 #            if k != "spos":
                 if isinstance(self[k], np.ndarray):
                     r = np.concatenate((r,self[k]))
                 elif not isinstance(self[k], unicode):
                     r = np.concatenate((r,[self[k]]))
+#        print "KeyOrder: ", keyOrder
         return r
         
     def updateWeights(self, curState):

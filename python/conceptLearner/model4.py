@@ -28,6 +28,12 @@ import math
 from sets import Set
 from operator import methodcaller, itemgetter
 
+from sklearn import svm
+from sklearn import preprocessing
+from sklearn import tree
+from sklearn.linear_model import SGDClassifier
+from sklearn.ensemble import RandomForestClassifier
+
 #from state1 import State, ObjectState, Action, InteractionState, WorldState
 from state3 import State, ObjectState, Action, InteractionState, WorldState
 
@@ -105,9 +111,9 @@ class BaseCase(object):
         
 class AbstractCase(object):
     
-    def __init__(self, case):
+    def __init__(self, case, acId = 0):
         assert isinstance(case, BaseCase), "case is not a BaseCase object."
-        self.id = 0
+        self.id = acId
         self.refCases = []
         self.avgPrediction = 0.0
         self.numPredictions = 0
@@ -368,6 +374,8 @@ class ModelCBR(object):
         self.lastAC = None
         self.avgCorrectPrediction = 0.0
         self.correctPredictions = 0
+        self.aCClassifier = None
+        self.scaler = None
         
     def getAction(self, state):
 
@@ -433,24 +441,35 @@ class ModelCBR(object):
     def getBestCase(self, state, action):
         
 #        print "getBestCase with state: {} \n action: {}".format(state, action)
-        
         bestCase = None
-        scoreList = [(c,c.score(state,action)) for c in self.abstractCases]
-#        scoreList = [(c.abstCase,c.score(state,action)) for c in self.cases]
-        
-#        sortedList = sorted(self.abstractCases, key=methodcaller('score', state, action), reverse= True)
-        sortedList = sorted(scoreList, key=itemgetter(1), reverse=True) 
-#        self.lastScorelist = [(s, sorted(c.variables), len(c.refCases)) for c,s in sortedList]
-#        if state["sid"] == 15:
-#        print "ScoreList: ", [(s, sorted(c.variables), len(c.refCases)) for c,s in sortedList]
-        if len(sortedList) > 0:
-#            if sortedList[0][1] == 0 and self.lastAC != None:
-#                bestCase = self.lastAC
-#            else:
-            bestCase = sortedList[0][0]
+        if self.aCClassifier != None:
+            x = [np.concatenate((state.toVec(),action.toVec()))]
+#            print "X before scaling: ", x
+            if self.scaler != None:
+                x = self.scaler.transform(x)
+#            print "X after sclaing: ", x
+            caseID = int(self.aCClassifier.predict(x)[0])
+            print "CaseID: ", caseID
+#            print "Case prob: ", self.aCClassifier.predict_proba(x)
+            bestCase = self.abstractCases[caseID]
+        else:
+#            scoreList = [(c,c.score(state,action)) for c in self.abstractCases]
+            scoreList = [(c.abstCase,c.score(state,action)) for c in self.cases]
             
-            print "selected AC: ", bestCase.variables
+    #        sortedList = sorted(self.abstractCases, key=methodcaller('score', state, action), reverse= True)
+            sortedList = sorted(scoreList, key=itemgetter(1), reverse=True) 
+    #        self.lastScorelist = [(s, sorted(c.variables), len(c.refCases)) for c,s in sortedList]
+    #        if state["sid"] == 15:
+#            print "ScoreList: ", [(s, sorted(c.variables), len(c.refCases)) for c,s in sortedList]
+            if len(sortedList) > 0:
+    #            if sortedList[0][1] == 0 and self.lastAC != None:
+    #                bestCase = self.lastAC
+    #            else:
+                bestCase = sortedList[0][0]
+                
+        
         if isinstance(bestCase, AbstractCase):
+            print "selected AC: ", bestCase.variables
             if bestCase.variables == []:
                 self.numZeroCase += 1
 
@@ -498,14 +517,17 @@ class ModelCBR(object):
         newCase = BaseCase(state, action, result)
 #        print "New case difs: ", newCase.dif
         attribSet = newCase.getSetOfAttribs()
-        predictionRating = result.rate(prediction)#, self.weights)
-        predictionScore = sum(predictionRating.values())
+#        predictionRating = result.rate(prediction)#, self.weights)
+#        predictionScore = sum(predictionRating.values())
+        predictionScore = result.score(prediction)
         print "Correct attribSet for state: {} : {}".format(result["sname"], sorted(attribSet))
         print "predictionScore: ", predictionScore
         abstractCase = None
+        retrain = False
         for ac in self.abstractCases:
             if ac.variables == attribSet:
                 abstractCase = ac
+                print "Correct AC_ID: ", abstractCase.id
                 #TODO consider search for all of them in case we distinguis by certain features
                 break
             
@@ -526,6 +548,7 @@ class ModelCBR(object):
             if abstractCase != None:
                     try:
                         abstractCase.addRef(newCase)
+                        retrain = True
                     except TypeError, e:
                         print "case was already present"
                     else:
@@ -534,8 +557,35 @@ class ModelCBR(object):
             else:
                 #Create a new abstract case
                 print "new Abstract case: ", attribSet
-                self.abstractCases.append(AbstractCase(newCase))
+                self.abstractCases.append(AbstractCase(newCase, len(self.abstractCases)))
                 self.addBaseCase(newCase)
+                retrain = True
+        if retrain:
+            self.retrainACClassifier()
+
+
+    def retrainACClassifier(self):
+        print "Retraining!"
+        if len(self.abstractCases) > 1:
+            nFeature = np.size(np.concatenate((self.cases[0].preState.toVec(),self.cases[0].action.toVec())))
+            X = np.zeros((len(self.cases),nFeature))
+            Y = np.zeros(len(self.cases))
+            for i in range(len(self.cases)):
+                X[i,:] = np.concatenate((self.cases[i].preState.toVec(),self.cases[i].action.toVec()))
+                Y[i] = self.cases[i].abstCase.id
+#            self.scaler = preprocessing.StandardScaler(with_mean = False, with_std=True).fit(X)
+#            self.scaler = preprocessing.MinMaxScaler().fit(X)
+#            self.scaler = preprocessing.Normalizer().fit(X)
+#            self.aCClassifier = svm.SVC(kernel='rbf', C=1, gamma=0.1)
+#            self.aCClassifier = SGDClassifier(loss='log', penalty="l2")
+            self.aCClassifier = tree.DecisionTreeClassifier(criterion="gini")#, class_weight='auto')#, max_leaf_nodes=len(self.abstractCases))#, max_features='auto')
+#            self.aCClassifier = RandomForestClassifier()
+#            self.aCClassifier.fit(self.scaler.transform(X),Y)
+            self.aCClassifier.fit(X,Y)
+            
+    def getGraphViz(self, dot_data):
+        if self.aCClassifier != None:
+            tree.export_graphviz(self.aCClassifier, out_file=dot_data)
 
     def addBaseCase(self, newCase):
         self.cases.append(newCase)

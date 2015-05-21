@@ -36,6 +36,9 @@ import common
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
 import model4 as model
+
+from sklearn.externals.six import StringIO
+import pydot
 #import model6
 
 logging.basicConfig()
@@ -515,6 +518,11 @@ class GazeboInterface():
                 self.trainRun += 1
                 if self.trainRun == NUM_TRAIN_RUNS:
                     self.pauseWorld()
+                    dot_data = StringIO()
+                    self.worldModel.getGraphViz(dot_data)
+                    graph = pydot.graph_from_dot_data(dot_data.getvalue())
+                    if graph != None:
+                        graph.write_pdf("tree.pdf")
 #                    np.random.seed(1234)
         elif self.testRun < NUM_TEST_RUNS:
             print "Test run #: ", self.testRun
@@ -597,7 +605,13 @@ class GazeboInterface():
         print "num Predictions: ", self.worldModel.numPredictions
         print "% correctCase selected: ", self.worldModel.numCorrectCase/(float)(self.worldModel.numPredictions)
         print "avgCorrectPredictionScore: ", self.worldModel.avgCorrectPrediction
-#        if len(self.worldModel.cases) == 400 or len(self.worldModel.cases) == 401:
+        if self.worldModel.numPredictions == 1000:
+            self.pauseWorld()
+            dot_data = StringIO()
+            self.worldModel.getGraphViz(dot_data)
+            graph = pydot.graph_from_dot_data(dot_data.getvalue())
+            if graph != None:
+                graph.write_pdf("treeExploration.pdf")
 #            self.worldModel.setTarget(self.getTarget(worldState))
             
     def moveToTarget(self, worldState):

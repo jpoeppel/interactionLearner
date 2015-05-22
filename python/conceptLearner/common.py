@@ -74,12 +74,39 @@ def eulerPosToTransformation(euler, pos):
                                [-sb, sg*cb, cg*cb, pz],
                                [0.0,0.0,0.0,1.0]])
                       
+                      
+def eulerPosToTransformation2d(euler, pos):
+    a = euler
+    px,py = pos
+    ca = math.cos(a)
+    sa = math.sin(a)
+#    return np.matrix(np.round([[ca*cg-sa*cb*sg, sa*cg+ca*cb*sg, sb*sg, px], 
+#                      [-ca*sg-sa*cb*cg, -sa*sg+ca*cb*cg, sb*cg, py],
+#                      [sa*sb, -ca*sb, cb, pz],
+#                      [0.0, 0.0, 0.0, 1.0]],NUMDEC))
+    return np.matrix([[ca, -sa, px],
+                      [sa, ca, py],
+                      [0.0,0.0,1.0]])
+
 def invertTransMatrix(matrix):
-    invTrans = np.matrix(np.zeros((4,4)))
-    invTrans[:3,:3] = matrix[:3,:3].T
-    invTrans[:3,3] = -matrix[:3,:3].T*matrix[:3,3]
-    invTrans[3,3] = 1.0
-    return invTrans
+    r,c = np.shape(matrix)
+    invTrans = np.matrix(np.zeros((r,c)))
+    r -= 1
+    c -= 1
+    matrixRot = matrix[:r,:c]
+    
+    invTransRot = invTrans[:r,:c]
+    invTransRot[:,:] = np.copy(matrixRot.T)
+    invTrans[:r,c] = -matrixRot.T*matrix[:r,c]
+    invTrans[r,c] = 1.0
+    return invTrans                      
+                      
+#def invertTransMatrix2(matrix):
+#    invTrans = np.matrix(np.zeros((4,4)))
+#    invTrans[:3,:3] = matrix[:3,:3].T
+#    invTrans[:3,3] = -matrix[:3,:3].T*matrix[:3,3]
+#    invTrans[3,3] = 1.0
+#    return invTrans
     
 if __name__=="__main__":
     testEuler = np.array([0.0,0.0,math.pi*0.5])

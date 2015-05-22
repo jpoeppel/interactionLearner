@@ -7,6 +7,7 @@ Created on Mon Apr 13 00:32:22 2015
 
 import numpy as np
 from sets import Set
+import copy
 
 EQU = 0
 CMP = 1
@@ -64,13 +65,14 @@ class Network(object):
     def __init__(self):
         self.nodes = {}
         self.idCounter = 0
+        self.tree = None
     
     def newNode(self, nodeName, pos=np.array([]), wIn=np.array([]), wOut = np.array([]), A = np.array([])):
         self.nodes[nodeName] = Node(nodeName, pos, wIn, wOut, A)
         self.idCounter += 1
     
     def addNode(self, node):
-        self.nodes[node.name] = node
+        self.nodes[node.name] = copy.deepcopy(node)
         self.idCounter += 1
     
     def addEdge(self, fromNode, toNode):

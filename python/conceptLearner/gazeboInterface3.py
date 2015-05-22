@@ -63,8 +63,8 @@ DIRECTIONGENERALISATION = True
 
 SINGLE_INTSTATE= True
 
-NUM_TRAIN_RUNS = 20
-NUM_TEST_RUNS = 20
+NUM_TRAIN_RUNS = 10
+NUM_TEST_RUNS = 40
 
 class GazeboInterface():
     """
@@ -184,6 +184,79 @@ class GazeboInterface():
                 msg.models.extend([tmp])
         self.posePublisher.publish(msg)
         
+    def sendPrediction2D(self):
+        """
+        Function to send the last prediction to gazebo. This will move the shadow model
+        positions.
+        """
+        msg = pygazebo.msg.modelState_v_pb2.ModelState_V()
+        for intState in self.lastPrediction.interactionStates.values():
+#            tmp = self.getModelState(intState["sname"] + "Shadow", intState["spos"], intState["sori"], 
+#                                     self.lastPrediction.transM, self.lastPrediction.quat)
+            tmp = self.getModelState2D(intState["sname"] + "Shadow", intState["spos"], intState["seuler"], 
+                             self.lastPrediction.transM, self.lastPrediction.ori)
+
+            msg.models.extend([tmp])
+            if SINGLE_INTSTATE:
+                tmp = self.getModelState2D(intState["oname"] + "Shadow", intState["spos"]+intState["dir"], intState["seuler"]+intState["deuler"], 
+                             self.lastPrediction.transM, self.lastPrediction.ori)
+
+                msg.models.extend([tmp])
+        self.posePublisher.publish(msg)
+        
+    def getModelState2D(self, name, pos, euler, transM=None, eulerdif=None):
+        """
+        Function to create a ModeLState object from a name and the desired position and orientation.
+        
+        Parameters
+        ----------
+        name : String
+            Name of the model
+        pos : np.array() Size 3
+            The position of the model
+        ori : np.array() Size 4
+            The quaternion for the orientation of the model
+            
+        Returns
+        -------
+        modelState_pb2.ModelState
+            Protobuf object for a model state with fixed id to 99
+        """
+        msg = modelState_pb2.ModelState()
+        msg.name = name
+        msg.id = 99
+#        print "getting model State for: ", name
+        if transM != None:
+            #Build inverse transformation matrix
+#            matrix = np.matrix(np.zeros((4,4)))
+#            matrix[:3,:3] = transM[:3,:3].T
+#            matrix[:3,3] = -transM[:3,:3].T*transM[:3,3]
+#            matrix[3,3] = 1.0
+##            print "Original matrix: {} \n, transpose: {}".format(transM, matrix)
+            tmpPos = np.matrix(np.concatenate((pos,[1])))
+            tpos = np.array((transM*tmpPos.T)[:2]).flatten()   
+#            print "OriginalPosition: {}, resulting position: {}".format(tmpPos, pos)
+            msg.pose.position.x = tpos[0] 
+            msg.pose.position.y = tpos[1] 
+            msg.pose.position.z = 0.05
+        else:
+            msg.pose.position.x = pos[0] #* 2.0
+            msg.pose.position.y = pos[1] #* 2.0
+            msg.pose.position.z = 0.05 #* 2.0
+        
+        if eulerdif != None:
+            newOri = common.eulerToQuat(np.array([0.0,0.0,euler+eulerdif]))
+            msg.pose.orientation.x = newOri[0]
+            msg.pose.orientation.y = newOri[1]
+            msg.pose.orientation.z = newOri[2]
+            msg.pose.orientation.w = newOri[3]
+        else:
+            ori= common.eulerToQuat(np.array([0.0,0.0,euler]))
+            msg.pose.orientation.x = ori[0]
+            msg.pose.orientation.y = ori[1]
+            msg.pose.orientation.z = ori[2]
+            msg.pose.orientation.w = ori[3]
+        return msg    
 
     def getModelState2(self, name, pos, euler, transM=None, eulerdif=None):
         """
@@ -371,6 +444,15 @@ class GazeboInterface():
         if np.linalg.norm(tpos) > 1.0 or self.stepCounter > 50:
             return True
         return False
+        
+    def runEnded2D(self, worldState):
+        gripperInt = worldState.getInteractionState("gripper")
+        tmpPos = np.matrix(np.concatenate((gripperInt["spos"],[1])))
+        tpos = np.array((worldState.transM*tmpPos.T)[:2]).flatten()   
+        
+        if np.linalg.norm(tpos) > 1.0 or self.stepCounter > 50:
+            return True
+        return False
 
     def startRun(self, randomRange=0.5):
         """
@@ -391,7 +473,7 @@ class GazeboInterface():
         self.runStarted = True
          #Set up Starting position
         posy = ((np.random.rand()-0.5)*randomRange) #* 0.5
-        self.sendPose("gripper", np.array([0.0,posy,0.03]), np.array([0.0,0.0,1.0,1.0]))
+        self.sendPose("gripper", np.array([0.0,posy,0.03]), np.array([0.0,0.0,0.0,0.0]))
         self.sendPose("blockA", np.array([-0.5, 0.0, 0.05]) , np.array([0.0,0.0,1.0,1.0]))
         self.stepCounter = 0
         
@@ -490,7 +572,7 @@ class GazeboInterface():
         print "num abstract cases: " + str(len(self.worldModel.abstractCases))
         
         if self.runStarted:
-            if self.runEnded(worldState):
+            if self.runEnded2D(worldState):
                 self.resetWorld()
                 self.runStarted = False
         else:
@@ -537,7 +619,7 @@ class GazeboInterface():
 #                    print "lastPrediction: {}, worldState: {} ".format(self.lastPrediction.interactionStates, worldState.interactionStates)
                 self.lastPrediction = self.worldModel.predict(predictedWorldState, self.lastAction)
 #                print "lastAction: ", self.lastAction
-                self.sendPrediction()
+                self.sendPrediction2D()
                 self.sendCommand(self.lastAction)
             else:
                 self.testRun += 1
@@ -570,7 +652,7 @@ class GazeboInterface():
 #        else:
 #            self.lastAction = model.Action(cmd=GAZEBOCMDS["NOTHING"])
         self.lastPrediction = self.worldModel.predict(worldState, self.lastAction)
-        self.sendPrediction()
+        self.sendPrediction2D()
         self.sendCommand(self.lastAction)
 
 

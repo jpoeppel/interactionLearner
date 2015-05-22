@@ -33,6 +33,7 @@ from sklearn import preprocessing
 from sklearn import tree
 from sklearn.linear_model import SGDClassifier
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import AdaBoostClassifier
 
 #from state1 import State, ObjectState, Action, InteractionState, WorldState
 from state3 import State, ObjectState, Action, InteractionState, WorldState
@@ -580,6 +581,7 @@ class ModelCBR(object):
 #            self.aCClassifier = SGDClassifier(loss='log', penalty="l2")
             self.aCClassifier = tree.DecisionTreeClassifier(criterion="gini")#, class_weight='auto')#, max_leaf_nodes=len(self.abstractCases))#, max_features='auto')
 #            self.aCClassifier = RandomForestClassifier()
+#            self.aCClassifier = AdaBoostClassifier(n_estimators=100)
 #            self.aCClassifier.fit(self.scaler.transform(X),Y)
             self.aCClassifier.fit(X,Y)
             

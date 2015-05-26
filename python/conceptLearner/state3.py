@@ -9,7 +9,7 @@ Similar to state2, but worldstate will only consist out of 1 InteractionState!
 import common
 from common import NUMDEC
 from common import GAZEBOCMDS as GZCMD
-from common import eulerPosToTransformation2d as eulerPosToTransformation
+#from common import eulerPosToTransformation2d as eulerPosToTransformation
 from metrics import similarities
 from metrics import differences
 
@@ -17,8 +17,8 @@ import numpy as np
 import math
 import copy
 from operator import methodcaller, itemgetter
-from state2_2 import State, InteractionState, Action
-import state2_2 as state2
+from state2 import State, InteractionState, Action
+import state2
 
 class ObjectState(state2.ObjectState):
     """
@@ -72,11 +72,11 @@ class WorldState(state2.WorldState):
             if not self.objectStates.has_key(tmp2["name"]):
                 self.objectStates[tmp2["name"]] = tmp2
             if tmp["name"] == "blockA":
-                self.transM = eulerPosToTransformation(tmp["euler"],tmp["pos"])
+                self.transM = common.eulerPosToTransformation(tmp["euler"],tmp["pos"])
                 self.invTrans = common.invertTransMatrix(self.transM)
                 self.ori = np.copy(tmp["euler"])
             if tmp2["name"] == "blockA":
-                self.transM = eulerPosToTransformation(tmp2["euler"],tmp2["pos"])
+                self.transM = common.eulerPosToTransformation(tmp2["euler"],tmp2["pos"])
                 self.invTrans = common.invertTransMatrix(self.transM)
                 self.ori = np.copy(tmp2["euler"])
         self.parseInteractions()

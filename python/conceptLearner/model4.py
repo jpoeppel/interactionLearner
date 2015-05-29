@@ -34,6 +34,8 @@ from sklearn import tree
 from sklearn.linear_model import SGDClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import AdaBoostClassifier
+from sklearn.lda import LDA
+from sklearn import linear_model
 
 #from state1 import State, ObjectState, Action, InteractionState, WorldState
 from state3 import State, ObjectState, Action, InteractionState, WorldState
@@ -238,7 +240,7 @@ class AbstractCase(object):
                 if np.linalg.norm(v-self.constants[k]) > 0.001:
                     print "deleting constant {} in ac {}".format(k, self.variables)
                     del self.constants[k]
-                    self.retrain()
+#                    self.retrain()
             else:
                 if len(self.refCases) == 0:
                     self.constants[k] = v
@@ -255,9 +257,9 @@ class AbstractCase(object):
          
         self.refCases.append(ref)
         ref.abstCase = self
-        self.updatePredictorsITM(ref)
+#        self.updatePredictorsITM(ref)
         
-        self.updateGaussians(self.gaussians, len(self.refCases), ref)        
+#        self.updateGaussians(self.gaussians, len(self.refCases), ref)        
 #        self.updatePredictorsGP()
         
     def updateGaussians(self, gaussians, numData, ref):
@@ -318,10 +320,12 @@ class AbstractCase(object):
                     wOut=case.postState[attrib]-case.preState[attrib])
         return node
         
+        
     def updatePredictorsGP(self):
         if len(self.refCases) > 1:
             for k in self.variables:
-                self.predictors[k] = GaussianProcess(corr='cubic')
+#                self.predictors[k] = GaussianProcess(corr='cubic')
+                self.predictors[k] = linear_model.Ridge(alpha=0.9)
                 data, labels = self.getTrainingData(k)
                 self.predictors[k].fit(data, labels)
                 
@@ -377,6 +381,7 @@ class ModelCBR(object):
         self.correctPredictions = 0
         self.aCClassifier = None
         self.scaler = None
+        self.data = []
         
     def getAction(self, state):
 
@@ -500,7 +505,7 @@ class ModelCBR(object):
             
             prediction, usedCase = self.predictIntState(intState, transformedAction)
             predictionWs.addInteractionState(prediction, usedCase)
-#        print "resulting prediction: ", predictionWs.interactionStates
+        print "resulting prediction: ", predictionWs.interactionStates
         return predictionWs
         
     def updateState(self, state, action, prediction, result, usedCase):
@@ -514,6 +519,8 @@ class ModelCBR(object):
         usedCase: AbstractCase
         """
 
+
+        self.data.append(np.concatenate((state.toVec(), action.toVec())))        
         
         newCase = BaseCase(state, action, result)
 #        print "New case difs: ", newCase.dif
@@ -544,6 +551,8 @@ class ModelCBR(object):
                 print "correct case selected!!!!!!!!!!!!!!!!!"
                 usedCase.updatePredictionScore(predictionScore)
                 self.numCorrectCase += 1
+                if abstractCase != None:
+                    retrain = True
                 
         if predictionScore < PREDICTIONTHRESHOLD:
             if abstractCase != None:
@@ -579,7 +588,8 @@ class ModelCBR(object):
 #            self.scaler = preprocessing.Normalizer().fit(X)
 #            self.aCClassifier = svm.SVC(kernel='rbf', C=1, gamma=0.1)
 #            self.aCClassifier = SGDClassifier(loss='log', penalty="l2")
-            self.aCClassifier = tree.DecisionTreeClassifier(criterion="gini")#, class_weight='auto')#, max_leaf_nodes=len(self.abstractCases))#, max_features='auto')
+            self.aCClassifier = tree.DecisionTreeClassifier(criterion="gini")#, max_leaf_nodes=len(self.abstractCases))#, max_features='auto')
+#            self.aCClassifier = LDA(solver="lsqr", shrinkage="auto")
 #            self.aCClassifier = RandomForestClassifier()
 #            self.aCClassifier = AdaBoostClassifier(n_estimators=100)
 #            self.aCClassifier.fit(self.scaler.transform(X),Y)

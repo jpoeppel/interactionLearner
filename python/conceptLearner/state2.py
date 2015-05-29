@@ -71,9 +71,9 @@ class State(dict):
         
     def toVec(self, const = {}):
         r = np.array([])
-        keyOrder = []
+#        keyOrder = []
         for k in self.relKeys:
-            keyOrder.append(k)
+#            keyOrder.append(k)
             if k not in const.keys():
 #            if k != "spos":
                 if isinstance(self[k], np.ndarray):
@@ -296,6 +296,21 @@ class InteractionState(State):
         else:
             d4 = min(np.linalg.norm(x1n-np.array([x0x,x0y,x0z])), np.linalg.norm(x2n-np.array([x0x,x0y,x0z])))
         return np.round(min((d1,d2,d3,d4)), NUMDEC) - 0.025
+        
+    def updateFromVec(self, vec):
+        self["dist"] = vec[0]
+#        self["oid"] = vec[1]
+        self["seuler"] = vec[2:5]
+        self["sangVel"] = vec[5:8]
+        self["spos"] = vec[8:11]
+        self["dangVel"] = vec[11:14]
+        self["dlinVel"] = vec[14:17]
+        self["slinVel"] = vec[17:20]
+        self["deuler"] = vec[20:23]
+        self["contact"] =vec[23]
+#        self["sid"] = vec[24]
+        self["dir"] = vec[25:28]
+        
             
 class WorldState(object):
     
@@ -400,6 +415,8 @@ class WorldState(object):
         self.parseInteractions()
 #        
 #        print "InteractionStates: ", self.interactionStates.values()
+
+
 
     def getInteractionState(self, sname):
         for i in self.interactionStates.values():

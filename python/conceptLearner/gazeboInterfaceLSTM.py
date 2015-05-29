@@ -6,21 +6,6 @@ Created on Wed May 27 16:09:14 2015
 @author: jpoeppel
 """
 
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Apr 22 13:58:30 2015
-
-@author: jpoeppel
-"""
-
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Mar 12 13:55:30 2015
-
-@author: jpoeppel
-"""
 
 import pygazebo
 import trollius
@@ -42,6 +27,8 @@ import math
 import common
 
 import state2 as state
+
+import modelLSTM as model
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
@@ -70,8 +57,8 @@ DIRECTIONGENERALISATION = False
 
 SINGLE_INTSTATE= True
 
-NUM_TRAIN_RUNS = 20
-NUM_TEST_RUNS = 40
+NUM_TRAIN_RUNS = 10000
+NUM_TEST_RUNS = 100
 
 class GazeboInterface():
     """
@@ -82,9 +69,9 @@ class GazeboInterface():
          
         self.active = True
         self.lastState = None
-        self.worldModel = model.ModelCBR()
+        self.worldModel = model.ModelLSTM()#"testDataInput10.txt", "testDataOutput10.txt")
         self.lastPrediction = None
-        self.lastAction = model.Action()
+        self.lastAction = state.Action()
         
         self.trainRun = 0
         self.testRun = 0
@@ -165,30 +152,28 @@ class GazeboInterface():
         msg.direction.z = 0.0
         self.cmdPublisher.publish(msg)
         
-    def sendPrediction(self, prediction):
+    def sendPrediction(self, prediction, worldState):
         """
         Function to send the last prediction to gazebo. This will move the shadow model
         positions.
         """
-        raise NotImplemented
         msg = pygazebo.msg.modelState_v_pb2.ModelState_V()
-        for intState in self.lastPrediction.interactionStates.values():
-#            tmp = self.getModelState(intState["sname"] + "Shadow", intState["spos"], intState["sori"], 
-#                                     self.lastPrediction.transM, self.lastPrediction.quat)
-            tmp = self.getModelState(intState["sname"] + "Shadow", intState["spos"], intState["seuler"], 
-                             self.lastPrediction.transM, self.lastPrediction.ori)
+        pred = np.round(prediction[0], 4)
+        
+        tmp = self.getModelState("gripper" + "Shadow", pred[8:11], pred[2:5], 
+                         worldState.transM, worldState.ori)
+
+        msg.models.extend([tmp])
+        if SINGLE_INTSTATE:
+            tmp = self.getModelState("blockA" + "Shadow", pred[8:11]+pred[25:28], pred[2:5]+pred[20:23],
+                         worldState.transM, worldState.ori)
 
             msg.models.extend([tmp])
-            if SINGLE_INTSTATE:
-                tmp = self.getModelState(intState["oname"] + "Shadow", intState["spos"]+intState["dir"], intState["seuler"]+intState["deuler"], 
-                             self.lastPrediction.transM, self.lastPrediction.ori)
-
-                msg.models.extend([tmp])
         self.posePublisher.publish(msg)
         
         
 
-    def getModelState(self, name, pos, euler, transM=None, eulerdif=None):
+    def getModelState(self, name, pos, ori, transM=None, oridif=None):
         """
         Function to create a ModeLState object from a name and the desired position and orientation.
         
@@ -198,8 +183,8 @@ class GazeboInterface():
             Name of the model
         pos : np.array() Size 3
             The position of the model
-        ori : np.array() Size 4
-            The quaternion for the orientation of the model
+        ori : np.array() Size 3 or 4
+            The euler angles (3) or quaternion (4) for the orientation of the model
             
         Returns
         -------
@@ -214,6 +199,7 @@ class GazeboInterface():
             #Build inverse transformation matrix
             tmpPos = np.matrix(np.concatenate((pos,[1])))
             tpos = np.array((transM*tmpPos.T)[:3]).flatten()   
+            
 #            print "OriginalPosition: {}, resulting position: {}".format(tmpPos, pos)
             msg.pose.position.x = tpos[0] #* 2.0
             msg.pose.position.y = tpos[1] #* 2.0
@@ -223,18 +209,20 @@ class GazeboInterface():
             msg.pose.position.y = pos[1] #* 2.0
             msg.pose.position.z = pos[2] #* 2.0
         
-        if eulerdif != None:
-            newOri = common.eulerToQuat(euler+eulerdif)
-            msg.pose.orientation.x = newOri[0]
-            msg.pose.orientation.y = newOri[1]
-            msg.pose.orientation.z = newOri[2]
-            msg.pose.orientation.w = newOri[3]
-        else:
-            ori= common.eulerToQuat(euler)
-            msg.pose.orientation.x = ori[0]
-            msg.pose.orientation.y = ori[1]
-            msg.pose.orientation.z = ori[2]
-            msg.pose.orientation.w = ori[3]
+        if len(ori) == 3:
+            if oridif != None:
+                ori = common.eulerToQuat(ori+oridif)
+            else:
+                ori= common.eulerToQuat(ori)
+        elif len(ori) != 4:
+            raise AttributeError("ori must be either 3 euler angles or a 4 dim quaternion")
+
+        msg.pose.orientation.x = ori[0]
+        msg.pose.orientation.y = ori[1]
+        msg.pose.orientation.z = ori[2]
+        msg.pose.orientation.w = ori[3]
+        
+            
         return msg    
     
         
@@ -244,12 +232,12 @@ class GazeboInterface():
         self.posePublisher.publish(msg)
         
     def resetWorld(self):
-        print "reset world"
+#        print "reset world"
         self.sendStopCommand()
         msg = world_control_pb2.WorldControl()
         msg.reset.all = True
         self.worldControlPublisher.publish(msg)
-        self.lastAction = None
+#        self.lastAction = None
         self.lastPrediction = None
         self.lastState = None
         
@@ -348,15 +336,22 @@ class GazeboInterface():
     def pushTaskSimulation(self, worldState, resultState=None):
         self.stepCounter += 1
         
+        
+                
+        self.lastAction = state.Action(cmd = GAZEBOCMDS["MOVE"], direction=self.direction)
+        
         if self.runStarted:
             if self.runEnded(worldState):
                 self.resetWorld()
                 self.runStarted = False
-                self.worldModel.update(self.inputSeq, self.outputSeq)
-                self.inputSeq = []
-                self.outputSeq = []
+#                print "input sec: ", self.inputSeq
+#                print "output sec: ", self.outputSeq
+#                
             else:
-                self.inputSeq.append(self.getInputData(worldState))
+                
+                if self.trainRun < NUM_TRAIN_RUNS:
+                    self.lastPrediction = worldState
+                
         else:
             if self.testRun > 0:
                 if DIRECTIONGENERALISATION:
@@ -372,14 +367,66 @@ class GazeboInterface():
                 self.startRun(0.7)
                 self.direction = np.array([0.0,0.5,0.0])
             return
+            
         if self.trainRun < NUM_TRAIN_RUNS:
-            self.trainRun += 1
+            print "Train run #: ", self.trainRun
+            if resultState != None:
+                self.outputSeq.append(self.getOutputData(resultState))
+
+            if self.runStarted:
+                self.inputSeq.append(self.getInputData(worldState))
+            else:                    
+                print "len input: {}, len output: {}".format(len(self.inputSeq), len(self.outputSeq))
+#                if len(self.inputSeq) > 0:
+#                    self.worldModel.update(self.inputSeq, self.outputSeq)
+#                    with open("testDataInput10.txt", "a") as f:
+#                        np.savetxt(f, self.inputSeq)
+#                        f.write("# New Seq\n")
+#                    with open("testDataOutput10.txt", "a") as f:
+#                        np.savetxt(f, self.outputSeq)
+#                        f.write("# New Seq\n")
+                self.inputSeq = []
+                self.outputSeq = []
+
+#                print "Training step"
+                self.trainRun += 1
+                if self.trainRun == NUM_TRAIN_RUNS:
+                    self.pauseWorld()
+            
             
         elif self.testRun < NUM_TEST_RUNS:
-            pred = self.worldModel.predict(self.getInputData(worldState))
-            self.sendPrediction(pred)
+            print "Test run #: ", self.testRun
+            if self.runStarted:
+                if self.lastPrediction != None:
+                    predictedWorldState = state.WorldState()
+                    predictedWorldState.reset(self.lastPrediction)
+                else:
+                    print "lastPred = None"
+                    predictedWorldState = worldState
+                pred = self.worldModel.predict(np.array([self.getInputData(predictedWorldState)]))
+                print "prediction: ", pred
+                self.lastPrediction = self.createPrediction(pred[0], predictedWorldState) #TODO FIX!
+                self.sendPrediction(pred, predictedWorldState)
+            else:
+                self.testRun += 1
+                
+        if self.lastAction != None:
+            self.sendCommand(self.lastAction)
+            
+    def getInputData(self, worldState):
+        gripperInt = worldState.getInteractionState("gripper")
+#        print "gripperInt: ", gripperInt
+#        print "lastAction: ", self.lastAction
+        return np.concatenate((gripperInt.toVec(), self.lastAction.toVec()))
+        
+    def getOutputData(self, resultState):
+        gripperInt = resultState.getInteractionState("gripper")
+        return gripperInt.toVec()
 
-
+    def createPrediction(self, pred, worldState):
+        ws = copy.deepcopy(worldState)
+        ws.getInteractionState("gripper").updateFromVec(pred)
+        return ws
 
     
     def stop(self):

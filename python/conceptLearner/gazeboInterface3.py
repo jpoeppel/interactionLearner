@@ -6,14 +6,6 @@ Created on Wed Apr 22 13:58:30 2015
 @author: jpoeppel
 """
 
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Mar 12 13:55:30 2015
-
-@author: jpoeppel
-"""
-
 import pygazebo
 import trollius
 from trollius import From
@@ -36,10 +28,10 @@ import common
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
 import model4 as model
-
+#import model6 as model
 from sklearn.externals.six import StringIO
 import pydot
-#import model6
+
 
 logging.basicConfig()
 
@@ -59,11 +51,11 @@ DIFFERENTBLOCKORIENTATION = True
 DIFFERENTBLOCKORIENTATION = False
 
 DIRECTIONGENERALISATION = True
-#DIRECTIONGENERALISATION = False
+DIRECTIONGENERALISATION = False
 
 SINGLE_INTSTATE= True
 
-NUM_TRAIN_RUNS = 10
+NUM_TRAIN_RUNS = 40
 NUM_TEST_RUNS = 40
 
 class GazeboInterface():
@@ -482,6 +474,7 @@ class GazeboInterface():
         self.sendPose("gripper", np.array([-0.5, 0.5,0.03]), np.array([0.0,0.0,1.0,-1.0]))
         self.stepCounter = 0
         
+
     def updateTmpErrors(self, worldState):
         """
         Function to update the auxialary error of the last prediction compared to the current world state.
@@ -493,14 +486,15 @@ class GazeboInterface():
             The current world state
         """
         if self.lastPrediction != None:
-            gripperPrediction = self.lastPrediction.getInteractionState("gripper")
+            
+            predictedWorldState = model.WorldState()
+            predictedWorldState.reset(self.lastPrediction)
+            gripperPrediction = predictedWorldState.getInteractionState("gripper")
             gripperInt = worldState.getInteractionState("gripper")
             self.tmpGripperErrorPos += np.linalg.norm(gripperPrediction["spos"]-gripperInt["spos"]) 
-            self.tmpGripperErrorOri += np.linalg.norm(gripperPrediction["sori"]-gripperInt["sori"]) 
-            blockPrediction= self.lastPrediction.getInteractionState("blockA")
-            blockInt = worldState.getInteractionState("blockA")
-            self.tmpBlockErrorPos += np.linalg.norm(blockPrediction["spos"]-blockInt["spos"]) 
-            self.tmpBlockErrorOri +=  np.linalg.norm(blockPrediction["sori"]-blockInt["sori"])
+            self.tmpGripperErrorOri += np.linalg.norm(gripperPrediction["seuler"]-gripperInt["seuler"]) 
+            self.tmpBlockErrorPos += np.linalg.norm((gripperPrediction["spos"]+gripperPrediction["dir"])-(gripperInt["spos"]-gripperInt["dir"])) 
+            self.tmpBlockErrorOri +=  np.linalg.norm((gripperPrediction["seuler"]+gripperPrediction["deuler"])-(gripperInt["spos"]+gripperInt["deuler"])) 
 
     def pushTask(self, worldState, resultState=None):
         """
@@ -518,13 +512,26 @@ class GazeboInterface():
                 self.resetWorld()
                 self.runStarted = False
         else:
-            self.startRun()
+            if self.testRun > 0:
+                if DIRECTIONGENERALISATION:
+    #                print "bigger starting variance"
+                    self.startRun2(0.7)
+                    self.direction = np.array([-0.5,0.0,0.0])
+                elif DIFFERENTBLOCKORIENTATION:
+                    self.startRun3()
+                    self.direction = np.array([0.5,0.0,0.0])
+                else:
+                    self.startRun(0.7)
+                    self.direction = np.array([0.0,0.5,0.0])
+            else:
+                self.startRun(0.7)
+                self.direction = np.array([0.0,0.5,0.0])
             return
 
         if self.trainRun < NUM_TRAIN_RUNS:
             print "Train run #: ", self.trainRun
             if self.runStarted:
-                self.updateModel(worldState)
+                self.updateModel(worldState, resultState, self.direction)
             else:
                 self.trainRun += 1
 #                self.startRun()
@@ -534,7 +541,7 @@ class GazeboInterface():
             if self.runStarted:
                 print "run started"
                 self.updateTmpErrors(worldState)
-                self.updateModel(worldState)
+                self.updateModel(worldState, resultState, self.direction)
             else:
                 self.gripperErrorPos += self.tmpGripperErrorPos/self.stepCounter
                 self.gripperErrorOri += self.tmpGripperErrorOri/self.stepCounter
@@ -552,7 +559,7 @@ class GazeboInterface():
 #            self.blockErrors.append(self.blockError/self.testRun)
 #            self.gripperErrors.append(self.gripperError/self.testRun)
             self.times += 1
-            with open("PosOriCT0.001E0.05NoWall.txt", 'a') as f:
+            with open("Tree1.txt", 'a') as f:
                 s = str(self.times* NUM_TEST_RUNS) + ", " + str(self.gripperErrorPos/self.testRun) + ", "  \
                     + str(self.gripperErrorOri/self.testRun) + ', '+ str(self.blockErrorPos/self.testRun) + ', ' \
                     + str(self.blockErrorOri/self.testRun) +"\n"
@@ -565,6 +572,8 @@ class GazeboInterface():
             self.gripperErrorOri = 0.0
             self.blockErrorPos = 0.0
             self.blockErrorOri = 0.0
+        if self.worldModel.numPredictions > 0:
+            print "% correctCase selected: ", self.worldModel.numCorrectCase/(float)(self.worldModel.numPredictions)
             
     def pushTaskSimulation(self, worldState, resultState=None):
         self.stepCounter += 1
@@ -572,7 +581,7 @@ class GazeboInterface():
         print "num abstract cases: " + str(len(self.worldModel.abstractCases))
         
         if self.runStarted:
-            if self.runEnded2D(worldState):
+            if self.runEnded(worldState):
                 self.resetWorld()
                 self.runStarted = False
         else:
@@ -604,7 +613,8 @@ class GazeboInterface():
                     self.worldModel.getGraphViz(dot_data)
                     graph = pydot.graph_from_dot_data(dot_data.getvalue())
                     if graph != None:
-                        graph.write_pdf("tree.pdf")
+                        graph.write_pdf("treeNoDynNoPosSelCDist0_40Runs.pdf")
+                    print "ACs: ", [(ac.id, ac.variables) for ac in self.worldModel.abstractCases.values() ]
 #                    np.random.seed(1234)
         elif self.testRun < NUM_TEST_RUNS:
             print "Test run #: ", self.testRun
@@ -619,7 +629,7 @@ class GazeboInterface():
 #                    print "lastPrediction: {}, worldState: {} ".format(self.lastPrediction.interactionStates, worldState.interactionStates)
                 self.lastPrediction = self.worldModel.predict(predictedWorldState, self.lastAction)
 #                print "lastAction: ", self.lastAction
-                self.sendPrediction2D()
+                self.sendPrediction()
                 self.sendCommand(self.lastAction)
             else:
                 self.testRun += 1
@@ -652,7 +662,7 @@ class GazeboInterface():
 #        else:
 #            self.lastAction = model.Action(cmd=GAZEBOCMDS["NOTHING"])
         self.lastPrediction = self.worldModel.predict(worldState, self.lastAction)
-        self.sendPrediction2D()
+        self.sendPrediction()
         self.sendCommand(self.lastAction)
 
 
@@ -687,13 +697,21 @@ class GazeboInterface():
         print "num Predictions: ", self.worldModel.numPredictions
         print "% correctCase selected: ", self.worldModel.numCorrectCase/(float)(self.worldModel.numPredictions)
         print "avgCorrectPredictionScore: ", self.worldModel.avgCorrectPrediction
-        if self.worldModel.numPredictions == 1000:
-            self.pauseWorld()
-            dot_data = StringIO()
-            self.worldModel.getGraphViz(dot_data)
-            graph = pydot.graph_from_dot_data(dot_data.getvalue())
-            if graph != None:
-                graph.write_pdf("treeExploration.pdf")
+#        if self.worldModel.numPredictions == 100:
+#            self.pauseWorld()
+#            from sklearn.decomposition import PCA, KernelPCA
+#            
+##            kpca = KernelPCA(kernel="rbf", fit_inverse_transform=True, gamma=10)
+#            kpca = PCA()
+#            transformed = kpca.fit_transform(self.worldModel.data)
+#            print "Shape data: ", np.shape(self.worldModel.data)
+#            print "Shape transformed: ", np.shape(transformed)
+#            print "transformed: ", transformed
+#            dot_data = StringIO()
+#            self.worldModel.getGraphViz(dot_data)
+#            graph = pydot.graph_from_dot_data(dot_data.getvalue())
+#            if graph != None:
+#                graph.write_pdf("treeExploration.pdf")
 #            self.worldModel.setTarget(self.getTarget(worldState))
             
     def moveToTarget(self, worldState):

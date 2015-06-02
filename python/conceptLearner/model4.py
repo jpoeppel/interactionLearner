@@ -31,9 +31,7 @@ from operator import methodcaller, itemgetter
 from sklearn import svm
 from sklearn import preprocessing
 from sklearn import tree
-from sklearn.linear_model import SGDClassifier
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.ensemble import AdaBoostClassifier
+
 
 #from state1 import State, ObjectState, Action, InteractionState, WorldState
 from state3 import State, ObjectState, Action, InteractionState, WorldState
@@ -173,9 +171,6 @@ class AbstractCase(object):
         self.numErrorCases += 1
 #        self.updateGaussians(self.errorGaussians, self.numErrorCases, case)
         
-                
-        
-            
     def score(self, state, action):
         s = 0.0
         
@@ -366,7 +361,7 @@ class ModelCBR(object):
     
     def __init__(self):
         self.cases = []
-        self.abstractCases = []
+        self.abstractCases = {}
         self.numZeroCase = 0
         self.numCorrectCase = 0
         self.numPredictions = 0
@@ -379,38 +374,18 @@ class ModelCBR(object):
         self.scaler = None
         
     def getAction(self, state):
-
-        print "target: ", self.target
-        if self.target != None:
-            gripperInt = state.getInteractionState(self.target["sname"])
-            if gripperInt != None:
-                variables = Set()
-                dif = {}
-                for k in gripperInt.relevantKeys():
-                    dif[k] = (self.target[k] - gripperInt[k])/10.0
-                    if k in self.target.relKeys and np.linalg.norm(dif[k]) > THRESHOLD:
-                        variables.add(k)           
-                bestAction = None
-                bestScore = 0
-                for ac in self.abstractCases:
-                    if variables.issubset(ac.variables):
-                        action = ac.getAction(gripperInt,variables, self.target.weights, dif)
-                        prediction = ac.predict(gripperInt, action)
-                        score = self.target.score(prediction)#*ac.avgPrediction
-#                        print "abstract case: ", ac.variables
-#                        print "ac avgPrediction: ", ac.avgPrediction
-#                        print "numPredictions: ", ac.numPredictions
-#                        print "predicted pos: ", prediction["spos"]
-#                        print "score to target: {}, for action: {}".format(score, action)                    
-                        if score > bestScore:
-                            bestScore = score
-                            bestAction = action
-    #                        bestAction["cmd"] = 1
-            if bestAction != None:
-                print "using Action: ", bestAction
-                return bestAction
-
-        return self.getRandomAction(state, BLOCK_BIAS)
+        
+        if isinstance(self.target, ObjectState):
+            relTarget = self.createRelativeTargetInteraction(state, self.target)
+            givenInteraction = state.getInteractionState(relTarget["sname"])
+            difs = {}
+            for k in relTarget.relKeys:
+                difs[k] = relTarget[k] - givenInteraction[k]
+            
+        elif isinstance(self.target, InteractionState):
+            pass        
+        else:
+            return self.getRandomAction(state, BLOCK_BIAS)
             
     def getRandomAction(self, state, blockbias = 0):
         print "getting random action"
@@ -444,7 +419,7 @@ class ModelCBR(object):
 #        print "getBestCase with state: {} \n action: {}".format(state, action)
         bestCase = None
         if self.aCClassifier != None:
-            x = [np.concatenate((state.toVec(),action.toVec()))]
+            x = [np.concatenate((state.toSelVec(),action.toSelVec()))]
 #            print "X before scaling: ", x
             if self.scaler != None:
                 x = self.scaler.transform(x)
@@ -514,7 +489,8 @@ class ModelCBR(object):
         usedCase: AbstractCase
         """
 
-        
+        if state["sid"] != 8:
+            raise TypeError("Wrong sID: ", state["sid"])
         newCase = BaseCase(state, action, result)
 #        print "New case difs: ", newCase.dif
         attribSet = newCase.getSetOfAttribs()
@@ -525,7 +501,7 @@ class ModelCBR(object):
         print "predictionScore: ", predictionScore
         abstractCase = None
         retrain = False
-        for ac in self.abstractCases:
+        for ac in self.abstractCases.values():
             if ac.variables == attribSet:
                 abstractCase = ac
                 print "Correct AC_ID: ", abstractCase.id
@@ -544,12 +520,14 @@ class ModelCBR(object):
                 print "correct case selected!!!!!!!!!!!!!!!!!"
                 usedCase.updatePredictionScore(predictionScore)
                 self.numCorrectCase += 1
+            else:
+                retrain = True
                 
         if predictionScore < PREDICTIONTHRESHOLD:
             if abstractCase != None:
                     try:
                         abstractCase.addRef(newCase)
-                        retrain = True
+#                        retrain = True
                     except TypeError, e:
                         print "case was already present"
                     else:
@@ -558,7 +536,8 @@ class ModelCBR(object):
             else:
                 #Create a new abstract case
                 print "new Abstract case: ", attribSet
-                self.abstractCases.append(AbstractCase(newCase, len(self.abstractCases)))
+                newAC = AbstractCase(newCase, len(self.abstractCases))
+                self.abstractCases[newAC.id] = newAC
                 self.addBaseCase(newCase)
                 retrain = True
         if retrain:
@@ -568,20 +547,20 @@ class ModelCBR(object):
     def retrainACClassifier(self):
         print "Retraining!"
         if len(self.abstractCases) > 1:
-            nFeature = np.size(np.concatenate((self.cases[0].preState.toVec(),self.cases[0].action.toVec())))
+            nFeature = np.size(np.concatenate((self.cases[0].preState.toSelVec(),self.cases[0].action.toSelVec())))
             X = np.zeros((len(self.cases),nFeature))
             Y = np.zeros(len(self.cases))
             for i in range(len(self.cases)):
-                X[i,:] = np.concatenate((self.cases[i].preState.toVec(),self.cases[i].action.toVec()))
+                X[i,:] = np.concatenate((self.cases[i].preState.toSelVec(),self.cases[i].action.toSelVec()))
                 Y[i] = self.cases[i].abstCase.id
 #            self.scaler = preprocessing.StandardScaler(with_mean = False, with_std=True).fit(X)
 #            self.scaler = preprocessing.MinMaxScaler().fit(X)
 #            self.scaler = preprocessing.Normalizer().fit(X)
 #            self.aCClassifier = svm.SVC(kernel='rbf', C=1, gamma=0.1)
 #            self.aCClassifier = SGDClassifier(loss='log', penalty="l2")
-            self.aCClassifier = tree.DecisionTreeClassifier(criterion="gini")#, class_weight='auto')#, max_leaf_nodes=len(self.abstractCases))#, max_features='auto')
+            self.aCClassifier = tree.DecisionTreeClassifier(criterion="gini", class_weight='auto')#, min_samples_leaf=5) max_leaf_nodes=len(self.abstractCases))#, max_features='auto')
 #            self.aCClassifier = RandomForestClassifier()
-#            self.aCClassifier = AdaBoostClassifier(n_estimators=100)
+#            self.aCClassifier = AdaBoostClassifier(tree.DecisionTreeClassifier(max_depth=4), n_estimators=50)
 #            self.aCClassifier.fit(self.scaler.transform(X),Y)
             self.aCClassifier.fit(X,Y)
             

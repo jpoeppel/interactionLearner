@@ -15,6 +15,7 @@ import numpy as np
 import math
 import copy
 from operator import methodcaller, itemgetter
+import itertools
 
 class State(dict):
     """
@@ -24,6 +25,7 @@ class State(dict):
     
     def __init__(self):
         self.relKeys = self.keys()
+        self.relSelKeys = self.keys()
         self.weights = {}
         for k in self.relKeys:
             self.weights[k] = 1.0
@@ -83,6 +85,20 @@ class State(dict):
 #        print "KeyOrder: ", keyOrder
         return r
         
+    def toSelVec(self):
+        r = np.array([])
+        keyOrder = []
+        for k in self.relSelKeys:
+            keyOrder.append(k)
+#            if k != "spos":
+            if isinstance(self[k], np.ndarray):
+                r = np.concatenate((r,self[k]))
+            elif not isinstance(self[k], unicode):
+                r = np.concatenate((r,[self[k]]))
+        print "KeyOrder: ", keyOrder
+        return r
+        
+        
     def updateWeights(self, curState):
         print "updating weights"
         minAttrib = None
@@ -137,6 +153,7 @@ class ObjectState(State):
                          "euler": np.zeros(3), "linVel": np.zeros(3), 
                          "angVel": np.zeros(3), "contact": None})
         self.relKeys = self.keys()    
+        self.relSelKeys = self.keys()
                           
     def transform(self, matrix, euler):
 #        print "calling transform for: ", self["name"]
@@ -193,11 +210,24 @@ class InteractionState(State):
         self.relKeys.remove("intId")
         self.relKeys.remove("sname")
         self.relKeys.remove("oname")
+        
+        
         self.relKeys.remove("stype")
         self.relKeys.remove("otype")
+        
     
-#        self.relKeys.remove("sangVel")
-#        self.relKeys.remove("dangVel")
+        self.relKeys.remove("sangVel")
+        self.relKeys.remove("dangVel")
+        self.relKeys.remove("slinVel")
+        self.relKeys.remove("dlinVel")
+        self.relKeys.remove("seuler")
+        
+        
+        self.relSelKeys = copy.deepcopy(self.relKeys)
+        self.relSelKeys.remove("spos")
+        self.relSelKeys.remove("sid")
+        self.relSelKeys.remove("oid")
+        
 #        self.relKeys.remove("contact")
 #        self.relKeys.remove("sid")
 #        self.relKeys.remove("oid")
@@ -223,6 +253,7 @@ class InteractionState(State):
         self["dangVel"] = o2["angVel"] - self["sangVel"]
         if o2["contact"] == self["sname"]:
             self["contact"] = 1
+            self["dist"] = 0.0
             
     def computeDistance(self, o2):
         if self["sid"] == 8:

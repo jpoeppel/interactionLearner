@@ -55,7 +55,7 @@ DIRECTIONGENERALISATION = False
 
 SINGLE_INTSTATE= True
 
-NUM_TRAIN_RUNS = 40
+NUM_TRAIN_RUNS = 20
 NUM_TEST_RUNS = 40
 
 class GazeboInterface():
@@ -615,6 +615,7 @@ class GazeboInterface():
                     if graph != None:
                         graph.write_pdf("treeNoDynNoPosSelCDist0_40Runs.pdf")
                     print "ACs: ", [(ac.id, ac.variables) for ac in self.worldModel.abstractCases.values() ]
+
 #                    np.random.seed(1234)
         elif self.testRun < NUM_TEST_RUNS:
             print "Test run #: ", self.testRun
@@ -697,23 +698,7 @@ class GazeboInterface():
         print "num Predictions: ", self.worldModel.numPredictions
         print "% correctCase selected: ", self.worldModel.numCorrectCase/(float)(self.worldModel.numPredictions)
         print "avgCorrectPredictionScore: ", self.worldModel.avgCorrectPrediction
-#        if self.worldModel.numPredictions == 100:
-#            self.pauseWorld()
-#            from sklearn.decomposition import PCA, KernelPCA
-#            
-##            kpca = KernelPCA(kernel="rbf", fit_inverse_transform=True, gamma=10)
-#            kpca = PCA()
-#            transformed = kpca.fit_transform(self.worldModel.data)
-#            print "Shape data: ", np.shape(self.worldModel.data)
-#            print "Shape transformed: ", np.shape(transformed)
-#            print "transformed: ", transformed
-#            dot_data = StringIO()
-#            self.worldModel.getGraphViz(dot_data)
-#            graph = pydot.graph_from_dot_data(dot_data.getvalue())
-#            if graph != None:
-#                graph.write_pdf("treeExploration.pdf")
-#            self.worldModel.setTarget(self.getTarget(worldState))
-            
+
     def moveToTarget(self, worldState):
         raise NotImplementedError("TODO")
         

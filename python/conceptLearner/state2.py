@@ -95,7 +95,7 @@ class State(dict):
                 r = np.concatenate((r,self[k]))
             elif not isinstance(self[k], unicode):
                 r = np.concatenate((r,[self[k]]))
-        print "KeyOrder: ", keyOrder
+#        print "KeyOrder: ", keyOrder
         return r
         
         
@@ -174,11 +174,22 @@ class ObjectState(State):
         self["angVel"] = np.round(np.array((matrix*tmpaV.T)[:3]).flatten(), NUMDEC)
         
     def fromInteractionState(self, intState):
-        self.update({"id": intState["sid"], "name":intState["sname"], "pos":np.copy(intState["spos"]), 
-                     "euler":np.copy(intState["seuler"]), "linVel":np.copy(intState["slinVel"]), 
+        self.update({"id": intState["sid"], "name":intState["sname"], 
+                     "pos":np.copy(intState["spos"]), 
+                     "euler":np.copy(intState["seuler"]), 
+                     "linVel":np.copy(intState["slinVel"]), 
                      "angVel": np.copy(intState["sangVel"])})
         if intState["contact"]:
             self["contact"] = intState["oname"]
+            
+    def fromInteractionState2(self, intState):
+        self.update({"id": intState["oid"], "name": intState["oname"], 
+                     "pos":np.copy(intState["spos"]+intState["dir"]),
+                     "euler": np.copy(intState["seuler"]+intState["deuler"]), 
+                     "linVel":np.copy(intState["slinVel"]+intState["dlinVel"]),
+                     "angVel": np.copy(intState["sangVel"]+intState["dangVel"])})
+        if intState["contact"]:
+            self["contact"] = intState["sname"]
             
 
 class Action(State):
@@ -255,6 +266,14 @@ class InteractionState(State):
             self["contact"] = 1
             self["dist"] = 0.0
             
+    def getObjectState(self, name):
+        res = ObjectState()
+        if self["sname"] == name:
+            res.fromInteractionState(self)
+        elif self["oname"] == name:
+            res.fromInteractionState2(self)
+        return res
+
     def computeDistance(self, o2):
         if self["sid"] == 8:
             mp = np.copy(o2["pos"])

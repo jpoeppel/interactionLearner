@@ -42,6 +42,7 @@ PUSHTASKSIMULATION = 2
 MOVE_TO_TARGET = 3
 MODE = PUSHTASKSIMULATION
 #MODE = FREE_EXPLORATION
+#MODE = MOVE_TO_TARGET
 
 
 RANDOM_BLOCK_ORI = False
@@ -70,10 +71,12 @@ class GazeboInterface():
         self.worldModel = model.ModelCBR()
         self.lastPrediction = None
         self.lastAction = model.Action()
+        self.target = None
         
         self.trainRun = 0
         self.testRun = 0
         self.runStarted = False
+        
         
         self.stepCounter = 0
         self.times = 0
@@ -414,6 +417,7 @@ class GazeboInterface():
         elif MODE == PUSHTASKSIMULATION:
             self.pushTaskSimulation(newWS, resultWS)
         elif MODE == MOVE_TO_TARGET:
+            self.getTarget()
             self.moveToTarget(newWS, resultWS)
         else:
             raise AttributeError("Unknown MODE: ", MODE)
@@ -713,12 +717,90 @@ class GazeboInterface():
 #            if graph != None:
 #                graph.write_pdf("treeExploration.pdf")
 #            self.worldModel.setTarget(self.getTarget(worldState))
-            
-    def moveToTarget(self, worldState):
-        raise NotImplementedError("TODO")
         
+    def startRunTarget(self, randomRange=0.5):
+        self.runStarted = True
+        posX = ((np.random.rand()-0.5)*randomRange) #* 0.5
+        self.sendPose("gripper", np.array([posX,0.0,0.03]), np.array([0.0,0.0,0.0,0.0]))
+        self.stepCounter = 0
+        
+            
+    def moveToTarget(self, worldState, resultState=None):
+        self.stepCounter += 1
+        if self.runStarted:
+            #Check if run has ended
+        
+            gripperInt = worldState.getInteractionState("gripper")
+            tmpBlockPos = np.matrix(np.concatenate((gripperInt["spos"]+gripperInt["dir"],[1])))
+            blockPos = np.array((worldState.transM*tmpBlockPos.T)[:3]).flatten()   
+            tmpGPos = np.matrix(np.concatenate((gripperInt["spos"],[1])))
+            gPos = np.array((worldState.transM*tmpGPos.T)[:3]).flatten()   
+#            print "Block pos: ", blockPos
+            if np.linalg.norm(blockPos-self.target["pos"]) < 0.1 or blockPos[1] > 1.3 or self.stepCounter > 200:
+                self.resetWorld()
+                self.runStarted = False
+            else:
+                self.direction = self.target["pos"] - gPos
+                norm = np.linalg.norm(self.direction)
+                if norm > 0.5:
+#                    print "adapt norm"
+                    self.direction /= 2*norm
+                if norm < 0.1:
+                    if np.random.rand() > 0.8:
+                        self.direction= (np.random.rand(3)*2-1) / 5
+        else:
+            self.startRunTarget()
+            return
+            
+        if self.trainRun < NUM_TRAIN_RUNS:
+            print "Train run #: ", self.trainRun
+            if self.runStarted:
+                if self.lastPrediction != None:
+                    self.worldModel.update(self.lastState, self.lastAction, self.lastPrediction, resultState)
+                
+                self.lastAction = model.Action(cmd = GAZEBOCMDS["MOVE"], direction=self.direction)
+#                self.lastAction.transform(worldState.transM)
+                
+                self.lastState = worldState
+                self.lastPrediction = self.worldModel.predict(worldState, self.lastAction)
+                self.sendPrediction()
+                self.sendCommand(self.lastAction)
+            else:
+                self.trainRun += 1
+                if self.trainRun == NUM_TRAIN_RUNS:
+                    self.pauseWorld()
+                
+            if self.trainRun == NUM_TRAIN_RUNS:
+                self.worldModel.setTarget(self.target)
+        elif self.testRun < NUM_TEST_RUNS:
+            print "Test run #: ", self.testRun
+            if self.runStarted:
+                if self.lastPrediction != None:
+                    self.worldModel.update(self.lastState, self.lastAction, self.lastPrediction, resultState)
+                
+                self.lastAction = self.worldModel.getAction(worldState)
+                self.lastAction.transform(worldState.transM)
+                
+                self.lastState = worldState
+                self.lastPrediction = self.worldModel.predict(worldState, self.lastAction)
+                self.sendPrediction()
+                self.sendCommand(self.lastAction)
+            else:
+                self.testRun += 1
+        if self.worldModel.numPredictions > 0:
+            print "% correctCase selected: ", self.worldModel.numCorrectCase/(float)(self.worldModel.numPredictions)
 
-    def getTarget(self, worldState):
+
+        
+    def getTarget(self):
+        target = model.ObjectState()
+        target["name"] = "blockA"
+        target["pos"] = np.array([0.0, 1.0, 0.05])
+        target["euler"] = np.zeros(3)
+        target.relKeys = ["pos"]#,"euler"]
+        self.target = target
+
+    def getTargetOld(self, worldState):
         gripper = None
         block = None
         for i in worldState.objectStates.values():

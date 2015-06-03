@@ -39,8 +39,8 @@ from state3 import State, ObjectState, Action, InteractionState, WorldState
 THRESHOLD = 0.01
 BLOCK_BIAS = 0.2
 
-MAXCASESCORE = 14
-MAXSTATESCORE = 12
+MAXCASESCORE = 14-5
+MAXSTATESCORE = 12-5
 #PREDICTIONTHRESHOLD = 0.5
 PREDICTIONTHRESHOLD = MAXSTATESCORE - 0.01
 TARGETTHRESHOLD = MAXCASESCORE - 0.05
@@ -153,16 +153,20 @@ class AbstractCase(object):
                 resultState[k] = state[k] + self.refCases[0].predict(state, action, k)
         return resultState
         
-    def getAction(self, pre, var, weights, dif):
+    def getAction(self, pre, var, dif, weights = None):
         action = np.zeros(4)
-#        numVariables = len(self.variables)
         norm = 0.0
-        for k in var:
-            norm += weights[k]
-#            print "case: {}, predicts: {} for variable K: {}".format(self.variables,self.predictors[k].predictAction(pre.toVec(), dif[k]),k )
-            action += weights[k] * self.predictors[k].predictAction(pre.toVec(self.constants), dif[k])
-            
-        
+        if weights != None:
+            for k in var:
+                norm += weights[k]
+                action += weights[k] * self.predictors[k].predictAction(pre.toVec(self.constants), dif[k])
+        else:
+            for k in var:
+                norm += 1.0
+                action += self.predictors[k].predictAction(pre.toVec(self.constants), dif[k])
+        print "resulting Action: ", action
+        print "self.constants: ", self.constants
+        print "self.variables: ", self.variables
         action /= norm
         res = Action(cmd = action[0], direction=action[1:])
         return res
@@ -228,7 +232,7 @@ class AbstractCase(object):
 #        print "adding ref, old constants: ", self.constants
         if ref in self.refCases:
             raise TypeError("ref already in refCases")
-        for k,v in ref.preState.relevantItems() + ref.action.relevantItems():
+        for k,v in ref.preState.relevantItems():# + ref.action.relevantItems():
             if self.constants.has_key(k):
                 if np.linalg.norm(v-self.constants[k]) > 0.001:
                     print "deleting constant {} in ac {}".format(k, self.variables)
@@ -373,17 +377,51 @@ class ModelCBR(object):
         self.aCClassifier = None
         self.scaler = None
         
-    def getAction(self, state):
+    def createRelativeTargetInteraction(self, worldState, target):
         
+        relTarget = copy.deepcopy(target)
+        relTarget.transform(worldState.invTrans, -worldState.ori)
+        if target["name"] == "blockA":
+            targetInt = copy.deepcopy(worldState.getInteractionState("gripper"))
+            targetInt["intId"] = -1            
+            targetInt.fill(target)
+        elif target["name"] == "gripper":
+            targetInt = state.InteractionState(target)
+        targetInt.relKeys = target.relKeys
+        return targetInt        
+        
+    def getAction(self, state):
+        bestAction = None
         if isinstance(self.target, ObjectState):
-            relTarget = self.createRelativeTargetInteraction(state, self.target)
-            givenInteraction = state.getInteractionState(relTarget["sname"])
+            relTarget = copy.deepcopy(target)
+            #Transform target to relative coordinate system
+            relTarget.transform(worldState.invTrans, -worldState.ori)
             difs = {}
             for k in relTarget.relKeys:
                 difs[k] = relTarget[k] - givenInteraction[k]
+            difSet = Set(difs.keys())
+            actions = []
+            # Problem: How to translate differences between target and given OS (e.g pos) 
+            # into differences in relative interaction states???
+            for ac in self.abstractCases.values():
+                actions.append(ac.getAction(givenInteraction, difSet, difs, weights=None))
             
+            bestScore = 0.0
+            for a in actions:
+                intPrediction, ac = self.predictIntState(givenInteraction, a)
+                osPrediction = intPrediction.getObjectState(self.target["name"])
+                osPrediction.transform(worldState.transM, worldState.ori)
+                s = self.target.score(osPrediction)
+                if s > bestScore:
+                    bestAction = a
+                    bestScore = s
+                    
         elif isinstance(self.target, InteractionState):
             pass        
+        
+        if bestAction != None:
+            print "selected Action: {} ({})".format(bestAction,bestScore)
+            return bestAction
         else:
             return self.getRandomAction(state, BLOCK_BIAS)
             
@@ -425,7 +463,7 @@ class ModelCBR(object):
                 x = self.scaler.transform(x)
 #            print "X after sclaing: ", x
             caseID = int(self.aCClassifier.predict(x)[0])
-            print "CaseID: ", caseID
+#            print "CaseID: ", caseID
 #            print "Case prob: ", self.aCClassifier.predict_proba(x)
             bestCase = self.abstractCases[caseID]
         else:
@@ -445,7 +483,7 @@ class ModelCBR(object):
                 
         
         if isinstance(bestCase, AbstractCase):
-            print "selected AC: ", bestCase.variables
+#            print "selected AC: ", bestCase.variables
             if bestCase.variables == []:
                 self.numZeroCase += 1
 
@@ -454,7 +492,7 @@ class ModelCBR(object):
             return None
     
     def predictIntState(self, state, action):
-        print "predict: ", state["sname"]
+#        print "predict: ", state["sname"]
         bestCase = self.getBestCase(state, action)
         if bestCase != None:
             self.lastAC = bestCase
@@ -488,7 +526,6 @@ class ModelCBR(object):
         result: Interaction
         usedCase: AbstractCase
         """
-
         if state["sid"] != 8:
             raise TypeError("Wrong sID: ", state["sid"])
         newCase = BaseCase(state, action, result)
@@ -497,15 +534,15 @@ class ModelCBR(object):
 #        predictionRating = result.rate(prediction)#, self.weights)
 #        predictionScore = sum(predictionRating.values())
         predictionScore = result.score(prediction)
-        print "Correct attribSet for state: {} : {}".format(result["sname"], sorted(attribSet))
-        print "predictionScore: ", predictionScore
+#        print "Correct attribSet for state: {} : {}".format(result["sname"], sorted(attribSet))
+#        print "predictionScore: ", predictionScore
         abstractCase = None
         retrain = False
         for ac in self.abstractCases.values():
             if ac.variables == attribSet:
                 abstractCase = ac
-                print "Correct AC_ID: ", abstractCase.id
-                #TODO consider search for all of them in case we distinguis by certain features
+#                print "Correct AC_ID: ", abstractCase.id
+                #TODO consider search for all of them in case we distinguish by certain features
                 break
             
         if abstractCase != None:    
@@ -535,7 +572,7 @@ class ModelCBR(object):
                     
             else:
                 #Create a new abstract case
-                print "new Abstract case: ", attribSet
+#                print "new Abstract case: ", attribSet
                 newAC = AbstractCase(newCase, len(self.abstractCases))
                 self.abstractCases[newAC.id] = newAC
                 self.addBaseCase(newCase)

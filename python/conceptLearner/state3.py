@@ -16,23 +16,9 @@ import numpy as np
 import math
 import copy
 from operator import methodcaller, itemgetter
-from state2 import State, InteractionState, Action
+from state2 import State, ObjectState, InteractionState, Action
 import state2
 
-class ObjectState(state2.ObjectState):
-    """
-        State class used to represent object states.
-        Holds information about object position, orientation, type, id, name 
-        and other properties.
-    """
-            
-    def fromInteractionState2(self, intState):
-        super(state2.ObjectState, self).__init__()
-        self.update({"id": intState["oid"], "name": intState["oname"], "pos":np.copy(intState["spos"]+intState["dir"]),
-                     "euler": np.copy(intState["seuler"]+intState["deuler"]), "linVel":np.copy(intState["slinVel"]+intState["dlinVel"]),
-                     "angVel": np.copy(intState["sangVel"]+intState["dangVel"])})
-        if intState["contact"]:
-            self["contact"] = intState["sname"]
             
 class WorldState(state2.WorldState):
     

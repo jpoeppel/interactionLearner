@@ -17,6 +17,8 @@ import copy
 from operator import methodcaller, itemgetter
 import itertools
 
+DIFFERENZES = False
+
 class State(dict):
     """
         Base class representing the state of something. Will be used to
@@ -183,11 +185,18 @@ class ObjectState(State):
             self["contact"] = intState["oname"]
             
     def fromInteractionState2(self, intState):
-        self.update({"id": intState["oid"], "name": intState["oname"], 
+        if DIFFERENZES:
+            self.update({"id": intState["oid"], "name": intState["oname"], 
                      "pos":np.copy(intState["spos"]+intState["dir"]),
                      "euler": np.copy(intState["seuler"]+intState["deuler"]), 
                      "linVel":np.copy(intState["slinVel"]+intState["dlinVel"]),
                      "angVel": np.copy(intState["sangVel"]+intState["dangVel"])})
+        else:
+            self.update({"id": intState["oid"], "name": intState["oname"], 
+                     "pos":np.copy(intState["opos"]),
+                     "euler": np.copy(intState["oeuler"]), 
+                     "linVel":np.copy(intState["olinVel"]),
+                     "angVel": np.copy(intState["oangVel"])})
         if intState["contact"]:
             self["contact"] = intState["sname"]
             
@@ -208,12 +217,20 @@ class InteractionState(State):
     
     def __init__(self, intId, o1):
         assert isinstance(o1, ObjectState), "{} (o1) is not an ObjectState!".format(o1)
-        self.update({"intId": intId, "sid":o1["id"], "sname": o1["name"], 
+        if DIFFERENZES:
+            self.update({"intId": intId, "sid":o1["id"], "sname": o1["name"], 
                      "stype": o1["type"], "spos":o1["pos"], 
                      "seuler": o1["euler"], "slinVel": o1["linVel"], 
                      "sangVel": o1["angVel"], "dist": 0, "dir": np.zeros(3),
                      "contact": 0, "oid": -1, "oname": "", "otype": 0, 
                      "deuler": np.zeros(3), "dlinVel": np.zeros(3), "dangVel":np.zeros(3)})
+        else:             
+            self.update({"intId": intId, "sid":o1["id"], "sname": o1["name"], 
+                     "stype": o1["type"], "spos":o1["pos"], 
+                     "seuler": o1["euler"], "slinVel": o1["linVel"], 
+                     "sangVel": o1["angVel"], "dist": 0, "opos": np.zeros(3),
+                     "contact": 0, "oid": -1, "oname": "", "otype": 0, 
+                     "oeuler": np.zeros(3), "olinVel": np.zeros(3), "oangVel":np.zeros(3)})
         #Do not move from here because the keys need to be set before State.init and the relKeys need to be changed afterwards             
         State.__init__(self) 
 #        self.relKeys = ["spos", "slinVel"]
@@ -226,18 +243,22 @@ class InteractionState(State):
         self.relKeys.remove("stype")
         self.relKeys.remove("otype")
         
-    
-        self.relKeys.remove("sangVel")
-        self.relKeys.remove("dangVel")
-        self.relKeys.remove("slinVel")
-        self.relKeys.remove("dlinVel")
         self.relKeys.remove("seuler")
+        self.relKeys.remove("sangVel")        
+        self.relKeys.remove("slinVel")
+        if DIFFERENZES:
+            self.relKeys.remove("dangVel")
+            self.relKeys.remove("dlinVel")
+        else:
+            self.relKeys.remove("oangVel")
+            self.relKeys.remove("olinVel")
+        
         
         
         self.relSelKeys = copy.deepcopy(self.relKeys)
-        self.relSelKeys.remove("spos")
-        self.relSelKeys.remove("sid")
-        self.relSelKeys.remove("oid")
+#        self.relSelKeys.remove("spos")
+#        self.relSelKeys.remove("sid")
+#        self.relSelKeys.remove("oid")
         
 #        self.relKeys.remove("contact")
 #        self.relKeys.remove("sid")
@@ -252,16 +273,22 @@ class InteractionState(State):
                      
     def fill(self, o2):
         assert isinstance(o2, ObjectState), "{} (o2) is not an ObjectState!".format(o2)
-        self["dir"] = o2["pos"]-self["spos"]
         self["dist"] = self.computeDistance(o2)
 #        print "distance from {} to {}: {}".format(self["sid"], self["oid"], self["dist"])
         
         self["oid"] = o2["id"]
         self["oname"] = o2["name"]
         self["otype"] = o2["type"]
-        self["deuler"] = o2["euler"]-self["seuler"] 
-        self["dlinVel"] = o2["linVel"] - self["slinVel"]
-        self["dangVel"] = o2["angVel"] - self["sangVel"]
+        if DIFFERENZES:
+            self["dir"] = o2["pos"]-self["spos"]        
+            self["deuler"] = o2["euler"]-self["seuler"] 
+            self["dlinVel"] = o2["linVel"] - self["slinVel"]
+            self["dangVel"] = o2["angVel"] - self["sangVel"]
+        else:
+            self["opos"] = o2["pos"]
+            self["oeuler"] = o2["euler"]
+            self["olinVel"] = o2["linVel"]
+            self["oangVel"] = o2["angVel"]
         if o2["contact"] == self["sname"]:
             self["contact"] = 1
             self["dist"] = 0.0

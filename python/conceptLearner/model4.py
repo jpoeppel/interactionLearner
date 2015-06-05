@@ -526,8 +526,8 @@ class ModelCBR(object):
         result: Interaction
         usedCase: AbstractCase
         """
-        if state["sid"] != 8:
-            raise TypeError("Wrong sID: ", state["sid"])
+#        if state["sid"] != 8:
+#            raise TypeError("Wrong sID: ", state["sid"])
         newCase = BaseCase(state, action, result)
 #        print "New case difs: ", newCase.dif
         attribSet = newCase.getSetOfAttribs()

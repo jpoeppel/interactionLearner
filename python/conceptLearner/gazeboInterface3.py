@@ -55,8 +55,9 @@ DIRECTIONGENERALISATION = True
 DIRECTIONGENERALISATION = False
 
 SINGLE_INTSTATE= True
+DIFFERENZES = False
 
-NUM_TRAIN_RUNS = 10
+NUM_TRAIN_RUNS = 20
 NUM_TEST_RUNS = 40
 
 class GazeboInterface():
@@ -173,7 +174,11 @@ class GazeboInterface():
 
             msg.models.extend([tmp])
             if SINGLE_INTSTATE:
-                tmp = self.getModelState2(intState["oname"] + "Shadow", intState["spos"]+intState["dir"], intState["seuler"]+intState["deuler"], 
+                if DIFFERENZES:
+                    tmp = self.getModelState2(intState["oname"] + "Shadow", intState["spos"]+intState["dir"], intState["seuler"]+intState["deuler"], 
+                             self.lastPrediction.transM, self.lastPrediction.ori)
+                else:
+                    tmp = self.getModelState2(intState["oname"] + "Shadow", intState["opos"], intState["oeuler"],
                              self.lastPrediction.transM, self.lastPrediction.ori)
 
                 msg.models.extend([tmp])

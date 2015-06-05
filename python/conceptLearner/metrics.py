@@ -47,9 +47,10 @@ similarities = {"dir": expS, "linVel": expS, "orientation": expS, "pos": expS,
            "A": participantS, "B": participantS, "dist":expS, "contact":equalS,
            "type": equalS, "self": equalS, "other": equalS, "sname": equalS, 
            "oid": equalS, "sangVel": expS, "intId": zeroS, "dori": expS, "dlinVel":expS,
-           "dangVel": expS, "mvDir": expS, "otype": equalS, "sangVel":expS, "sori": expS,
-           "spos": expS, "stype":equalS, "sid": equalS, "slinVel": expS, "oname": equalS,
-           "euler": expS, "seuler": expS, "deuler": expS}
+           "dangVel": expS, "mvDir": expS, "otype": equalS, "sangVel":expS, "oangVel": expS, 
+           "sori": expS, "spos": expS, "opos": expS, "stype":equalS, "sid": equalS, 
+           "slinVel": expS, "olinVel":expS, "oname": equalS, "euler": expS, "seuler": expS, 
+           "deuler": expS, "oeuler": expS}
            
 def cosD(a,b):
     return 1-cosS(a,b)

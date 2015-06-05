@@ -17,7 +17,7 @@ import copy
 from operator import methodcaller, itemgetter
 import itertools
 
-DIFFERENZES = False
+from config import DIFFERENCES
 
 class State(dict):
     """
@@ -44,7 +44,10 @@ class State(dict):
 #            else:
 #                w = 1.0/MAXCASESCORE
 #            s -= self.weights[k]*differences[k](self[k], otherState[k]) 
-            s += self.weights[k]* similarities[k](self[k], otherState[k]) #* w
+            self.weights[k]
+            self[k]
+            otherState[k]
+            s += self.weights[k]* similarities[k](self[k], otherState[k]) 
 #            s[k] = self.weights[k]* similarities[k](self[k], otherState[k])
         return s
         
@@ -150,10 +153,11 @@ class ObjectState(State):
     """
     
     def __init__(self):
-        State.__init__(self)
+        
         self.update({"id": -1, "name": "", "type": -1, "pos": np.zeros(3), 
                          "euler": np.zeros(3), "linVel": np.zeros(3), 
                          "angVel": np.zeros(3), "contact": None})
+        State.__init__(self)
         self.relKeys = self.keys()    
         self.relSelKeys = self.keys()
                           
@@ -185,7 +189,7 @@ class ObjectState(State):
             self["contact"] = intState["oname"]
             
     def fromInteractionState2(self, intState):
-        if DIFFERENZES:
+        if DIFFERENCES:
             self.update({"id": intState["oid"], "name": intState["oname"], 
                      "pos":np.copy(intState["spos"]+intState["dir"]),
                      "euler": np.copy(intState["seuler"]+intState["deuler"]), 
@@ -217,7 +221,7 @@ class InteractionState(State):
     
     def __init__(self, intId, o1):
         assert isinstance(o1, ObjectState), "{} (o1) is not an ObjectState!".format(o1)
-        if DIFFERENZES:
+        if DIFFERENCES:
             self.update({"intId": intId, "sid":o1["id"], "sname": o1["name"], 
                      "stype": o1["type"], "spos":o1["pos"], 
                      "seuler": o1["euler"], "slinVel": o1["linVel"], 
@@ -246,7 +250,7 @@ class InteractionState(State):
         self.relKeys.remove("seuler")
         self.relKeys.remove("sangVel")        
         self.relKeys.remove("slinVel")
-        if DIFFERENZES:
+        if DIFFERENCES:
             self.relKeys.remove("dangVel")
             self.relKeys.remove("dlinVel")
         else:
@@ -279,7 +283,7 @@ class InteractionState(State):
         self["oid"] = o2["id"]
         self["oname"] = o2["name"]
         self["otype"] = o2["type"]
-        if DIFFERENZES:
+        if DIFFERENCES:
             self["dir"] = o2["pos"]-self["spos"]        
             self["deuler"] = o2["euler"]-self["seuler"] 
             self["dlinVel"] = o2["linVel"] - self["slinVel"]

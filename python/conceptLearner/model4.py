@@ -3,7 +3,6 @@
 """
 Created on Wed Apr  8 15:34:43 2015
 TODOS:
-* Implement possibility to set target!!!
 * Implement active learning!!!!
 * Block has action like gripper -> wrong?
 * action influence appears not to be learned too well for pos
@@ -32,9 +31,14 @@ from sklearn import svm
 from sklearn import preprocessing
 from sklearn import tree
 
+from config import SINGLE_INTSTATE
+
 
 #from state1 import State, ObjectState, Action, InteractionState, WorldState
-from state3 import State, ObjectState, Action, InteractionState, WorldState
+if SINGLE_INTSTATE:
+    from state3 import State, ObjectState, Action, InteractionState, WorldState
+else:
+    from state2 import State, ObjectState, Action, InteractionState, WorldState
 
 THRESHOLD = 0.01
 BLOCK_BIAS = 0.2
@@ -387,15 +391,17 @@ class ModelCBR(object):
             targetInt.fill(target)
         elif target["name"] == "gripper":
             targetInt = state.InteractionState(target)
-        targetInt.relKeys = target.relKeys
+        targetInt.relKeys = ["opos"] #TODO Change so that is not hardcoded anymore
         return targetInt        
         
     def getAction(self, state):
         bestAction = None
         if isinstance(self.target, ObjectState):
-            relTarget = copy.deepcopy(target)
+#            relTarget = copy.deepcopy(target)
+            relTarget = self.createRelativeTargetInteraction(state, self.target)
             #Transform target to relative coordinate system
-            relTarget.transform(worldState.invTrans, -worldState.ori)
+#            relTarget.transform(worldState.invTrans, -worldState.ori)
+            givenInteraction = state.getInteractionState("gripper")
             difs = {}
             for k in relTarget.relKeys:
                 difs[k] = relTarget[k] - givenInteraction[k]
@@ -404,13 +410,14 @@ class ModelCBR(object):
             # Problem: How to translate differences between target and given OS (e.g pos) 
             # into differences in relative interaction states???
             for ac in self.abstractCases.values():
-                actions.append(ac.getAction(givenInteraction, difSet, difs, weights=None))
+                if ac.variables.issuperset(difSet):
+                    actions.append(ac.getAction(givenInteraction, difSet, difs, weights=None))
             
             bestScore = 0.0
             for a in actions:
                 intPrediction, ac = self.predictIntState(givenInteraction, a)
                 osPrediction = intPrediction.getObjectState(self.target["name"])
-                osPrediction.transform(worldState.transM, worldState.ori)
+                osPrediction.transform(state.transM, state.ori)
                 s = self.target.score(osPrediction)
                 if s > bestScore:
                     bestAction = a

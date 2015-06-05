@@ -24,6 +24,7 @@ import copy
 from common import GAZEBOCMDS
 import math
 import common
+from config import DIFFERENCES, SINGLE_INTSTATE
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
@@ -35,6 +36,7 @@ import pydot
 
 logging.basicConfig()
 
+#--- CONSTANTS
 
 FREE_EXPLORATION = 0
 PUSHTASK = 1
@@ -42,7 +44,7 @@ PUSHTASKSIMULATION = 2
 MOVE_TO_TARGET = 3
 MODE = PUSHTASKSIMULATION
 #MODE = FREE_EXPLORATION
-#MODE = MOVE_TO_TARGET
+MODE = MOVE_TO_TARGET
 
 
 RANDOM_BLOCK_ORI = False
@@ -54,8 +56,7 @@ DIFFERENTBLOCKORIENTATION = False
 DIRECTIONGENERALISATION = True
 DIRECTIONGENERALISATION = False
 
-SINGLE_INTSTATE= True
-DIFFERENZES = False
+
 
 NUM_TRAIN_RUNS = 20
 NUM_TEST_RUNS = 40
@@ -174,7 +175,7 @@ class GazeboInterface():
 
             msg.models.extend([tmp])
             if SINGLE_INTSTATE:
-                if DIFFERENZES:
+                if DIFFERENCES:
                     tmp = self.getModelState2(intState["oname"] + "Shadow", intState["spos"]+intState["dir"], intState["seuler"]+intState["deuler"], 
                              self.lastPrediction.transM, self.lastPrediction.ori)
                 else:
@@ -736,7 +737,10 @@ class GazeboInterface():
             #Check if run has ended
         
             gripperInt = worldState.getInteractionState("gripper")
-            tmpBlockPos = np.matrix(np.concatenate((gripperInt["spos"]+gripperInt["dir"],[1])))
+            if DIFFERENCES:
+                tmpBlockPos = np.matrix(np.concatenate((gripperInt["spos"]+gripperInt["dir"],[1])))
+            else:
+                tmpBlockPos = np.matrix(np.concatenate((gripperInt["opos"],[1])))
             blockPos = np.array((worldState.transM*tmpBlockPos.T)[:3]).flatten()   
             tmpGPos = np.matrix(np.concatenate((gripperInt["spos"],[1])))
             gPos = np.array((worldState.transM*tmpGPos.T)[:3]).flatten()   
@@ -802,7 +806,7 @@ class GazeboInterface():
         target["name"] = "blockA"
         target["pos"] = np.array([0.0, 1.0, 0.05])
         target["euler"] = np.zeros(3)
-        target.relKeys = ["pos"]#,"euler"]
+        target.relKeys = ["pos"]#,"oeuler"]
         self.target = target
 
     def getTargetOld(self, worldState):

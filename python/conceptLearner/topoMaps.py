@@ -17,7 +17,7 @@ WINNER = 0
 NEIGHBOURS = 1
 BESTTWO = 2
 LINEAR = 3
-PREDICTIONMODE = WINNER
+PREDICTIONMODE = LINEAR
 
 class ITM(Network):
     
@@ -93,6 +93,8 @@ class ITM(Network):
                     norm += wc
                     res += wc * n.action
                 return res/norm
+            elif PREDICTIONMODE == LINEAR:
+                return minNode.action #TODO make real linear
                 
     def predict(self, wIn):
         

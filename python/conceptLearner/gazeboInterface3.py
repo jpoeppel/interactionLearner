@@ -58,7 +58,7 @@ DIRECTIONGENERALISATION = False
 
 
 
-NUM_TRAIN_RUNS = 20
+NUM_TRAIN_RUNS = 3
 NUM_TEST_RUNS = 40
 
 class GazeboInterface():
@@ -728,6 +728,7 @@ class GazeboInterface():
         self.runStarted = True
         posX = ((np.random.rand()-0.5)*randomRange) #* 0.5
         self.sendPose("gripper", np.array([posX,0.0,0.03]), np.array([0.0,0.0,0.0,0.0]))
+        self.sendPose("blockA", np.array([0.0,0.075,0.05]), np.array([0.0,0.0,0.0,0.0]))
         self.stepCounter = 0
         
             
@@ -745,18 +746,23 @@ class GazeboInterface():
             tmpGPos = np.matrix(np.concatenate((gripperInt["spos"],[1])))
             gPos = np.array((worldState.transM*tmpGPos.T)[:3]).flatten()   
 #            print "Block pos: ", blockPos
-            if np.linalg.norm(blockPos-self.target["pos"]) < 0.1 or blockPos[1] > 1.3 or self.stepCounter > 200:
+            if np.linalg.norm(blockPos-self.target["pos"]) < 0.1 or blockPos[1] > 1.3 or self.stepCounter > 300 or np.linalg.norm(gPos) > 1.4:
                 self.resetWorld()
                 self.runStarted = False
             else:
-                self.direction = self.target["pos"] - gPos
+                if np.linalg.norm(blockPos-gPos) < 0.2:
+                    self.direction = self.target["pos"] - gPos
+                else:
+                    self.direction =  blockPos - gPos
                 norm = np.linalg.norm(self.direction)
                 if norm > 0.5:
 #                    print "adapt norm"
                     self.direction /= 2*norm
-                if norm < 0.1:
+                if norm < 0.2:
                     if np.random.rand() > 0.8:
                         self.direction= (np.random.rand(3)*2-1) / 5
+                    else:
+                        self.direction *= 2
         else:
             self.startRunTarget()
             return
@@ -767,8 +773,10 @@ class GazeboInterface():
                 if self.lastPrediction != None:
                     self.worldModel.update(self.lastState, self.lastAction, self.lastPrediction, resultState)
                 
-                self.lastAction = model.Action(cmd = GAZEBOCMDS["MOVE"], direction=self.direction)
-#                self.lastAction.transform(worldState.transM)
+#                self.lastAction = model.Action(cmd = GAZEBOCMDS["MOVE"], direction=self.direction)
+
+                self.lastAction = self.worldModel.getAction(worldState)
+                self.lastAction.transform(worldState.transM)
                 
                 self.lastState = worldState
                 self.lastPrediction = self.worldModel.predict(worldState, self.lastAction)
@@ -784,8 +792,8 @@ class GazeboInterface():
         elif self.testRun < NUM_TEST_RUNS:
             print "Test run #: ", self.testRun
             if self.runStarted:
-                if self.lastPrediction != None:
-                    self.worldModel.update(self.lastState, self.lastAction, self.lastPrediction, resultState)
+#                if self.lastPrediction != None:
+#                    self.worldModel.update(self.lastState, self.lastAction, self.lastPrediction, resultState)
                 
                 self.lastAction = self.worldModel.getAction(worldState)
                 self.lastAction.transform(worldState.transM)
@@ -806,7 +814,7 @@ class GazeboInterface():
         target["name"] = "blockA"
         target["pos"] = np.array([0.0, 1.0, 0.05])
         target["euler"] = np.zeros(3)
-        target.relKeys = ["pos"]#,"oeuler"]
+        target.relKeys = ["pos","euler"]
         self.target = target
 
     def getTargetOld(self, worldState):

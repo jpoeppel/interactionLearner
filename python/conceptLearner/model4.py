@@ -158,6 +158,7 @@ class AbstractCase(object):
         return resultState
         
     def getAction(self, pre, var, dif, weights = None):
+        print "getAction from ac: ", self.variables
         action = np.zeros(4)
         norm = 0.0
         if weights != None:
@@ -167,10 +168,9 @@ class AbstractCase(object):
         else:
             for k in var:
                 norm += 1.0
-                action += self.predictors[k].predictAction(pre.toVec(self.constants), dif[k])
-        print "resulting Action: ", action
-        print "self.constants: ", self.constants
-        print "self.variables: ", self.variables
+                partialAction = self.predictors[k].predictAction(pre.toVec(self.constants), dif[k])
+                action += partialAction
+                print "partial Action: ", partialAction
         action /= norm
         res = Action(cmd = action[0], direction=action[1:])
         return res
@@ -391,11 +391,13 @@ class ModelCBR(object):
             targetInt.fill(target)
         elif target["name"] == "gripper":
             targetInt = state.InteractionState(target)
-        targetInt.relKeys = ["opos"] #TODO Change so that is not hardcoded anymore
+        targetInt.relKeys = ["opos"]#, "oeuler"] #TODO Change so that is not hardcoded anymore
         return targetInt        
         
     def getAction(self, state):
         bestAction = None
+        bestScore = 0.0
+        worstDif = float('inf')
         if isinstance(self.target, ObjectState):
 #            relTarget = copy.deepcopy(target)
             relTarget = self.createRelativeTargetInteraction(state, self.target)
@@ -406,45 +408,111 @@ class ModelCBR(object):
             for k in relTarget.relKeys:
                 difs[k] = relTarget[k] - givenInteraction[k]
             difSet = Set(difs.keys())
-            actions = []
+#            actions = []
             # Problem: How to translate differences between target and given OS (e.g pos) 
             # into differences in relative interaction states???
-            for ac in self.abstractCases.values():
-                if ac.variables.issuperset(difSet):
-                    actions.append(ac.getAction(givenInteraction, difSet, difs, weights=None))
+#            for ac in self.abstractCases.values():
+#                if ac.variables.issuperset(difSet):
+#                    action = ac.getAction(givenInteraction, difSet, difs, weights=None)
+#                    actions.append(action)
+#                    print "ac: {} selected action: {}".format(ac.variables, action)          
             
-            bestScore = 0.0
-            for a in actions:
-                intPrediction, ac = self.predictIntState(givenInteraction, a)
-                osPrediction = intPrediction.getObjectState(self.target["name"])
-                osPrediction.transform(state.transM, state.ori)
-                s = self.target.score(osPrediction)
-                if s > bestScore:
-                    bestAction = a
-                    bestScore = s
+#            for a in actions:
+#                intPrediction, ac = self.predictIntState(givenInteraction, a)
+#                osPrediction = intPrediction.getObjectState(self.target["name"])
+#                osPrediction.transform(state.transM, state.ori)
+##                s = self.target.score(osPrediction)
+#                s = 0.0
+#                for k in self.target.relKeys:
+#                    s += np.linalg.norm(osPrediction[k]-self.target[k])
+##                if s > bestScore:
+##                    bestAction = a
+##                    bestScore = s
+#                if s < worstDif:
+#                    bestAction = a
+#                    worstDif = s
+            actions = {}
+            for dK, dV in difs.items():
+                actions[dK] = []
+                for ac in self.abstractCases.values():
+                    if dK in ac.variables:
+                        actions[dK].append(ac.getAction(givenInteraction, [dK], difs, weights=None))
+            for d, acts in actions.items():
+                for a in acts:
+                    intPrediction, ac = self.predictIntState(givenInteraction, a)
+                    osPrediction = intPrediction.getObjectState(self.target["name"])
+                    osPrediction.transform(state.transM, state.ori)   
+                    s = 0.0
+                    for k in self.target.relKeys:
+                        s += np.linalg.norm(osPrediction[k]-self.target[k])
+                    if s < worstDif:
+                        bestAction = a
+                        worstDif = s
+
                     
         elif isinstance(self.target, InteractionState):
-            pass        
+            raise NotImplementedError        
         
         if bestAction != None:
-            print "selected Action: {} ({})".format(bestAction,bestScore)
+            curOs = givenInteraction.getObjectState(self.target["name"])
+            curScore = self.target.score(curOs)
+#            print "curScore: {}, bestScore: {}".format(curScore, bestScore)
+#            if bestScore < curScore:
+#                bestAction["mvDir"] *= -1
+#                print "swapping movedir"
+            print "BestAction: ", bestAction
             return bestAction
         else:
             return self.getRandomAction(state, BLOCK_BIAS)
             
     def getRandomAction(self, state, blockbias = 0):
+        a = Action()
+        a["cmd"] = GZCMD["MOVE"]
+        a["mvDir"] = np.ones(3)*0.01
+        a["mvDir"][2] = 0
+        rnd = np.random.rand()
+        if rnd < 0.3:
+            a["mvDir"][0] = -0.2
+        elif rnd < 0.6:
+            a["mvDir"][0] = 0.2
+        else:
+            a["mvDir"][1] = 0.2
+        return a
+            
+    def getRandomAction3(self, state, blockbias = 0):
+        gripperInt = state.getInteractionState("gripper")
+        a = Action()
+        a["cmd"] = GZCMD["MOVE"]
+        a["mvDir"] = np.zeros(3)
+        if gripperInt["spos"][0] < -0.2:
+            a["mvDir"][0] = 0.5*np.random.rand()
+        elif gripperInt["spos"][0] > 0.2:
+            a["mvDir"][0] = -0.5*np.random.rand()
+        else:
+#            a["mvDir"][0] = np.random.rand()-0.5
+            a["mvDir"][1] = 0.2
+            if gripperInt["spos"][1] < 0:
+                a["mvDir"][1] *= 1.0
+            else:
+                a["mvDir"][1] *= -1.0
+#        else:
+#            a["mvDir"][1] = np.random.rand()-0.5
+        return a
+        
+            
+    def getRandomAction2(self, state, blockbias = 0):
         print "getting random action"
         rnd = np.random.rand()
         a = Action()
-        if rnd < 0.4:
+        if rnd < 0.7:
             a["cmd"] = GZCMD["MOVE"]
             if np.random.rand() < blockbias:
                 gripperInt = state.getInteractionState("gripper")
-                a["mvDir"] = gripperInt["dir"]/np.linalg.norm(gripperInt["dir"]) + (np.random.rand(3)-0.5)
+                a["mvDir"] = (gripperInt["opos"]-gripperInt["spos"]) #+ (np.random.rand(3)-0.5)
             else:
 #            a["dir"] = np.array([1.2,0,0])
                 a["mvDir"] = np.random.rand(3)*2-1
-        elif rnd < 0.5:
+        elif rnd < 0.8:
             a["cmd"] = GZCMD["MOVE"]
             a["mvDir"] = np.array([0,0,0])
         else:
@@ -533,6 +601,14 @@ class ModelCBR(object):
         result: Interaction
         usedCase: AbstractCase
         """
+        
+        print "Used action: ", action
+        
+        if isinstance(self.target, ObjectState):
+            resultingOS = result.getObjectState(self.target["name"])
+            prevOS = state.getObjectState(self.target["name"])
+            
+            
 #        if state["sid"] != 8:
 #            raise TypeError("Wrong sID: ", state["sid"])
         newCase = BaseCase(state, action, result)

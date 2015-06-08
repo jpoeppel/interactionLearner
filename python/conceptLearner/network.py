@@ -43,7 +43,7 @@ class Node(object):
         dwIn = eta*(x.wIn - self.wIn)
         self.wIn += dwIn
         da = eta*(x.action - self.action)
-        self.action += da
+        self.action[1:] += da[1:]
         dwInA = np.concatenate((dwIn,da))
         
         er = x.wOut-(self.wOut + self.A.dot(x.vecInA()-self.vecInA()))

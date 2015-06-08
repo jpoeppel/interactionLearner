@@ -10,7 +10,7 @@ import numpy as np
 import math
 
 EMAX = 0.05
-ETA = 0.1
+ETA = 0.01
 SIGMAE = 0.5
 
 WINNER = 0
@@ -75,12 +75,15 @@ class ITM(Network):
         
         for n in self.nodes.values():
 #            print "n.wIn: {}, n.wOut: {}, wIn: {}, wOut: {}".format(n.wIn, n.wOut, wIn, wOut)
-#            d = np.linalg.norm(n.vecInOut()-w)
-            d = np.linalg.norm(wOut-n.wOut)
+            d = np.linalg.norm(n.vecInOut()-w)
+#            d = np.linalg.norm(wOut-n.wOut)
             if d < minDist:
                 minDist = d
                 minNode = n
         if minNode != None:
+#            print "minNode wIn: ", minNode.wIn
+#            print "minNode action: ", minNode.action
+#            print "minNode wOut: ", minNode.wOut
             if PREDICTIONMODE == WINNER:
                 return minNode.action
             elif PREDICTIONMODE == NEIGHBOURS:

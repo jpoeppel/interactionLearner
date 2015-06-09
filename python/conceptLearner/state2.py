@@ -274,8 +274,8 @@ class InteractionState(State):
                          "sangVel": o1["angVel"], "dist": 0, "opos": np.zeros(3),
                          "contact": 0, "oid": -1, "oname": "", "otype": 0, 
                          "oeuler": np.zeros(3), "olinVel": np.zeros(3), "oangVel":np.zeros(3)})
-#        self["side"] = common.SIDE["NONE"]
-        #Do not move from here because the keys need to be set before State.init and the relKeys need to be changed afterwards             
+        self["side"] = common.SIDE["NONE"]
+#        Do not move from here because the keys need to be set before State.init and the relKeys need to be changed afterwards             
         State.__init__(self) 
 #        self.relKeys = ["spos", "slinVel"]
         self.relKeys = self.keys()
@@ -323,10 +323,10 @@ class InteractionState(State):
         self["oid"] = o2["id"]
         self["oname"] = o2["name"]
         self["otype"] = o2["type"]
-#        if (self["spos"] - o2["pos"])[1] < 0:
-#            self["side"] = common.SIDE["DOWN"]
-#        else:
-#            self["side"] = common.SIDE["UP"]
+        if (self["spos"] - o2["pos"])[1] < 0:
+            self["side"] = common.SIDE["DOWN"]
+        else:
+            self["side"] = common.SIDE["UP"]
         if DIFFERENCES:
             self["dir"] = o2["pos"]-self["spos"]        
             self["deuler"] = o2["euler"]-self["seuler"] 

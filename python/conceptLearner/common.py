@@ -11,6 +11,7 @@ import math
 
 NUMDEC = 4
 GAZEBOCMDS = { "NOTHING": 0,"MOVE": 1, "GRAB": 2, "RELEASE": 3}
+SIDE = {"NONE": 0, "DOWN": 1, "UP": 2}
 
 GRIPPERSTATES = {"OPEN":0, "CLOSED": 1}
 

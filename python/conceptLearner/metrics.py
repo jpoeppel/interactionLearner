@@ -50,7 +50,7 @@ similarities = {"dir": expS, "linVel": expS, "orientation": expS, "pos": expS,
            "dangVel": expS, "mvDir": expS, "otype": equalS, "sangVel":expS, "oangVel": expS, 
            "sori": expS, "spos": expS, "opos": expS, "stype":equalS, "sid": equalS, 
            "slinVel": expS, "olinVel":expS, "oname": equalS, "euler": expS, "seuler": expS, 
-           "deuler": expS, "oeuler": expS}
+           "deuler": expS, "oeuler": expS, "side": equalS}
            
 def cosD(a,b):
     return 1-cosS(a,b)

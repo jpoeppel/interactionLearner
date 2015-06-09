@@ -44,7 +44,7 @@ PUSHTASKSIMULATION = 2
 MOVE_TO_TARGET = 3
 MODE = PUSHTASKSIMULATION
 #MODE = FREE_EXPLORATION
-MODE = MOVE_TO_TARGET
+#MODE = MOVE_TO_TARGET
 
 
 RANDOM_BLOCK_ORI = False
@@ -58,7 +58,7 @@ DIRECTIONGENERALISATION = False
 
 
 
-NUM_TRAIN_RUNS = 0
+NUM_TRAIN_RUNS = 10
 NUM_TEST_RUNS = 50
 
 class GazeboInterface():
@@ -742,13 +742,19 @@ class GazeboInterface():
             gripperInt = worldState.getInteractionState("gripper")
             if DIFFERENCES:
                 tmpBlockPos = np.matrix(np.concatenate((gripperInt["spos"]+gripperInt["dir"],[1])))
+                tmpBlockOri = np.matrix(np.concatenate((gripperInt["seuler"]+gripperInt["deuler"],[1])))
             else:
                 tmpBlockPos = np.matrix(np.concatenate((gripperInt["opos"],[1])))
+                tmpBlockOri = np.matrix(np.concatenate((gripperInt["oeuler"],[1])))
             blockPos = np.array((worldState.transM*tmpBlockPos.T)[:3]).flatten()   
+            blockOri = np.array((worldState.transM*tmpBlockOri.T)[:3]).flatten()   
             tmpGPos = np.matrix(np.concatenate((gripperInt["spos"],[1])))
             gPos = np.array((worldState.transM*tmpGPos.T)[:3]).flatten()   
 #            print "Block pos: ", blockPos
-            if np.linalg.norm(blockPos-self.target["pos"]) < 0.1 or blockPos[1] > 1.4 or self.stepCounter > 300 or np.linalg.norm(gPos) > 1.5:
+            targetOs = gripperInt.getObjectState(self.target["name"])
+            targetOs.transform(worldState.transM, worldState.ori)
+            
+            if self.target.score(targetOs) > 0.9*len(self.target.relKeys) or blockPos[1] > 1.4 or self.stepCounter > 300 or np.linalg.norm(gPos) > 1.5:
                 self.resetWorld()
                 self.runStarted = False
             else:

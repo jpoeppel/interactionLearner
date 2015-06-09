@@ -88,6 +88,7 @@ class State(dict):
                 elif not isinstance(self[k], unicode):
                     r = np.concatenate((r,[self[k]]))
 #        print "KeyOrder: ", keyOrder
+#        print "toVec, self: {}, consts: {}, \n result: {}".format(self, const, r)
         return r
         
     def toSelVec(self):
@@ -125,6 +126,28 @@ class State(dict):
                 self.weights[minAttrib] /= 2.0
                 
             self.weights[maxAttrib] *= 2
+            
+            
+    @classmethod        
+    def fromVector(cls, vec, constants = {}):
+        stateO = cls()
+        keys = stateO.relKeys
+#        print "froMVec keys: ", keys
+        i=0
+        for key in keys:
+            if not key in constants:
+                if hasattr(stateO[key], "__len__"):
+                    k = len(stateO[key])
+                else:
+                    k = 1
+                stateO[key] = vec[i:i+k]
+                i+=k
+            else:
+                stateO[key] = constants[key]
+                
+#        print "FromVector: vec {}, constants: {}, result: {}".format(vec, constants, stateO)
+        return stateO
+        
         
     def __eq__(self, other):
         if not isinstance(other, State):
@@ -219,22 +242,39 @@ class Action(State):
             
 class InteractionState(State):
     
-    def __init__(self, intId, o1):
-        assert isinstance(o1, ObjectState), "{} (o1) is not an ObjectState!".format(o1)
-        if DIFFERENCES:
-            self.update({"intId": intId, "sid":o1["id"], "sname": o1["name"], 
-                     "stype": o1["type"], "spos":o1["pos"], 
-                     "seuler": o1["euler"], "slinVel": o1["linVel"], 
-                     "sangVel": o1["angVel"], "dist": 0, "dir": np.zeros(3),
-                     "contact": 0, "oid": -1, "oname": "", "otype": 0, 
-                     "deuler": np.zeros(3), "dlinVel": np.zeros(3), "dangVel":np.zeros(3)})
-        else:             
-            self.update({"intId": intId, "sid":o1["id"], "sname": o1["name"], 
-                     "stype": o1["type"], "spos":o1["pos"], 
-                     "seuler": o1["euler"], "slinVel": o1["linVel"], 
-                     "sangVel": o1["angVel"], "dist": 0, "opos": np.zeros(3),
-                     "contact": 0, "oid": -1, "oname": "", "otype": 0, 
-                     "oeuler": np.zeros(3), "olinVel": np.zeros(3), "oangVel":np.zeros(3)})
+    def __init__(self, intId=-1, o1=None):
+        if o1 == None:
+            if DIFFERENCES:
+                self.update({"intId": intId, "sid":-1, "sname": "", 
+                         "stype": -1, "spos":np.zeros(3), 
+                         "seuler": np.zeros(3), "slinVel": np.zeros(3), 
+                         "sangVel": mp.zeros(3), "dist": 0, "dir": np.zeros(3),
+                         "contact": 0, "oid": -1, "oname": "", "otype": 0, 
+                         "deuler": np.zeros(3), "dlinVel": np.zeros(3), "dangVel":np.zeros(3)})
+            else:             
+                self.update({"intId": intId, "sid":-1, "sname": "", 
+                         "stype": -1, "spos":np.zeros(3), 
+                         "seuler": np.zeros(3), "slinVel": np.zeros(3), 
+                         "sangVel": np.zeros(3), "dist": 0, "opos": np.zeros(3),
+                         "contact": 0, "oid": -1, "oname": "", "otype": 0, 
+                         "oeuler": np.zeros(3), "olinVel": np.zeros(3), "oangVel":np.zeros(3)})
+        else:
+            assert isinstance(o1, ObjectState), "{} (o1) is not an ObjectState!".format(o1)        
+            if DIFFERENCES:
+                self.update({"intId": intId, "sid":o1["id"], "sname": o1["name"], 
+                         "stype": o1["type"], "spos":o1["pos"], 
+                         "seuler": o1["euler"], "slinVel": o1["linVel"], 
+                         "sangVel": o1["angVel"], "dist": 0, "dir": np.zeros(3),
+                         "contact": 0, "oid": -1, "oname": "", "otype": 0, 
+                         "deuler": np.zeros(3), "dlinVel": np.zeros(3), "dangVel":np.zeros(3)})
+            else:             
+                self.update({"intId": intId, "sid":o1["id"], "sname": o1["name"], 
+                         "stype": o1["type"], "spos":o1["pos"], 
+                         "seuler": o1["euler"], "slinVel": o1["linVel"], 
+                         "sangVel": o1["angVel"], "dist": 0, "opos": np.zeros(3),
+                         "contact": 0, "oid": -1, "oname": "", "otype": 0, 
+                         "oeuler": np.zeros(3), "olinVel": np.zeros(3), "oangVel":np.zeros(3)})
+#        self["side"] = common.SIDE["NONE"]
         #Do not move from here because the keys need to be set before State.init and the relKeys need to be changed afterwards             
         State.__init__(self) 
 #        self.relKeys = ["spos", "slinVel"]
@@ -260,7 +300,7 @@ class InteractionState(State):
         
         
         self.relSelKeys = copy.deepcopy(self.relKeys)
-#        self.relSelKeys.remove("spos")
+        self.relSelKeys.remove("spos")
 #        self.relSelKeys.remove("sid")
 #        self.relSelKeys.remove("oid")
         
@@ -283,6 +323,10 @@ class InteractionState(State):
         self["oid"] = o2["id"]
         self["oname"] = o2["name"]
         self["otype"] = o2["type"]
+#        if (self["spos"] - o2["pos"])[1] < 0:
+#            self["side"] = common.SIDE["DOWN"]
+#        else:
+#            self["side"] = common.SIDE["UP"]
         if DIFFERENCES:
             self["dir"] = o2["pos"]-self["spos"]        
             self["deuler"] = o2["euler"]-self["seuler"] 
@@ -304,6 +348,30 @@ class InteractionState(State):
         elif self["oname"] == name:
             res.fromInteractionState2(self)
         return res
+        
+    def getTarget(self, givenInt):
+        biggestDif = 0.0
+        biggestDifKey = None
+        self["sname"] = givenInt["sname"]
+        self["oname"] = givenInt["oname"]
+        for k,v in self.relevantItems():
+            dif =  v-givenInt[k]
+            if np.linalg.norm(dif) > np.linalg.norm(biggestDif):
+                biggestDifKey = k
+                biggestDif = dif
+        if biggestDifKey != None:
+            if DIFFERENCES:
+                if biggestDifKey.startswith("d"):
+                    return self.getObjectState(self["oname"])
+                else:
+                    return self.getObjectState(self["sname"])
+            else:
+                if biggestDifKey.startswith("o"):
+                    return self.getObjectState(self["oname"])
+                else:
+                    return self.getObjectState(self["sname"])
+        else:
+            raise AttributeError("There should be differences here! self: {}, givenInt: {}".format(self, givenInt))
 
     def computeDistance(self, o2):
         if self["sid"] == 8:

@@ -60,6 +60,9 @@ class Node(object):
         
     def vecInA(self):
         return np.concatenate((self.wIn, self.action))
+        
+    def __repr__(self):
+        return "Nodename: {} \n wIn: {} \n action: {} \ wOut: {}".format(self.name, self.wIn, self.action, self.wOut)
 
 class Network(object):
     def __init__(self):

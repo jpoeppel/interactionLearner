@@ -56,17 +56,6 @@ logging.basicConfig()
 
 
 MAX_DEPTH = 5
-
-genericActions = [Action(cmd=GZCMD["MOVE"], direction=np.array([-0.2,0.0,0.0])),
-                  Action(cmd=GZCMD["MOVE"], direction=np.array([0.2,0.0,0.0])),
-                  Action(cmd=GZCMD["MOVE"], direction=np.array([-0.15,0.15,0.0])),
-                  Action(cmd=GZCMD["MOVE"], direction=np.array([0.15,0.15,0.0])),
-                  Action(cmd=GZCMD["MOVE"], direction=np.array([0.0,0.2,0.0])),
-                  Action(cmd=GZCMD["MOVE"], direction=np.array([0.0,-0.2,0.0])),
-                  Action(cmd=GZCMD["MOVE"], direction=np.array([-0.15,-0.15,0.0])),
-                  Action(cmd=GZCMD["MOVE"], direction=np.array([0.15,-0.15,0.0]))]
-                  
-
         
 
 class BaseCase(object):
@@ -171,6 +160,29 @@ class AbstractCase(object):
                 resultState[k] = state[k] + self.refCases[0].predict(state, action, k)
         return resultState
         
+    def getAction2(self, var, dif):
+        action = np.zeros(4)
+        inputs = np.zeros(len(self.refCases[0].preState.toVec(self.constants)))
+        difChange = 0.0
+        norm = 0.0
+        for k in var:
+            norm += 1.0
+            partialAction, partialInputs, expectedDif = self.predictors[k].getAction(dif[k])
+            action += partialAction
+            inputs += partialInputs
+            print "expectedDif for k: {}, {}".format(k, expectedDif)
+            difChange += np.linalg.norm(dif[k] - expectedDif) - np.linalg.norm(dif[k])
+        print "Dif change: ", difChange
+        if difChange > -0.01:
+            print "Best Action: {} is too bad {}".format(action/norm, difChange)
+            return None,None
+        action /= norm
+        inputs /= norm
+        res = Action(cmd = action[0], direction=action[1:])
+        preCons = InteractionState.fromVector(inputs, self.constants)
+        res = Action(cmd = action[0], direction=action[1:])
+        return res, preCons
+        
     def getAction(self, pre, var, dif, weights = None):
 #        print "getAction from ac: ", self.variables
         action = np.zeros(4)
@@ -178,7 +190,10 @@ class AbstractCase(object):
         if weights != None:
             for k in var:
                 norm += weights[k]
-                action += weights[k] * self.predictors[k].predictAction(pre.toVec(self.constants), dif[k])
+                if USE_CONSTANTS:
+                    action += weights[k] * self.predictors[k].predictAction(pre.toVec(self.constants), dif[k])
+                else:
+                    action += weights[k] * self.predictors[k].predictAction(pre.toVec(), dif[k])
         else:
             for k in var:
                 norm += 1.0
@@ -195,6 +210,13 @@ class AbstractCase(object):
     def addErrorCase(self, case):
         self.numErrorCases += 1
 #        self.updateGaussians(self.errorGaussians, self.numErrorCases, case)
+        
+    def checkPreCons(self, state):
+        for k,v in state.relevantItems():
+            if k in self.constants:
+                if np.linalg.norm(v-self.constants[k]) > 0.05:
+                    return False
+        return True
         
     def score(self, state, action):
         s = 0.0
@@ -340,7 +362,6 @@ class AbstractCase(object):
         else:
             node = Node(0, wIn=case.preState.toVec(), action=case.action.toVec(),
                     wOut=case.postState[attrib]-case.preState[attrib])
-                    
         return node
         
     def updatePredictorsGP(self):
@@ -407,6 +428,7 @@ class ModelCBR(object):
         
         relTarget = copy.deepcopy(target)
         relTarget.transform(worldState.invTrans, -worldState.ori)
+        print "relTarget: ", relTarget
         if target["name"] == "blockA":
             targetInt = copy.deepcopy(worldState.getInteractionState("gripper"))
             targetInt["intId"] = -1            
@@ -420,6 +442,64 @@ class ModelCBR(object):
         return targetInt        
         
     def getAction(self, worldState):
+        bestAction = None
+        if isinstance(self.target, ObjectState):
+#            relTargetOs = copy.deepcopy(self.target)
+#            relTargetOs.transform(worldState.invTrans, -worldState.ori)
+#            relTargetInt = self.createRelativeTargetInteraction(worldState, self.target)
+#            givenInteraction = worldState.getInteractionState("gripper")
+#            curOs = givenInteraction.getObjectState(self.target["name"])
+#            curScore = self.target.score(curOs)
+#            curOsGlobal = copy.deepcopy(curOs)
+#            curOsGlobal.transform(worldState.transM, worldState.ori)
+            bestAction = self.findBestAction2(worldState, self.target)
+
+                        
+        elif isinstance(self.target, InteractionState):
+            raise NotImplementedError
+        print "bestAction: ", bestAction
+        if bestAction != None:
+            return bestAction
+        else:
+            return self.getRandomAction(worldState, BLOCK_BIAS)
+            
+    def findBestAction2(self, worldState, target, depth = 0):
+        """
+        Parameters
+        ----------
+        worldState: state.WorldState
+        target: state.ObjectState
+        depth: Int
+        """
+        if depth > MAX_DEPTH:
+            return None
+            
+        givenInteraction = worldState.getInteractionState("gripper")
+        relTargetInt = self.createRelativeTargetInteraction(worldState, target)
+        difs = {}
+        for k in relTargetInt.relKeys:
+            difs[k] = relTargetInt[k] - givenInteraction[k]
+            
+        print "Difs: ", difs
+        difSet = Set(difs.keys())
+        action = preCons = None
+        for ac in self.abstractCases.values():
+            if ac.variables.issuperset(difSet):
+                action, preCons = ac.getAction2(difSet, difs)
+                if action != None:
+                    if ac.checkPreCons(givenInteraction):
+                        return action
+                    else:
+                        #create subtarget
+                    
+                        target = preCons.getTarget(givenInteraction)
+                        target.transform(worldState.transM, worldState.ori)
+                        print "!!!!!!!!!! Creating suptarget: ", target
+                        return self.findBestAction2(worldState, target, depth +1)
+                    
+        return None
+            
+    def getAction2(self, worldState):
         
         bestAction = None
         if isinstance(self.target, ObjectState):
@@ -499,6 +579,7 @@ class ModelCBR(object):
         for ac in self.abstractCases.values():
             if ac.variables.issuperset(difSet):
                 action = ac.getAction(givenInteraction, difSet, difs, weights=None)
+                #if isApplicable(action)
                 actions.append(action)
 #                print "ac: {} selected action: {}".format(ac.variables, action)          
                 
@@ -598,7 +679,8 @@ class ModelCBR(object):
             a["cmd"] = GZCMD["MOVE"]
             a["mvDir"] = np.array([0,0,0])
         else:
-            a["cmd"] = GZCMD["NOTHING"]
+#            a["cmd"] = GZCMD["NOTHING"]
+            a["cmd"] = GZCMD["MOVE"]
 #        a["mvDir"] *= 2.0
         a["mvDir"][2] = 0
         norm = np.linalg.norm(a["mvDir"])
@@ -684,12 +766,11 @@ class ModelCBR(object):
         usedCase: AbstractCase
         """
         
-        print "Used action: ", action
         
-        if isinstance(self.target, ObjectState):
-            resultingOS = result.getObjectState(self.target["name"])
-            prevOS = state.getObjectState(self.target["name"])
-            
+#        if isinstance(self.target, ObjectState):
+#            resultingOS = result.getObjectState(self.target["name"])
+#            prevOS = state.getObjectState(self.target["name"])
+#            
             
 #        if state["sid"] != 8:
 #            raise TypeError("Wrong sID: ", state["sid"])

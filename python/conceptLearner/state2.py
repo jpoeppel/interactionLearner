@@ -238,7 +238,10 @@ class Action(State):
         
     def transform(self, matrix):
         tmpMVDir = np.matrix(np.concatenate((self["mvDir"],[0])))
-        self["mvDir"] = np.round(np.array((matrix*tmpMVDir.T)[:3]).flatten(), NUMDEC)            
+        self["mvDir"] = np.round(np.array((matrix*tmpMVDir.T)[:3]).flatten(), NUMDEC)      
+    @classmethod
+    def sample(cls, number):
+        return [cls(cmd=GZCMD["MOVE"], direction=np.concatenate((((np.random.sample(2)-0.5)*0.5),[0]))) for i in range(number)]
             
 class InteractionState(State):
     
@@ -274,7 +277,7 @@ class InteractionState(State):
                          "sangVel": o1["angVel"], "dist": 0, "opos": np.zeros(3),
                          "contact": 0, "oid": -1, "oname": "", "otype": 0, 
                          "oeuler": np.zeros(3), "olinVel": np.zeros(3), "oangVel":np.zeros(3)})
-        self["side"] = common.SIDE["NONE"]
+#        self["side"] = common.SIDE["NONE"]
 #        Do not move from here because the keys need to be set before State.init and the relKeys need to be changed afterwards             
         State.__init__(self) 
 #        self.relKeys = ["spos", "slinVel"]
@@ -323,10 +326,10 @@ class InteractionState(State):
         self["oid"] = o2["id"]
         self["oname"] = o2["name"]
         self["otype"] = o2["type"]
-        if (self["spos"] - o2["pos"])[1] < 0:
-            self["side"] = common.SIDE["DOWN"]
-        else:
-            self["side"] = common.SIDE["UP"]
+#        if (self["spos"] - o2["pos"])[1] < 0:
+#            self["side"] = common.SIDE["DOWN"]
+#        else:
+#            self["side"] = common.SIDE["UP"]
         if DIFFERENCES:
             self["dir"] = o2["pos"]-self["spos"]        
             self["deuler"] = o2["euler"]-self["seuler"] 
@@ -340,6 +343,43 @@ class InteractionState(State):
         if o2["contact"] == self["sname"]:
             self["contact"] = 1
             self["dist"] = 0.0
+            
+    def transform(self, matrix, euler):
+#        print "calling transform for: ", self["name"]
+        tmpPos = np.matrix(np.concatenate((self["spos"],[1])))
+        self["spos"] = np.round(np.array((matrix*tmpPos.T)[:3]).flatten(), NUMDEC)
+        tmplV = np.matrix(np.concatenate((self["slinVel"],[0])))
+        self["slinVel"] = np.round(np.array((matrix*tmplV.T)[:3]).flatten(), NUMDEC)
+        tmpaV = np.matrix(np.concatenate((self["sangVel"],[0])))
+        self["sangVel"] = np.round(np.array((matrix*tmpaV.T)[:3]).flatten(), NUMDEC)
+        if DIFFERENCES:
+            tmpPos = np.matrix(np.concatenate((self["dir"],[1])))
+            self["dir"] = np.round(np.array((matrix*tmpPos.T)[:3]).flatten(), NUMDEC)
+            tmplV = np.matrix(np.concatenate((self["dlinVel"],[0])))
+            self["dlinVel"] = np.round(np.array((matrix*tmplV.T)[:3]).flatten(), NUMDEC)
+            tmpaV = np.matrix(np.concatenate((self["dangVel"],[0])))
+            self["dangVel"] = np.round(np.array((matrix*tmpaV.T)[:3]).flatten(), NUMDEC)
+        else:
+            tmpPos = np.matrix(np.concatenate((self["opos"],[1])))
+            self["opos"] = np.round(np.array((matrix*tmpPos.T)[:3]).flatten(), NUMDEC)
+            tmplV = np.matrix(np.concatenate((self["olinVel"],[0])))
+            self["olinVel"] = np.round(np.array((matrix*tmplV.T)[:3]).flatten(), NUMDEC)
+            tmpaV = np.matrix(np.concatenate((self["oangVel"],[0])))
+            self["oangVel"] = np.round(np.array((matrix*tmpaV.T)[:3]).flatten(), NUMDEC)
+            
+
+    def getLocalTransformed(self):
+        if DIFFERENCES:
+            transM = common.eulerPosToTransformation(self["seuler"]+self["deuler"],self["spos"]+self["dir"])
+            invTrans = common.invertTransMatrix(transM)
+            ori = np.copy(self["seuler"]+self["deuler"])
+        else:
+            transM = common.eulerPosToTransformation(self["oeuler"],self["opos"])
+            invTrans = common.invertTransMatrix(transM)
+            ori = np.copy(self["oeuler"])
+        transformed = copy.deepcopy(self)
+        transformed.transform(transM, ori)
+        return transformed, transM, ori
             
     def getObjectState(self, name):
         res = ObjectState()
@@ -446,6 +486,11 @@ class InteractionState(State):
             d4 = min(np.linalg.norm(x1n-np.array([x0x,x0y,x0z])), np.linalg.norm(x2n-np.array([x0x,x0y,x0z])))
         return max(0.0,min((d1,d2,d3,d4)))
             
+
+    def __hash__(self):
+        return np.sum(self.toVec())
+                
+    
 class WorldState(object):
     
     def __init__(self, transM = None, invTrans = None, ori = None):

@@ -44,7 +44,7 @@ PUSHTASKSIMULATION = 2
 MOVE_TO_TARGET = 3
 MODE = PUSHTASKSIMULATION
 #MODE = FREE_EXPLORATION
-#MODE = MOVE_TO_TARGET
+MODE = MOVE_TO_TARGET
 
 
 RANDOM_BLOCK_ORI = False
@@ -58,7 +58,7 @@ DIRECTIONGENERALISATION = False
 
 
 
-NUM_TRAIN_RUNS = 10
+NUM_TRAIN_RUNS = 0
 NUM_TEST_RUNS = 50
 
 class GazeboInterface():
@@ -277,6 +277,12 @@ class GazeboInterface():
         modelState_pb2.ModelState
             Protobuf object for a model state with fixed id to 99
         """
+        
+        assert not np.any(np.isnan(pos)), "Pos has nan in it: {}".format(pos)
+        assert not np.any(np.isnan(euler)), "euler has nan in it: {}".format(euler)
+        if transM != None:
+            assert not np.any(np.isnan(transM)), "transM has nan in it: {}".format(transM)
+            assert not np.any(np.isnan(eulerdif)), "eulerDif has nan in it: {}".format(eulerdif)
         msg = modelState_pb2.ModelState()
         msg.name = name
         msg.id = 99
@@ -332,6 +338,12 @@ class GazeboInterface():
         modelState_pb2.ModelState
             Protobuf object for a model state with fixed id to 99
         """
+
+        assert not np.any(np.isnan(pos)), "Pos has nan in it: {}".format(pos)
+        assert not np.any(np.isnan(ori)), "Ori has nan in it: {}".format(ori)
+        if transM != None:
+            assert not np.any(np.isnan(transM)), "transM has nan in it: {}".format(transM)
+            assert not np.any(np.isnan(quat)), "quat has nan in it: {}".format(quat)
         msg = modelState_pb2.ModelState()
         msg.name = name
         msg.id = 99
@@ -754,7 +766,7 @@ class GazeboInterface():
             targetOs = gripperInt.getObjectState(self.target["name"])
             targetOs.transform(worldState.transM, worldState.ori)
             
-            if self.target.score(targetOs) > 0.9*len(self.target.relKeys) or blockPos[1] > 1.4 or self.stepCounter > 300 or np.linalg.norm(gPos) > 1.5:
+            if self.target.score(targetOs) > 0.95*len(self.target.relKeys) or blockPos[1] > 1.4 or self.stepCounter > 300 or np.linalg.norm(gPos) > 1.5:
                 self.resetWorld()
                 self.runStarted = False
             else:
@@ -823,7 +835,7 @@ class GazeboInterface():
         target["name"] = "blockA"
         target["pos"] = np.array([0.0, 1.0, 0.05])
         target["euler"] = np.zeros(3)
-        target.relKeys = ["pos"]#,"euler"]
+        target.relKeys = ["pos","euler"]
 #        target.weights = {"pos":20, "euler": 1}
         self.target = target
 

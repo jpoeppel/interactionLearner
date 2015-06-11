@@ -833,9 +833,10 @@ class GazeboInterface():
 #        target["name"] = "gripper"
 #        target["pos"] = np.array([0.0, 1.0, 0.03])
         target["name"] = "blockA"
-        target["pos"] = np.array([0.0, 1.0, 0.05])
+        target["pos"] = np.array([0.0, 0.5, 0.05])
         target["euler"] = np.zeros(3)
-        target.relKeys = ["pos","euler"]
+        target["euler"][2] = -0.5*math.pi
+        target.relKeys = ["euler"]
 #        target.weights = {"pos":20, "euler": 1}
         self.target = target
 

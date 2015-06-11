@@ -49,6 +49,14 @@ class State(dict):
             otherState[k]
             s += self.weights[k]* similarities[k](self[k], otherState[k]) 
 #            s[k] = self.weights[k]* similarities[k](self[k], otherState[k])
+            
+        return s
+        
+    def dist(self, other):
+        s = 0.0
+        for k in self.relKeys:
+            s += np.linalg.norm(self[k]-other[k])**2 #+ np.log(np.linalg.norm(self[k]-other[k])+0.001)
+            
         return s
         
     def score2(self, otherState):
@@ -154,7 +162,7 @@ class State(dict):
             return False
             
         for k, v in self.relevantItems():
-            if np.linalg.norm(v-other[k]) > 0.001:
+            if np.linalg.norm(v-other[k]) > 0.01:
                 return False
         
         return True
@@ -353,7 +361,7 @@ class InteractionState(State):
         tmpaV = np.matrix(np.concatenate((self["sangVel"],[0])))
         self["sangVel"] = np.round(np.array((matrix*tmpaV.T)[:3]).flatten(), NUMDEC)
         if DIFFERENCES:
-            tmpPos = np.matrix(np.concatenate((self["dir"],[1])))
+            tmpPos = np.matrix(np.concatenate((self["dir"],[0])))
             self["dir"] = np.round(np.array((matrix*tmpPos.T)[:3]).flatten(), NUMDEC)
             tmplV = np.matrix(np.concatenate((self["dlinVel"],[0])))
             self["dlinVel"] = np.round(np.array((matrix*tmplV.T)[:3]).flatten(), NUMDEC)
@@ -378,7 +386,7 @@ class InteractionState(State):
             invTrans = common.invertTransMatrix(transM)
             ori = np.copy(self["oeuler"])
         transformed = copy.deepcopy(self)
-        transformed.transform(transM, ori)
+        transformed.transform(invTrans, -ori)
         return transformed, transM, ori
             
     def getObjectState(self, name):

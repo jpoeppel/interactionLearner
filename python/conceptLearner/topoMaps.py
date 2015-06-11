@@ -87,7 +87,29 @@ class ITM(Network):
                 return minNode.action, minNode.wIn, minNode.wOut
             else:
                 raise AttributeError("Unsupported Predictionmode used: ", PREDICTIONMODE)
-                
+
+    def getBestAbsAction(self, wOut):
+        if not hasattr(wOut, "__len__"):
+            wOut = np.array([wOut])
+        minDist = float('inf')
+        minNode = None
+        
+        for n in self.nodes.values():
+#            print "n.wIn: {}, n.wOut: {}, wIn: {}, wOut: {}".format(n.wIn, n.wOut, wIn, wOut)
+            d = np.linalg.norm(np.abs(wOut)-np.abs(n.wOut))
+            if d < minDist:
+                minDist = d
+                minNode = n
+        if minNode != None:
+            if PREDICTIONMODE == WINNER:
+                return minNode.action, minNode.wIn, minNode.wOut
+            elif PREDICTIONMODE == NEIGHBOURS:
+                raise NotImplementedError()
+            elif PREDICTIONMODE == LINEAR:
+                return minNode.action, minNode.wIn, minNode.wOut
+            else:
+                raise AttributeError("Unsupported Predictionmode used: ", PREDICTIONMODE)
+        
     def predictAction(self, wIn, wOut):
         if not hasattr(wOut, "__len__"):
             wOut = np.array([wOut])

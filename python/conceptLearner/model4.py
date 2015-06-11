@@ -42,7 +42,7 @@ else:
     from state2 import State, ObjectState, Action, InteractionState, WorldState
 
 THRESHOLD = 0.01
-BLOCK_BIAS = 0.2
+BLOCK_BIAS = 0.3
 
 MAXCASESCORE = 14-5
 MAXSTATESCORE = 12-5
@@ -97,6 +97,7 @@ class BaseCase(object):
         return r
     
     def predict(self, state,action, attrib):
+#        print "baseCase predict: attrib: {}, value: {} ".format(attrib, self.dif[attrib])
         return self.dif[attrib]
         
     def score(self, state, action):#, weights):
@@ -156,6 +157,8 @@ class AbstractCase(object):
                     resultState[k] = state[k] + prediction
                 else:
                     resultState[k] = state[k] + self.refCases[0].predict(state, action, k)
+                    
+                assert not np.any(np.isnan(resultState[k])), "prediction caused nan. k: {}".format(k)
 
         else:
 #            print "predicting with only one ref"
@@ -166,25 +169,26 @@ class AbstractCase(object):
     def getAction2(self, var, dif):
         action = np.zeros(4)
         inputs = np.zeros(len(self.refCases[0].preState.toVec(self.constants)))
-        difChange = 0.0
+#        difChange = 0.0
         norm = 0.0
+        expectedDifs = {}
         for k in var:
             norm += 1.0
-            partialAction, partialInputs, expectedDif = self.predictors[k].getAction(dif[k])
+#            partialAction, partialInputs, expectedDifs[k] = self.predictors[k].getBestAbsAction(dif[k])
+            partialAction, partialInputs, expectedDifs[k] = self.predictors[k].getAction(dif[k])
             action += partialAction
             inputs += partialInputs
-            print "expectedDif for k: {}, {}".format(k, expectedDif)
-            difChange += np.linalg.norm(dif[k] - expectedDif) - np.linalg.norm(dif[k])
-        print "Dif change: ", difChange
-        if difChange > -0.01:
-            print "Best Action: {} is too bad {}".format(action/norm, difChange)
-            return None,None
+#            difChange += np.linalg.norm(dif[k] - expectedDif) - np.linalg.norm(dif[k])
+#        print "Dif change: ", difChange
+#        if difChange > -0.01:
+#            print "Best Action: {} is too bad {}".format(action/norm, difChange)
+#            return None,None
         action /= norm
         inputs /= norm
         res = Action(cmd = action[0], direction=action[1:])
         preCons = InteractionState.fromVector(inputs, self.constants)
         res = Action(cmd = action[0], direction=action[1:])
-        return res, preCons
+        return res, preCons, expectedDifs
         
     def getAction(self, pre, var, dif, weights = None):
 #        print "getAction from ac: ", self.variables
@@ -442,7 +446,7 @@ class ModelCBR(object):
             targetInt = copy.deepcopy(worldState.getInteractionState("gripper"))
             targetInt["intId"] = -1            
             targetInt.fill(relTarget)
-            targetInt.relKeys = ["opos", "oeuler"]
+            targetInt.relKeys = ["oeuler"]
 #            targetInt.weights = {"opos":20, "oeuler":1}
         elif target["name"] == "gripper":
             targetInt = InteractionState(-1, relTarget)
@@ -450,7 +454,7 @@ class ModelCBR(object):
 #        targetInt.weights = {"opos":20, "oeuler":1}
         return targetInt        
         
-    def getAction3(self, worldState):
+    def getAction(self, worldState):
         bestAction = None
         if isinstance(self.target, ObjectState):
 #            relTargetOs = copy.deepcopy(self.target)
@@ -496,7 +500,7 @@ class ModelCBR(object):
         action = preCons = None
         for ac in self.abstractCases.values():
             if ac.variables.issuperset(difSet):
-                action, preCons = ac.getAction2(difSet, difs)
+                action, preCons, expectedDifs = ac.getAction2(difSet, difs)
                 if action != None:
                     if ac.checkPreCons(preCons, givenInteraction):
                         return action
@@ -519,7 +523,8 @@ class ModelCBR(object):
             targetInt = copy.deepcopy(worldState.getInteractionState("gripper"))
             targetInt["intId"] = -1            
             targetInt.fill(relTarget)
-            targetInt.relKeys = ["opos", "oeuler"]
+            targetInt["dist"] = 0.0
+            targetInt.relKeys = ["opos", "dist"]
 #            targetInt.weights = {"opos":20, "oeuler":1}
         elif target["name"] == "gripper":
             targetInt = InteractionState(-1, relTarget)
@@ -527,14 +532,21 @@ class ModelCBR(object):
 #        targetInt.weights = {"opos":20, "oeuler":1}
         return targetInt     
         
-    def getAction(self, worldState):
-        worldTarget = copy.deepcopy(self.target)
-        worldTargetInt = self.createTargetInteraction(worldState, worldTarget)
-        givenInteraction = copy.deepcopy(worldState.getInteractionState("gripper"))
-        givenInteraction.transform(worldState.transM, worldState.ori)
-        statePlan = self.plan(givenInteraction, worldTargetInt)
-#        print "statePlan: ", statePlan
-        return self.getRandomAction(worldState, BLOCK_BIAS)
+    def getAction3(self, worldState):
+        bestAction = None
+        if isinstance(self.target, ObjectState):
+            worldTarget = copy.deepcopy(self.target)
+            worldTargetInt = self.createTargetInteraction(worldState, worldTarget)
+            givenInteraction = copy.deepcopy(worldState.getInteractionState("gripper"))
+            givenInteraction.transform(worldState.transM, worldState.ori)
+            statePlan, costs = self.plan(givenInteraction, worldTargetInt)
+    #        print "statePlan: ", statePlan
+            if statePlan != None:
+                print "statePlan: ", statePlan
+        if bestAction != None:
+            return bestAction
+        else:
+            return self.getRandomAction(worldState, BLOCK_BIAS)
         
     def plan(self, start, goal):
         """
@@ -553,26 +565,33 @@ class ModelCBR(object):
         heapq.heappush(frontier, (0, 0, start))
         nodeCounter = 1
         came_from = {start: None}
-        cost_so_far = {start: 0}
+        cost_so_far = {start: 0.0}
         iterations = 0
-        while not len(frontier) == 0 and iterations < 10:
+        goalReached = False
+        while not len(frontier) == 0 and iterations < 100:
             iterations += 1
             current = heapq.heappop(frontier)[2]
             
             if current == goal:
+                goalReached = True
                 break
             localCurrent, transM, ori = current.getLocalTransformed() 
-            for nextState in [self.predictIntState(localCurrent, action)[0] for action in Action.sample(NUM_SAMPLES)]:
+            for nextState in [self.predictIntState(localCurrent, action)[0] for action in Action.sample(100)]:
                 nextState.transform(transM, ori)
                 new_cost = cost_so_far[current] + 1
                 if nextState not in cost_so_far or new_cost < cost_so_far[nextState]:
                     cost_so_far[nextState] = new_cost
-                    priority = new_cost + goal.score(nextState)
+                    priority = new_cost + goal.dist(nextState)
                     heapq.heappush(frontier, (priority, nodeCounter, nextState))
                     nodeCounter+=1
                     came_from[nextState] = current
                     
-        return came_from, cost_so_far
+        if goalReached:
+            return came_from, cost_so_far
+        else:
+            print "frontier: ", frontier
+            print "Best: ", heapq.heappop(frontier)
+            return None, None
             
     def getAction2(self, worldState):
         
@@ -760,7 +779,7 @@ class ModelCBR(object):
         a["mvDir"][2] = 0
         norm = np.linalg.norm(a["mvDir"])
         if norm > 0.25:
-            a["mvDir"] /= 3*np.linalg.norm(a["mvDir"])
+            a["mvDir"] /= 2*np.linalg.norm(a["mvDir"])
         return a
     
     def setTarget(self, postState = None):

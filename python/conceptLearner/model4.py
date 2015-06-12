@@ -454,7 +454,7 @@ class ModelCBR(object):
 #        targetInt.weights = {"opos":20, "oeuler":1}
         return targetInt        
         
-    def getAction(self, worldState):
+    def getAction3(self, worldState):
         bestAction = None
         if isinstance(self.target, ObjectState):
 #            relTargetOs = copy.deepcopy(self.target)
@@ -532,7 +532,7 @@ class ModelCBR(object):
 #        targetInt.weights = {"opos":20, "oeuler":1}
         return targetInt     
         
-    def getAction3(self, worldState):
+    def getAction(self, worldState):
         bestAction = None
         if isinstance(self.target, ObjectState):
             worldTarget = copy.deepcopy(self.target)
@@ -568,7 +568,7 @@ class ModelCBR(object):
         cost_so_far = {start: 0.0}
         iterations = 0
         goalReached = False
-        while not len(frontier) == 0 and iterations < 100:
+        while not len(frontier) == 0 and iterations < 300:
             iterations += 1
             current = heapq.heappop(frontier)[2]
             
@@ -576,9 +576,9 @@ class ModelCBR(object):
                 goalReached = True
                 break
             localCurrent, transM, ori = current.getLocalTransformed() 
-            for nextState in [self.predictIntState(localCurrent, action)[0] for action in Action.sample(100)]:
+            for nextState in [self.predictIntState(localCurrent, action)[0] for action in Action.sample(5)]:
                 nextState.transform(transM, ori)
-                new_cost = cost_so_far[current] + 1
+                new_cost = cost_so_far[current] + 0.1
                 if nextState not in cost_so_far or new_cost < cost_so_far[nextState]:
                     cost_so_far[nextState] = new_cost
                     priority = new_cost + goal.dist(nextState)

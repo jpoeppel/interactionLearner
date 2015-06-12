@@ -58,7 +58,7 @@ DIRECTIONGENERALISATION = False
 
 
 
-NUM_TRAIN_RUNS = 0
+NUM_TRAIN_RUNS = 3
 NUM_TEST_RUNS = 50
 
 class GazeboInterface():

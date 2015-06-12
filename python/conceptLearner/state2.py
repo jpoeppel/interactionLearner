@@ -249,7 +249,7 @@ class Action(State):
         self["mvDir"] = np.round(np.array((matrix*tmpMVDir.T)[:3]).flatten(), NUMDEC)      
     @classmethod
     def sample(cls, number):
-        return [cls(cmd=GZCMD["MOVE"], direction=np.concatenate((((np.random.sample(2)-0.5)*0.5),[0]))) for i in range(number)]
+        return [cls(cmd=GZCMD["MOVE"], direction=np.array([0.5*math.cos(x), 0.5*math.sin(y),0.0])) for x in [0+i*math.pi/number for i in range(number)] for y in [0+i*math.pi/number for i in range(number)]]
             
 class InteractionState(State):
     

@@ -162,7 +162,7 @@ class State(dict):
             return False
             
         for k, v in self.relevantItems():
-            if np.linalg.norm(v-other[k]) > 0.01:
+            if np.linalg.norm(v-other[k]) > 0.001:
                 return False
         
         return True
@@ -189,7 +189,9 @@ class ObjectState(State):
                          "euler": np.zeros(3), "linVel": np.zeros(3), 
                          "angVel": np.zeros(3), "contact": None})
         State.__init__(self)
-        self.relKeys = self.keys()    
+        self.relKeys = self.keys()   
+        self.relKeys.remove("name")
+        self.relKeys.remove("contact")
         self.relSelKeys = self.keys()
                           
     def transform(self, matrix, euler):
@@ -300,13 +302,13 @@ class InteractionState(State):
         
         self.relKeys.remove("seuler")
         self.relKeys.remove("sangVel")        
-        self.relKeys.remove("slinVel")
+#        self.relKeys.remove("slinVel")
         if DIFFERENCES:
             self.relKeys.remove("dangVel")
             self.relKeys.remove("dlinVel")
         else:
             self.relKeys.remove("oangVel")
-            self.relKeys.remove("olinVel")
+#            self.relKeys.remove("olinVel")
         
         
         
@@ -391,6 +393,7 @@ class InteractionState(State):
             
     def getObjectState(self, name):
         res = ObjectState()
+        print "relevant keys: ", res.relKeys
         if self["sname"] == name:
             res.fromInteractionState(self)
         elif self["oname"] == name:

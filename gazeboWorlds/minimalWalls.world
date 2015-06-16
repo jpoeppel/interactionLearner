@@ -14,6 +14,14 @@
           <mass>100</mass>
         </inertial>
         <collision name='collision'>
+ <surface>
+  <friction>
+   <ode>
+    <mu>0.01</mu>
+    <mu2>0.01</mu2>
+   </ode>
+  </friction>
+ </surface>
           <geometry>
             <sphere>
               <radius>0.025</radius>
@@ -50,6 +58,14 @@
           <mass>100</mass>
         </inertial>
         <collision name='collision'>
+ <surface>
+  <friction>
+   <ode>
+    <mu>0.01</mu>
+    <mu2>0.01</mu2>
+   </ode>
+  </friction>
+ </surface>
           <geometry>
             <box>
               <size>0.5 0.1 0.1</size>

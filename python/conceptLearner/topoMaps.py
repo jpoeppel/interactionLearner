@@ -109,6 +109,10 @@ class ITM(Network):
                 return minNode.action, minNode.wIn, minNode.wOut
             else:
                 raise AttributeError("Unsupported Predictionmode used: ", PREDICTIONMODE)
+        else:
+            print "number of nodes: ", len(self.nodes)
+            print "last d: ", d
+            return None, None, None
         
     def predictAction(self, wIn, wOut):
         if not hasattr(wOut, "__len__"):

@@ -44,7 +44,7 @@ PUSHTASKSIMULATION = 2
 MOVE_TO_TARGET = 3
 MODE = PUSHTASKSIMULATION
 #MODE = FREE_EXPLORATION
-MODE = MOVE_TO_TARGET
+#MODE = MOVE_TO_TARGET
 
 
 RANDOM_BLOCK_ORI = False
@@ -58,7 +58,7 @@ DIRECTIONGENERALISATION = False
 
 
 
-NUM_TRAIN_RUNS = 3
+NUM_TRAIN_RUNS = 20
 NUM_TEST_RUNS = 50
 
 class GazeboInterface():
@@ -766,7 +766,7 @@ class GazeboInterface():
             targetOs = gripperInt.getObjectState(self.target["name"])
             targetOs.transform(worldState.transM, worldState.ori)
             
-            if self.target.score(targetOs) > 0.95*len(self.target.relKeys) or blockPos[1] > 1.4 or self.stepCounter > 300 or np.linalg.norm(gPos) > 1.5:
+            if self.target.score(targetOs) > 0.95*len(self.target.relKeys) or blockPos[1] > 1.4 or self.stepCounter > 500 or np.linalg.norm(gPos) > 1.5:
                 self.resetWorld()
                 self.runStarted = False
             else:
@@ -798,6 +798,7 @@ class GazeboInterface():
                 self.lastAction = self.worldModel.getAction(worldState)
                 self.lastAction.transform(worldState.transM)
                 
+                
                 self.lastState = worldState
                 self.lastPrediction = self.worldModel.predict(worldState, self.lastAction)
                 self.sendPrediction()
@@ -816,7 +817,7 @@ class GazeboInterface():
                 
                 self.lastAction = self.worldModel.getAction(worldState)
                 self.lastAction.transform(worldState.transM)
-                
+#                print "global action: ", self.lastAction
                 self.lastState = worldState
                 self.lastPrediction = self.worldModel.predict(worldState, self.lastAction)
                 self.sendPrediction()
@@ -833,9 +834,10 @@ class GazeboInterface():
 #        target["name"] = "gripper"
 #        target["pos"] = np.array([0.0, 1.0, 0.03])
         target["name"] = "blockA"
-        target["pos"] = np.array([0.0, 0.5, 0.05])
+        target["pos"] = np.array([0.0, -0.5, 0.05])
         target["euler"] = np.zeros(3)
         target["euler"][2] = -0.5*math.pi
+#        target.relKeys = ["pos"]#, "euler"]
         target.relKeys = ["euler"]
 #        target.weights = {"pos":20, "euler": 1}
         self.target = target

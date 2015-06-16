@@ -18,6 +18,7 @@ from metrics import differences
 #from metrics import weights
 from common import GAZEBOCMDS as GZCMD
 from common import NUMDEC
+import common
 
 from sklearn.gaussian_process import GaussianProcess
 from topoMaps import ITM
@@ -42,10 +43,10 @@ else:
     from state2 import State, ObjectState, Action, InteractionState, WorldState
 
 THRESHOLD = 0.01
-BLOCK_BIAS = 0.3
+BLOCK_BIAS = 0.4
 
-MAXCASESCORE = 14-5
-MAXSTATESCORE = 12-5
+MAXCASESCORE = 14-3
+MAXSTATESCORE = 12-3
 #PREDICTIONTHRESHOLD = 0.5
 PREDICTIONTHRESHOLD = MAXSTATESCORE - 0.01
 TARGETTHRESHOLD = MAXCASESCORE - 0.05
@@ -158,7 +159,7 @@ class AbstractCase(object):
                 else:
                     resultState[k] = state[k] + self.refCases[0].predict(state, action, k)
                     
-                assert not np.any(np.isnan(resultState[k])), "prediction caused nan. k: {}".format(k)
+                assert not np.any(np.isnan(resultState[k])), "prediction caused nan. k: {}, prediction: {}, state: {}, action: {}".format(k, prediction, state, action)
 
         else:
 #            print "predicting with only one ref"
@@ -174,10 +175,13 @@ class AbstractCase(object):
         expectedDifs = {}
         for k in var:
             norm += 1.0
-#            partialAction, partialInputs, expectedDifs[k] = self.predictors[k].getBestAbsAction(dif[k])
             partialAction, partialInputs, expectedDifs[k] = self.predictors[k].getAction(dif[k])
+            if np.any(expectedDifs[k] * dif[k] < 0):
+                partialAction, partialInputs, expectedDifs[k] = self.predictors[k].getBestAbsAction(dif[k])
             action += partialAction
             inputs += partialInputs
+            
+                
 #            difChange += np.linalg.norm(dif[k] - expectedDif) - np.linalg.norm(dif[k])
 #        print "Dif change: ", difChange
 #        if difChange > -0.01:
@@ -446,7 +450,10 @@ class ModelCBR(object):
             targetInt = copy.deepcopy(worldState.getInteractionState("gripper"))
             targetInt["intId"] = -1            
             targetInt.fill(relTarget)
-            targetInt.relKeys = ["oeuler"]
+            targetInt.relKeys = []
+            for k in target.relKeys:
+                targetInt.relKeys.append("o" + k)
+#            targetInt.relKeys = ["opos"]#, "oeuler"]
 #            targetInt.weights = {"opos":20, "oeuler":1}
         elif target["name"] == "gripper":
             targetInt = InteractionState(-1, relTarget)
@@ -454,7 +461,7 @@ class ModelCBR(object):
 #        targetInt.weights = {"opos":20, "oeuler":1}
         return targetInt        
         
-    def getAction3(self, worldState):
+    def getAction(self, worldState):
         bestAction = None
         if isinstance(self.target, ObjectState):
 #            relTargetOs = copy.deepcopy(self.target)
@@ -470,10 +477,12 @@ class ModelCBR(object):
                         
         elif isinstance(self.target, InteractionState):
             raise NotImplementedError
-        print "bestAction: ", bestAction
+        
         if bestAction != None:
             if np.random.rand() < 0.1:
                 bestAction["mvDir"][:2] += (np.random.rand(2)-0.5)*0.1
+                
+            print "bestAction: ", bestAction
             return bestAction
         else:
             return self.getRandomAction(worldState, BLOCK_BIAS)
@@ -495,25 +504,86 @@ class ModelCBR(object):
         for k in relTargetInt.relKeys:
             difs[k] = relTargetInt[k] - givenInteraction[k]
             
-        print "Difs: ", difs
+        print "Difs: at depth {}: {}".format(depth, difs)
         difSet = Set(difs.keys())
         action = preCons = None
+        bestAction = {"action": None, "im": float('inf')}
         for ac in self.abstractCases.values():
             if ac.variables.issuperset(difSet):
-                action, preCons, expectedDifs = ac.getAction2(difSet, difs)
-                if action != None:
-                    if ac.checkPreCons(preCons, givenInteraction):
-                        return action
+                action, preCons, expectedDifs = ac.getAction2(difSet, difs)  
+#                print "expected Difs: ", expectedDifs                      
+                remainingError = 0.0
+                for k,v in expectedDifs.items():
+                    remainingError += np.linalg.norm(difs[k]-v)
+#                print "improvement: ", improvement
+                if remainingError < bestAction["im"]:
+                    bestAction["ac"] = ac
+                    bestAction["action"] = action
+                    bestAction["pre"] = preCons
+                    bestAction["difs"] = expectedDifs
+                    bestAction["im"] = remainingError
+                
+        action = bestAction["action"] 
+        if action != None:
+            expectedDifs = bestAction["difs"]
+            preCons = bestAction["pre"]
+            ac = bestAction["ac"]
+            newRelTarget = copy.deepcopy(relTargetInt)
+            createNewSubTarget = False
+            print "best expected Difs: ", expectedDifs
+            for k,v in expectedDifs.items():
+                if np.any(v*difs[k] < 0):
+                    #Wrong direction
+                    if k == "opos":
+                        createNewSubTarget = True
+                        newRelTarget[k][v*difs[k]<0] *= -1
                     else:
-                        #create subtarget
+                        #TODO check subtargets also for different attributes but pos
+                        return None
                     
-                        target = preCons.getTarget(givenInteraction)
-                        print "!!!!!!!!!! Creating suptarget: ", target
-                        target.transform(worldState.transM, worldState.ori)
-                        
-                        return self.findBestAction2(worldState, target, depth +1)
-                    
+            if createNewSubTarget:
+                print "would be best action: ", action
+                newRelObjectTarget = newRelTarget.getObjectState(target["name"])
+                print "would be best target: ", newRelObjectTarget
+                translation = worldState.transM[:3,3]
+                newTransform, newOri = self.computeNewTransMatrix(newRelObjectTarget, target, translation)
+                curLocalObjectState = copy.deepcopy(givenInteraction.getObjectState("blockA"))
+                curLocalObjectState.transform(newTransform, newOri)
+                curLocalObjectState.relKeys = ["euler"]
+                print "new Target: ", curLocalObjectState
+                return self.findBestAction2(worldState, curLocalObjectState, depth +1)
+            if ac.checkPreCons(preCons, givenInteraction):
+                return action
+            else:
+                #create subtarget
+            
+                target = preCons.getTarget(givenInteraction)
+                print "!!!!!!!!!! Creating suptarget: ", target
+                target.transform(worldState.transM, worldState.ori)
+                
+                return self.findBestAction2(worldState, target, depth +1)
         return None
+        
+    def computeNewTransMatrix(self, relTarget, globTarget, translation):
+        
+        relPos = relTarget["pos"]
+        if np.linalg.norm(relPos) > 1.0:
+            relPos /= np.linalg.norm(relPos)
+        globPos = (globTarget["pos"]-translation.A1)
+        if np.linalg.norm(globPos):
+            globPos /= np.linalg.norm(globPos)
+        s = np.linalg.norm(np.cross(relPos, globPos))
+        
+        c = np.dot(relPos, globPos)
+        if s != 0:
+            ori = np.arcsin(s)
+        elif c != 0:
+            ori = np.arccos(c)
+        else:
+            ori = 0
+        ori = np.array([0.0,0.0,ori])
+        print "new ori: ", ori
+        return common.eulerPosToTransformation(ori, translation), ori
         
     def createTargetInteraction(self, worldState, target):
         
@@ -532,7 +602,7 @@ class ModelCBR(object):
 #        targetInt.weights = {"opos":20, "oeuler":1}
         return targetInt     
         
-    def getAction(self, worldState):
+    def getAction3(self, worldState):
         bestAction = None
         if isinstance(self.target, ObjectState):
             worldTarget = copy.deepcopy(self.target)

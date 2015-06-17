@@ -44,9 +44,6 @@ class State(dict):
 #            else:
 #                w = 1.0/MAXCASESCORE
 #            s -= self.weights[k]*differences[k](self[k], otherState[k]) 
-            self.weights[k]
-            self[k]
-            otherState[k]
             s += self.weights[k]* similarities[k](self[k], otherState[k]) 
 #            s[k] = self.weights[k]* similarities[k](self[k], otherState[k])
             
@@ -89,7 +86,8 @@ class State(dict):
         keyOrder = []
         for k in self.relKeys:
             keyOrder.append(k)
-            if k not in const.keys():
+            if k not in const:
+#                keyOrder.append(k)
 #            if k != "spos":
                 if isinstance(self[k], np.ndarray):
                     r = np.concatenate((r,self[k]))
@@ -353,6 +351,8 @@ class InteractionState(State):
         if o2["contact"] == self["sname"]:
             self["contact"] = 1
             self["dist"] = 0.0
+            if "contact" in o2.relKeys and not "dist" in self.relKeys:
+                self.relKeys.append("dist")
             
     def transform(self, matrix, euler):
 #        print "calling transform for: ", self["name"]
@@ -393,7 +393,6 @@ class InteractionState(State):
             
     def getObjectState(self, name):
         res = ObjectState()
-        print "relevant keys: ", res.relKeys
         if self["sname"] == name:
             res.fromInteractionState(self)
         elif self["oname"] == name:
@@ -413,14 +412,20 @@ class InteractionState(State):
         if biggestDifKey != None:
             if DIFFERENCES:
                 if biggestDifKey.startswith("d"):
-                    return self.getObjectState(self["oname"])
+                    o = self.getObjectState(self["oname"])
                 else:
-                    return self.getObjectState(self["sname"])
+                    o = self.getObjectState(self["sname"])
             else:
                 if biggestDifKey.startswith("o"):
-                    return self.getObjectState(self["oname"])
+                    o = self.getObjectState(self["oname"])
                 else:
-                    return self.getObjectState(self["sname"])
+                    o = self.getObjectState(self["sname"])
+            if biggestDifKey in o.keys():
+                o.relKeys = [biggestDifKey]
+            elif biggestDifKey[1:] in o.keys():
+                o.relKeys = [biggestDifKey[1:]]
+            
+            return o
         else:
             raise AttributeError("There should be differences here! self: {}, givenInt: {}".format(self, givenInt))
 

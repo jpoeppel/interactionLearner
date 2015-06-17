@@ -42,6 +42,8 @@ if SINGLE_INTSTATE:
 else:
     from state2 import State, ObjectState, Action, InteractionState, WorldState
 
+FEATURE_SELECTION_THRESHOLD = 10
+
 THRESHOLD = 0.01
 BLOCK_BIAS = 0.4
 
@@ -139,6 +141,7 @@ class AbstractCase(object):
         self.values = {}
         self.minima = {}
         self.maxima = {}
+        self.unusedFeatures = {}
         for k in self.variables:
             self.predictors[k] = ITM()
         self.addRef(case)
@@ -149,7 +152,8 @@ class AbstractCase(object):
 #            print "resultState intId: ", resultState["intId"]
             for k in self.variables:
                 if USE_CONSTANTS:
-                    prediction = self.predictors[k].predict(np.concatenate((state.toVec(self.constants),action.toVec(self.constants))))
+#                    prediction = self.predictors[k].predict(np.concatenate((state.toVec(self.constants),action.toVec(self.constants))))
+                    prediction = self.predictors[k].predict(np.concatenate((state.toVec(self.unusedFeatures[k]),action.toVec(self.unusedFeatures[k]))))
                 else:
                     prediction = self.predictors[k].predict(np.concatenate((state.toVec(),action.toVec())))
 #                if state["sname"] == "blockA":
@@ -290,17 +294,24 @@ class AbstractCase(object):
         
     def addRef(self, ref):
 #        print "adding ref, old constants: ", self.constants
-        if ref in self.refCases:
-            raise TypeError("ref already in refCases")
+        retraining = False
+#        if ref in self.refCases:
+#            raise TypeError("ref already in refCases")
         for k,v in ref.preState.relevantItems():# + ref.action.relevantItems():
             if self.constants.has_key(k):
                 if np.linalg.norm(v-self.constants[k]) > 0.001:
                     print "deleting constant {} in ac {}".format(k, self.variables)
                     del self.constants[k]
-                    self.retrain()
+                    for f in self.variables:
+                        self.unusedFeatures[f] = self.constants.keys()
+                    retraining = True
             else:
                 if len(self.refCases) == 0:
                     self.constants[k] = v
+                    for f in self.variables:
+                        self.unusedFeatures[f] = self.constants.keys()
+                    retraining = True
+                    
             if hasattr(v, "__len__"):
                 ori = np.zeros(len(v))
             else:
@@ -314,10 +325,77 @@ class AbstractCase(object):
          
         self.refCases.append(ref)
         ref.abstCase = self
-        self.updatePredictorsITM(ref)
         
-        self.updateGaussians(self.gaussians, len(self.refCases), ref)        
+        if len(self.refCases) % FEATURE_SELECTION_THRESHOLD == 0:
+            print "PERFORMING FEATURE SELECTION"
+            print "unusedFeatures before: ", self.unusedFeatures
+            for k in self.unusedFeatures.keys():
+                self.findBestFeatureSet(k)
+            print "unusedFeatures after: ", self.unusedFeatures
+        
+        if retraining:
+            self.retrain(self.refCases)
+        else:
+            self.updatePredictorsITM(ref)
+            
+#        self.updateGaussians(self.gaussians, len(self.refCases), ref)        
 #        self.updatePredictorsGP()
+            
+    def findBestFeatureSet(self, attrib):
+        numCases = len(self.refCases)
+        np.random.shuffle(self.refCases)
+        testSet = self.refCases[:numCases/2]
+        trainSet = self.refCases[numCases/2:]
+        constantKeys = self.constants.keys()
+#        print "ConstantKeys: ", constantKeys
+        remainingFeatures = [k for k in self.refCases[0].preState.relKeys if k not in constantKeys]
+#        print "remaining: ", remainingFeatures
+        #Get baseline
+        itm = self.train(trainSet, attrib, constantKeys)
+        baseline = self.test(itm, testSet, constantKeys, attrib)            
+        print "Baseline is: ", baseline
+        bestBaseline = baseline
+        bestUnusedFeatures = constantKeys
+        for f in remainingFeatures:
+            print "starting with feature: ", f
+            unusedFeatures, curBaseline = self.testFeatureList(trainSet, testSet, constantKeys, remainingFeatures, attrib, baseline)
+            if curBaseline < bestBaseline:
+                bestBaseline = curBaseline
+                bestUnusedFeatures = unusedFeatures
+        self.unusedFeatures[attrib] = bestUnusedFeatures
+        self.retrain()
+        
+    def testFeatureList(self, trainSet, testSet, unusedFeatures, remFeatures, attrib, baseline):
+        print "remaining Features to test: ", remFeatures
+        if len(remFeatures) == 0:
+            return unusedFeatures, baseline
+        else:
+            l = copy.deepcopy(unusedFeatures)
+            l.append(remFeatures[0])
+            itm = self.train(trainSet, attrib, l)
+            curError = self.test(itm, testSet, l, attrib)
+            print "CurError: ", curError
+            if curError < baseline:
+                return self.testFeatureList(trainSet, testSet, l, remFeatures[1:], attrib, curError)
+            else:
+                "curError to high: ", curError
+                return unusedFeatures, baseline
+        
+    def train(self, trainSet, attrib, unusedFeatures):
+        itm = ITM()
+        for c in trainSet:
+            itm.train(self.toNode(c, attrib, unusedFeatures))
+        return itm
+        
+            
+        
+    def test(self, predictor, testSet, unusedFeatures, attrib):
+        error = 0.0
+        for c in testSet:
+            prediction = predictor.predict(np.concatenate((c.preState.toVec(unusedFeatures),c.action.toVec(unusedFeatures))))
+            error += np.linalg.norm(c.dif[attrib]-prediction)
+        return error
+
         
     def updateGaussians(self, gaussians, numData, ref):
         for k,v in ref.preState.relevantItems() + ref.action.relevantItems():
@@ -361,10 +439,10 @@ class AbstractCase(object):
         return data
         
         
-    def retrain(self):
+    def retrain(self, cases):
         for k in self.variables:
             self.predictors[k] = ITM()
-        for c in self.refCases:
+        for c in cases:
             self.updatePredictorsITM(c)
 #        self.updatePredictorsGP()
         
@@ -372,10 +450,17 @@ class AbstractCase(object):
         for k in self.variables:
             self.predictors[k].train(self.toNode(case, k))
             
-    def toNode(self, case, attrib):
+    def toNode(self, case, attrib, unusedFeatures=None):
         if USE_CONSTANTS:
-            node = Node(0, wIn=case.preState.toVec(self.constants), action=case.action.toVec(self.constants),
-                    wOut=case.postState[attrib]-case.preState[attrib])
+#            node = Node(0, wIn=case.preState.toVec(self.constants), action=case.action.toVec(self.constants),
+#                    wOut=case.postState[attrib]-case.preState[attrib])
+            if unusedFeatures == None:
+                print "UnusedFeatures for ac: {}, attrib: {}, {} ".format(self.variables,attrib, self.unusedFeatures[attrib])
+                node = Node(0, wIn=case.preState.toVec(self.unusedFeatures[attrib]), action=case.action.toVec(self.unusedFeatures[attrib]),
+                        wOut=case.postState[attrib]-case.preState[attrib])
+            else:
+                node = Node(0, wIn=case.preState.toVec(unusedFeatures), action=case.action.toVec(unusedFeatures),
+                        wOut=case.postState[attrib]-case.preState[attrib])
         else:
             node = Node(0, wIn=case.preState.toVec(), action=case.action.toVec(),
                     wOut=case.postState[attrib]-case.preState[attrib])
@@ -508,9 +593,21 @@ class ModelCBR(object):
         difSet = Set(difs.keys())
         action = preCons = None
         bestAction = {"action": None, "im": float('inf')}
+        bestScore = 0.0
+        bestA = None
+        bestPrediction = None
         for ac in self.abstractCases.values():
             if ac.variables.issuperset(difSet):
                 action, preCons, expectedDifs = ac.getAction2(difSet, difs)  
+                
+                prediction, usedCase = self.predictIntState(givenInteraction, action)
+                osPrediction = prediction.getObjectState(self.target["name"])
+                osPrediction.transform(worldState.transM, worldState.ori)
+                s = target.score(osPrediction)
+                if s > bestScore:
+                    bestA = action
+                    bestScore = s
+                    bestPrediction = osPrediction
 #                print "expected Difs: ", expectedDifs                      
                 remainingError = 0.0
                 for k,v in expectedDifs.items():
@@ -522,46 +619,53 @@ class ModelCBR(object):
                     bestAction["pre"] = preCons
                     bestAction["difs"] = expectedDifs
                     bestAction["im"] = remainingError
+        osGiven = givenInteraction.getObjectState(self.target["name"])
+        osGiven.transform(worldState.transM, worldState.ori)
+        if bestA != None:
+            if bestScore > target.score(osGiven):
+                print "using action with prediction: ", bestPrediction
+                return bestA
                 
-        action = bestAction["action"] 
-        if action != None:
-            expectedDifs = bestAction["difs"]
-            preCons = bestAction["pre"]
-            ac = bestAction["ac"]
-            newRelTarget = copy.deepcopy(relTargetInt)
-            createNewSubTarget = False
-            print "best expected Difs: ", expectedDifs
-            for k,v in expectedDifs.items():
-                if np.any(v*difs[k] < 0):
-                    #Wrong direction
-                    if k == "opos":
-                        createNewSubTarget = True
-                        newRelTarget[k][v*difs[k]<0] *= -1
-                    else:
-                        #TODO check subtargets also for different attributes but pos
-                        return None
-                    
-            if createNewSubTarget:
-                print "would be best action: ", action
-                newRelObjectTarget = newRelTarget.getObjectState(target["name"])
-                print "would be best target: ", newRelObjectTarget
-                translation = worldState.transM[:3,3]
-                newTransform, newOri = self.computeNewTransMatrix(newRelObjectTarget, target, translation)
-                curLocalObjectState = copy.deepcopy(givenInteraction.getObjectState("blockA"))
-                curLocalObjectState.transform(newTransform, newOri)
-                curLocalObjectState.relKeys = ["euler"]
-                print "new Target: ", curLocalObjectState
-                return self.findBestAction2(worldState, curLocalObjectState, depth +1)
-            if ac.checkPreCons(preCons, givenInteraction):
-                return action
             else:
-                #create subtarget
-            
-                target = preCons.getTarget(givenInteraction)
-                print "!!!!!!!!!! Creating suptarget: ", target
-                target.transform(worldState.transM, worldState.ori)
-                
-                return self.findBestAction2(worldState, target, depth +1)
+                action = bestAction["action"] 
+                if action != None:
+                    expectedDifs = bestAction["difs"]
+                    preCons = bestAction["pre"]
+                    ac = bestAction["ac"]
+                    newRelTarget = copy.deepcopy(relTargetInt)
+                    createNewSubTarget = False
+                    print "best expected Difs: ", expectedDifs
+                    for k,v in expectedDifs.items():
+                        if np.any(v*difs[k] < 0):
+                            #Wrong direction
+                            if k == "opos":
+                                createNewSubTarget = True
+                                newRelTarget[k][v*difs[k]<0] *= -1
+                            else:
+                                #TODO check subtargets also for different attributes but pos
+                                return None
+                            
+                    if createNewSubTarget:
+                        print "would be best action: ", action
+                        newRelObjectTarget = newRelTarget.getObjectState(target["name"])
+                        print "would be best target: ", newRelObjectTarget
+                        translation = worldState.transM[:3,3]
+                        newTransform, newOri = self.computeNewTransMatrix(newRelObjectTarget, target, translation)
+                        curLocalObjectState = copy.deepcopy(givenInteraction.getObjectState("blockA"))
+                        curLocalObjectState.transform(newTransform, newOri)
+                        curLocalObjectState.relKeys = ["euler"]
+                        print "new Target: ", curLocalObjectState
+                        return self.findBestAction2(worldState, curLocalObjectState, depth +1)
+                    if ac.checkPreCons(preCons, givenInteraction):
+                        return action
+                    else:
+                        #create subtarget
+                    
+                        target = preCons.getTarget(givenInteraction)
+                        print "!!!!!!!!!! Creating subtarget: ", target
+                        target.transform(worldState.transM, worldState.ori)
+                        
+                        return self.findBestAction2(worldState, target, depth +1)
         return None
         
     def computeNewTransMatrix(self, relTarget, globTarget, translation):
@@ -916,7 +1020,8 @@ class ModelCBR(object):
             
             prediction, usedCase = self.predictIntState(intState, transformedAction)
             predictionWs.addInteractionState(prediction, usedCase)
-#        print "resulting prediction: ", predictionWs.interactionStates
+        print "usedCase: ", usedCase.variables if usedCase != None else None
+        print "resulting prediction: ", predictionWs.interactionStates
         return predictionWs
         
     def updateState(self, state, action, prediction, result, usedCase):

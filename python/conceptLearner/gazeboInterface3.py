@@ -125,7 +125,7 @@ class GazeboInterface():
         
                           
         while self.active:
-            yield From(trollius.sleep(0.1))
+            yield From(trollius.sleep(0.01))
                           
                           
     def sendCommand(self, action):
@@ -478,6 +478,13 @@ class GazeboInterface():
         self.runStarted = True
          #Set up Starting position
         posX = ((np.random.rand()-0.5)*randomRange) #* 0.5
+        if self.trainRun == 0:
+            posX = -0.2
+        elif self.trainRun == 1:
+            posX = 0.2
+        elif self.trainRun < NUM_TRAIN_RUNS:
+            posX = 0
+            
         self.sendPose("gripper", np.array([posX,0.0,0.03]), np.array([0.0,0.0,0.0,0.0]))
         if RANDOM_BLOCK_ORI:
             self.sendPose("blockA", np.array([0.0, 0.5, 0.05]) , np.array([0.0,0.0,1.0,np.random.rand()-0.5]))
@@ -635,7 +642,7 @@ class GazeboInterface():
                     self.worldModel.getGraphViz(dot_data)
                     graph = pydot.graph_from_dot_data(dot_data.getvalue())
                     if graph != None:
-                        graph.write_pdf("treeNoDynNoPosSelCDist0_40Runs.pdf")
+                        graph.write_pdf("../../data/miniMalTree.pdf")
                     print "ACs: ", [(ac.id, ac.variables) for ac in self.worldModel.abstractCases.values() ]
 #                    np.random.seed(1234)
         elif self.testRun < NUM_TEST_RUNS:
@@ -832,13 +839,13 @@ class GazeboInterface():
     def getTarget(self):
         target = model.ObjectState()
 #        target["name"] = "gripper"
-#        target["pos"] = np.array([0.0, 1.0, 0.03])
+#        target["pos"] = np.array([0.0, -0.5, 0.03])
         target["name"] = "blockA"
-        target["pos"] = np.array([0.0, -0.5, 0.05])
+        target["pos"] = np.array([0.0, 0.075, 0.05])
         target["euler"] = np.zeros(3)
         target["euler"][2] = -0.5*math.pi
-#        target.relKeys = ["pos"]#, "euler"]
-        target.relKeys = ["euler"]
+        target.relKeys = ["pos", "euler"]
+#        target.relKeys = ["euler"]
 #        target.weights = {"pos":20, "euler": 1}
         self.target = target
 

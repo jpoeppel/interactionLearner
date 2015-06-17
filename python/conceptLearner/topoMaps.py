@@ -168,6 +168,7 @@ class ITM(Network):
             if PREDICTIONMODE == WINNER:
                 return minNode.wOut
             elif PREDICTIONMODE == LINEAR:
+#                print "MinNode: ", minNode
                 return minNode.wOut + minNode.A.dot(wIn-minNode.vecInA())
             elif PREDICTIONMODE == NEIGHBOURS:                    
                 norm = math.exp(-np.linalg.norm(wIn-minNode.vecInA())**2/(SIGMAE**2))

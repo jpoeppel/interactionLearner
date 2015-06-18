@@ -83,9 +83,9 @@ class State(dict):
         
     def toVec(self, const = {}):
         r = np.array([])
-        keyOrder = []
+#        keyOrder = []
         for k in self.relKeys:
-            keyOrder.append(k)
+#            keyOrder.append(k)
             if k not in const:
 #                keyOrder.append(k)
 #            if k != "spos":
@@ -99,9 +99,9 @@ class State(dict):
         
     def toSelVec(self):
         r = np.array([])
-        keyOrder = []
+#        keyOrder = []
         for k in self.relSelKeys:
-            keyOrder.append(k)
+#            keyOrder.append(k)
 #            if k != "spos":
             if isinstance(self[k], np.ndarray):
                 r = np.concatenate((r,self[k]))
@@ -170,7 +170,7 @@ class State(dict):
         
     def __repr__(self):
         s = "\n"
-        for k,v in sorted(self.items(), key=itemgetter(0)):
+        for k,v in sorted(self.relevantItems(), key=itemgetter(0)):
             s+= "{}: {} \n".format(k,v)
         return s
 
@@ -216,7 +216,7 @@ class ObjectState(State):
                      "euler":np.copy(intState["seuler"]), 
                      "linVel":np.copy(intState["slinVel"]), 
                      "angVel": np.copy(intState["sangVel"])})
-        if intState["contact"]:
+        if intState["contact"] == 1:
             self["contact"] = intState["oname"]
             
     def fromInteractionState2(self, intState):
@@ -232,7 +232,7 @@ class ObjectState(State):
                      "euler": np.copy(intState["oeuler"]), 
                      "linVel":np.copy(intState["olinVel"]),
                      "angVel": np.copy(intState["oangVel"])})
-        if intState["contact"]:
+        if intState["contact"] == 1:
             self["contact"] = intState["sname"]
             
 
@@ -284,7 +284,7 @@ class InteractionState(State):
                          "seuler": o1["euler"], "slinVel": o1["linVel"], 
                          "sangVel": o1["angVel"], "dist": 0, "opos": np.zeros(3),
                          "contact": 0, "oid": -1, "oname": "", "otype": 0, 
-                         "oeuler": np.zeros(3), "olinVel": np.zeros(3), "oangVel":np.zeros(3)})
+                         "oeuler": np.zeros(3), "olinVel": np.zeros(3), "oangVel":np.zeros(3), "dir":np.zeros(3)})
 #        self["side"] = common.SIDE["NONE"]
 #        Do not move from here because the keys need to be set before State.init and the relKeys need to be changed afterwards             
         State.__init__(self) 
@@ -300,18 +300,21 @@ class InteractionState(State):
         
         self.relKeys.remove("seuler")
         self.relKeys.remove("sangVel")        
-#        self.relKeys.remove("slinVel")
+        self.relKeys.remove("slinVel")
+        self.relKeys.remove("dir")
+        
         if DIFFERENCES:
             self.relKeys.remove("dangVel")
             self.relKeys.remove("dlinVel")
         else:
             self.relKeys.remove("oangVel")
-#            self.relKeys.remove("olinVel")
+            self.relKeys.remove("olinVel")
         
         
         
         self.relSelKeys = copy.deepcopy(self.relKeys)
-        self.relSelKeys.remove("spos")
+        self.relKeys.remove("dist")
+#        self.relSelKeys.remove("spos")
 #        self.relSelKeys.remove("sid")
 #        self.relSelKeys.remove("oid")
         
@@ -329,6 +332,7 @@ class InteractionState(State):
     def fill(self, o2):
         assert isinstance(o2, ObjectState), "{} (o2) is not an ObjectState!".format(o2)
         self["dist"] = self.computeDistance(o2)
+        print "Computed dist: ", self["dist"]
 #        print "distance from {} to {}: {}".format(self["sid"], self["oid"], self["dist"])
         
         self["oid"] = o2["id"]
@@ -348,9 +352,10 @@ class InteractionState(State):
             self["oeuler"] = o2["euler"]
             self["olinVel"] = o2["linVel"]
             self["oangVel"] = o2["angVel"]
+            self["dir"] = o2["pos"]-self["spos"]      
         if o2["contact"] == self["sname"]:
             self["contact"] = 1
-            self["dist"] = 0.0
+#            self["dist"] = 0.0
             if "contact" in o2.relKeys and not "dist" in self.relKeys:
                 self.relKeys.append("dist")
             
@@ -376,6 +381,9 @@ class InteractionState(State):
             self["olinVel"] = np.round(np.array((matrix*tmplV.T)[:3]).flatten(), NUMDEC)
             tmpaV = np.matrix(np.concatenate((self["oangVel"],[0])))
             self["oangVel"] = np.round(np.array((matrix*tmpaV.T)[:3]).flatten(), NUMDEC)
+            
+            tmpPos = np.matrix(np.concatenate((self["dir"],[0])))
+            self["dir"] = np.round(np.array((matrix*tmpPos.T)[:3]).flatten(), NUMDEC)
             
 
     def getLocalTransformed(self):
@@ -430,13 +438,13 @@ class InteractionState(State):
             raise AttributeError("There should be differences here! self: {}, givenInt: {}".format(self, givenInt))
 
     def computeDistance(self, o2):
-        if self["sid"] == 8:
+        if self["sname"] == "gripper":
             mp = np.copy(o2["pos"])
             mp[2] = self["spos"][2]
             ang = o2["euler"][2]
             
             x0x,x0y,x0z = self["spos"]
-        elif self["sid"] == 15:
+        elif self["sname"] == "blockA":
             mp = np.copy(self["spos"])
             mp[2] = o2["pos"][2]
             ang = self["seuler"][2]
@@ -500,7 +508,7 @@ class InteractionState(State):
             d4 = abs((x2n[0]-x1n[0])*(x1n[1]-x0y)-(x1n[0]-x0x)*(x2n[1]-x1n[1]))/math.sqrt((x2n[0]-x1n[0])**2+(x2n[1]-x1n[1])**2) - 0.025
         else:
             d4 = min(np.linalg.norm(x1n-np.array([x0x,x0y,x0z])), np.linalg.norm(x2n-np.array([x0x,x0y,x0z])))
-        return max(0.0,min((d1,d2,d3,d4)))
+        return np.round(np.max([0.0,np.min((d1,d2,d3,d4))]), NUMDEC)
             
 
     def __hash__(self):
@@ -579,17 +587,20 @@ class WorldState(object):
 
                 
     def parseContacts(self, contacts):
-        for c in contacts:
+        curTime = (contacts.time.sec*1e9 + contacts.time.nsec) * 1e-9
+        for c in contacts.contact[-1:]:
             o1Name = c.wrench[0].body_1_name.split(':')[0]
             o2Name = c.wrench[0].body_2_name.split(':')[0]
-            if self.objectStates.has_key(o1Name):
-                self.objectStates[o1Name]["contact"] = o2Name
-            if self.objectStates.has_key(o2Name):
-                self.objectStates[o2Name]["contact"] = o1Name
+            cTime = (c.time.sec*1e9 + c.time.nsec) * 1e-9
+            if np.abs(curTime-cTime) < 0.05:
+                if self.objectStates.has_key(o1Name):
+                    self.objectStates[o1Name]["contact"] = o2Name
+                if self.objectStates.has_key(o2Name):
+                    self.objectStates[o2Name]["contact"] = o1Name
     
     def parse(self, gzWS):
         self.parseModels(gzWS.model_v.models)
-        self.parseContacts(gzWS.contacts.contact)
+        self.parseContacts(gzWS.contacts)
         self.parseInteractions()
         
     def reset(self, worldState):

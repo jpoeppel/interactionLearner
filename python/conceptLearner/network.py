@@ -50,7 +50,11 @@ class Node(object):
         dwOut =  eta*er + self.A.dot(dwInA)
         self.wOut += dwOut
         d = x.vecInA()-self.vecInA()
-        self.A += eta*np.outer(er,d/(np.linalg.norm(d)**2))
+        norm = np.linalg.norm(d)
+        if norm > 0.0001:
+            self.A += eta*np.outer(er,d/(np.linalg.norm(d)**2))
+#        else:
+#            self.A += eta*np.outer(er,d/(0.0001**2))
         
     def vec(self):
         return np.concatenate((self.wIn, self.action, self.wOut))

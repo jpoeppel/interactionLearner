@@ -42,13 +42,13 @@ if SINGLE_INTSTATE:
 else:
     from state2 import State, ObjectState, Action, InteractionState, WorldState
 
-FEATURE_SELECTION_THRESHOLD = 10
+FEATURE_SELECTION_THRESHOLD =5
 
 THRESHOLD = 0.01
 BLOCK_BIAS = 0.4
 
-MAXCASESCORE = 14-3
-MAXSTATESCORE = 12-3
+MAXCASESCORE = 14-5
+MAXSTATESCORE = 12-5
 #PREDICTIONTHRESHOLD = 0.5
 PREDICTIONTHRESHOLD = MAXSTATESCORE - 0.01
 TARGETTHRESHOLD = MAXCASESCORE - 0.05
@@ -327,11 +327,8 @@ class AbstractCase(object):
         ref.abstCase = self
         
         if len(self.refCases) % FEATURE_SELECTION_THRESHOLD == 0:
-            print "PERFORMING FEATURE SELECTION"
-            print "unusedFeatures before: ", self.unusedFeatures
-            for k in self.unusedFeatures.keys():
+            for k in self.variables:
                 self.findBestFeatureSet(k)
-            print "unusedFeatures after: ", self.unusedFeatures
         
         if retraining:
             self.retrain(self.refCases)
@@ -343,30 +340,32 @@ class AbstractCase(object):
             
     def findBestFeatureSet(self, attrib):
         numCases = len(self.refCases)
-        np.random.shuffle(self.refCases)
-        testSet = self.refCases[:numCases/2]
-        trainSet = self.refCases[numCases/2:]
+        refs = copy.deepcopy(self.refCases)
+        np.random.shuffle(refs)
+        testSet = refs[:numCases/2]
+        trainSet = refs[numCases/2:]
         constantKeys = self.constants.keys()
 #        print "ConstantKeys: ", constantKeys
-        remainingFeatures = [k for k in self.refCases[0].preState.relKeys if k not in constantKeys]
+        remainingFeatures = [k for k in refs[0].preState.relKeys if k not in constantKeys]
 #        print "remaining: ", remainingFeatures
         #Get baseline
         itm = self.train(trainSet, attrib, constantKeys)
         baseline = self.test(itm, testSet, constantKeys, attrib)            
-        print "Baseline is: ", baseline
+#        print "Baseline for attrib {} is {} ".format(attrib, baseline)
         bestBaseline = baseline
         bestUnusedFeatures = constantKeys
         for f in remainingFeatures:
-            print "starting with feature: ", f
+#            print "starting with feature: ", f
             unusedFeatures, curBaseline = self.testFeatureList(trainSet, testSet, constantKeys, remainingFeatures, attrib, baseline)
             if curBaseline < bestBaseline:
                 bestBaseline = curBaseline
                 bestUnusedFeatures = unusedFeatures
         self.unusedFeatures[attrib] = bestUnusedFeatures
-        self.retrain()
+#        print "Best unusedFeatures for attrib {}: {}".format(attrib, bestUnusedFeatures)
+        self.retrain(self.refCases)
         
     def testFeatureList(self, trainSet, testSet, unusedFeatures, remFeatures, attrib, baseline):
-        print "remaining Features to test: ", remFeatures
+#        print "remaining Features to test: ", remFeatures
         if len(remFeatures) == 0:
             return unusedFeatures, baseline
         else:
@@ -374,11 +373,11 @@ class AbstractCase(object):
             l.append(remFeatures[0])
             itm = self.train(trainSet, attrib, l)
             curError = self.test(itm, testSet, l, attrib)
-            print "CurError: ", curError
+#            print "CurError: ", curError
             if curError < baseline:
                 return self.testFeatureList(trainSet, testSet, l, remFeatures[1:], attrib, curError)
             else:
-                "curError to high: ", curError
+#                "curError to high: ", curError
                 return unusedFeatures, baseline
         
     def train(self, trainSet, attrib, unusedFeatures):
@@ -455,7 +454,7 @@ class AbstractCase(object):
 #            node = Node(0, wIn=case.preState.toVec(self.constants), action=case.action.toVec(self.constants),
 #                    wOut=case.postState[attrib]-case.preState[attrib])
             if unusedFeatures == None:
-                print "UnusedFeatures for ac: {}, attrib: {}, {} ".format(self.variables,attrib, self.unusedFeatures[attrib])
+#                print "UnusedFeatures for ac: {}, attrib: {}, {} ".format(self.variables,attrib, self.unusedFeatures[attrib])
                 node = Node(0, wIn=case.preState.toVec(self.unusedFeatures[attrib]), action=case.action.toVec(self.unusedFeatures[attrib]),
                         wOut=case.postState[attrib]-case.preState[attrib])
             else:
@@ -1046,6 +1045,7 @@ class ModelCBR(object):
         newCase = BaseCase(state, action, result)
 #        print "New case difs: ", newCase.dif
         attribSet = newCase.getSetOfAttribs()
+        
 #        predictionRating = result.rate(prediction)#, self.weights)
 #        predictionScore = sum(predictionRating.values())
         predictionScore = result.score(prediction)
@@ -1094,6 +1094,8 @@ class ModelCBR(object):
                 retrain = True
         if retrain:
             self.retrainACClassifier()
+        if attribSet == Set(["spos"]) and state["contact"] == 1:
+            raise NotImplementedError
 
 
     def retrainACClassifier(self):
@@ -1118,7 +1120,20 @@ class ModelCBR(object):
             
     def getGraphViz(self, dot_data):
         if self.aCClassifier != None:
-            tree.export_graphviz(self.aCClassifier, out_file=dot_data)
+            feature_names = []
+            for k in self.cases[0].preState.relSelKeys:
+                if hasattr(self.cases[0].preState[k], "__len__"):
+                    for i in range(len(self.cases[0].preState[k])):
+                        feature_names.append(k+"_"+["x","y","z"][i])
+                else:
+                    feature_names.append(k)
+            for k in self.cases[0].action.relSelKeys:
+                if hasattr(self.cases[0].action[k], "__len__"):
+                    for i in range(len(self.cases[0].action[k])):
+                        feature_names.append(k+"_"+["x","y","z"][i])
+                else:
+                    feature_names.append(k)
+            tree.export_graphviz(self.aCClassifier, out_file=dot_data, feature_names=feature_names)
 
     def addBaseCase(self, newCase):
         self.cases.append(newCase)

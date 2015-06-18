@@ -125,7 +125,7 @@ class GazeboInterface():
         
                           
         while self.active:
-            yield From(trollius.sleep(0.01))
+            yield From(trollius.sleep(1))
                           
                           
     def sendCommand(self, action):
@@ -416,6 +416,7 @@ class GazeboInterface():
         data: bytearry
             Protobuf bytearray containing a list of models
         """
+        print "NEW CALLBACK"
         worldState = worldState_pb2.WorldState.FromString(data)
         if self.lastPrediction != None:
 #            print "Parsing worldState with last coordinate system."
@@ -479,10 +480,10 @@ class GazeboInterface():
          #Set up Starting position
         posX = ((np.random.rand()-0.5)*randomRange) #* 0.5
         if self.trainRun == 0:
-            posX = -0.2
+            posX = -0.2656
         elif self.trainRun == 1:
-            posX = 0.2
-        elif self.trainRun < NUM_TRAIN_RUNS:
+            posX = 0.2656
+        elif self.trainRun == 2:
             posX = 0
             
         self.sendPose("gripper", np.array([posX,0.0,0.03]), np.array([0.0,0.0,0.0,0.0]))

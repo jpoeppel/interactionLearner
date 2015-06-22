@@ -24,12 +24,16 @@ import copy
 from common import GAZEBOCMDS
 import math
 import common
-from config import DIFFERENCES, SINGLE_INTSTATE
+from config import DIFFERENCES, SINGLE_INTSTATE, INTERACTION_STATES
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
-import model4 as model
+if INTERACTION_STATES:
+    import model4 as model
+else:
+    import modelActions as model
 #import model6 as model
+
 from sklearn.externals.six import StringIO
 import pydot
 
@@ -58,7 +62,7 @@ DIRECTIONGENERALISATION = False
 
 
 
-NUM_TRAIN_RUNS = 20
+NUM_TRAIN_RUNS = 5
 NUM_TEST_RUNS = 50
 
 class GazeboInterface():
@@ -70,7 +74,10 @@ class GazeboInterface():
          
         self.active = True
         self.lastState = None
-        self.worldModel = model.ModelCBR()
+        if INTERACTION_STATES:
+            self.worldModel = model.ModelCBR()
+        else:
+            self.worldModel = model.ModelAction()
         self.lastPrediction = None
         self.lastAction = model.Action()
         self.target = None
@@ -167,21 +174,26 @@ class GazeboInterface():
         positions.
         """
         msg = pygazebo.msg.modelState_v_pb2.ModelState_V()
-        for intState in self.lastPrediction.interactionStates.values():
-#            tmp = self.getModelState(intState["sname"] + "Shadow", intState["spos"], intState["sori"], 
-#                                     self.lastPrediction.transM, self.lastPrediction.quat)
-            tmp = self.getModelState2(intState["sname"] + "Shadow", intState["spos"], intState["seuler"], 
-                             self.lastPrediction.transM, self.lastPrediction.ori)
-
-            msg.models.extend([tmp])
-            if SINGLE_INTSTATE:
-                if DIFFERENCES:
-                    tmp = self.getModelState2(intState["oname"] + "Shadow", intState["spos"]+intState["dir"], intState["seuler"]+intState["deuler"], 
-                             self.lastPrediction.transM, self.lastPrediction.ori)
-                else:
-                    tmp = self.getModelState2(intState["oname"] + "Shadow", intState["opos"], intState["oeuler"],
-                             self.lastPrediction.transM, self.lastPrediction.ori)
-
+        if INTERACTION_STATES:
+            for intState in self.lastPrediction.interactionStates.values():
+    #            tmp = self.getModelState(intState["sname"] + "Shadow", intState["spos"], intState["sori"], 
+    #                                     self.lastPrediction.transM, self.lastPrediction.quat)
+                tmp = self.getModelState2(intState["sname"] + "Shadow", intState["spos"], intState["seuler"], 
+                                 self.lastPrediction.transM, self.lastPrediction.ori)
+    
+                msg.models.extend([tmp])
+                if SINGLE_INTSTATE:
+                    if DIFFERENCES:
+                        tmp = self.getModelState2(intState["oname"] + "Shadow", intState["spos"]+intState["dir"], intState["seuler"]+intState["deuler"], 
+                                 self.lastPrediction.transM, self.lastPrediction.ori)
+                    else:
+                        tmp = self.getModelState2(intState["oname"] + "Shadow", intState["opos"], intState["oeuler"],
+                                 self.lastPrediction.transM, self.lastPrediction.ori)
+    
+                    msg.models.extend([tmp])
+        else:
+            for objectState in self.lastPrediction.objectStates.values():
+                tmp = self.getModelState2(objectState["name"]+"Shadow", objectState["pos"], objectState["euler"], self.lastPrediction.transM, self.lastPrediction.ori)
                 msg.models.extend([tmp])
         self.posePublisher.publish(msg)
         
@@ -608,7 +620,7 @@ class GazeboInterface():
     def pushTaskSimulation(self, worldState, resultState=None):
         self.stepCounter += 1
         print "num cases: " + str(len(self.worldModel.cases))
-        print "num abstract cases: " + str(len(self.worldModel.abstractCases))
+#        print "num abstract cases: " + str(len(self.worldModel.abstractCases))
         
         if self.runStarted:
             if self.runEnded(worldState):
@@ -639,17 +651,17 @@ class GazeboInterface():
                 self.trainRun += 1
                 if self.trainRun == NUM_TRAIN_RUNS:
                     self.pauseWorld()
-                    dot_data = StringIO()
-                    self.worldModel.getGraphViz(dot_data)
-                    graph = pydot.graph_from_dot_data(dot_data.getvalue())
-                    if graph != None:
-                        graph.write_pdf("../../data/miniMalTree.pdf")
-                    print "ACs: ", [(ac.id, ac.variables) for ac in self.worldModel.abstractCases.values() ]
+#                    dot_data = StringIO()
+#                    self.worldModel.getGraphViz(dot_data)
+#                    graph = pydot.graph_from_dot_data(dot_data.getvalue())
+#                    if graph != None:
+#                        graph.write_pdf("../../data/miniMalTree.pdf")
+#                    print "ACs: ", [(ac.id, ac.variables) for ac in self.worldModel.abstractCases.values() ]
 #                    np.random.seed(1234)
         elif self.testRun < NUM_TEST_RUNS:
             print "Test run #: ", self.testRun
             if self.runStarted:
-                self.lastAction = model.Action(cmd = GAZEBOCMDS["MOVE"], direction=self.direction)
+                self.lastAction = model.Action.getGripperAction(cmd = GAZEBOCMDS["MOVE"], direction=self.direction)
                 if self.lastPrediction != None:
                     predictedWorldState = model.WorldState()
                     predictedWorldState.reset(self.lastPrediction)
@@ -667,9 +679,9 @@ class GazeboInterface():
         else:
             self.pauseWorld()
         
-        if self.worldModel.numPredictions > 0:
-            print "% correctCase selected: ", self.worldModel.numCorrectCase/(float)(self.worldModel.numPredictions)
-        print "numPredictions: ", self.worldModel.numPredictions
+#        if self.worldModel.numPredictions > 0:
+#            print "% correctCase selected: ", self.worldModel.numCorrectCase/(float)(self.worldModel.numPredictions)
+#        print "numPredictions: ", self.worldModel.numPredictions
         
             
     def updateModel(self, worldState, resultState, direction=np.array([0.0,0.5,0.0])):
@@ -688,7 +700,7 @@ class GazeboInterface():
         self.lastState = worldState
 #        if self.stepCounter == 1:
 #        if self.trainRun < NUM_TRAIN_RUNS-1:
-        self.lastAction = model.Action(cmd = GAZEBOCMDS["MOVE"], direction=direction)
+        self.lastAction = model.Action.getGripperAction(cmd = GAZEBOCMDS["MOVE"], direction=direction)
 #        else:
 #            self.lastAction = model.Action(cmd=GAZEBOCMDS["NOTHING"])
         self.lastPrediction = self.worldModel.predict(worldState, self.lastAction)

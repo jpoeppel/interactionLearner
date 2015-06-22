@@ -70,7 +70,7 @@ class BaseCase(object):
         assert isinstance(pre, State), "{} is not a State object.".format(pre)
         assert isinstance(post, State), "{} is not a State object.".format(post)
         assert isinstance(action, Action), "{} is not an Action object.".format(action)
-        assert (pre.keys()==post.keys()), "Pre and post states have different keys: {}, {}.".format(pre.keys(), post.keys())
+        assert (pre.relKeys==post.relKeys), "Pre and post states have different keys: {}, {}.".format(pre.keys(), post.keys())
         self.preState = pre
         self.postState = post
         self.action = action
@@ -948,7 +948,6 @@ class ModelCBR(object):
         else:
 #            a["cmd"] = GZCMD["NOTHING"]
             a["cmd"] = GZCMD["MOVE"]
-#        a["mvDir"] *= 2.0
         a["mvDir"][2] = 0
         norm = np.linalg.norm(a["mvDir"])
         if norm > 0.25:
@@ -967,7 +966,7 @@ class ModelCBR(object):
 #            print "X before scaling: ", x
             if self.scaler != None:
                 x = self.scaler.transform(x)
-#            print "X after sclaing: ", x
+#            print "X after scaling: ", x
             caseID = int(self.aCClassifier.predict(x)[0])
 #            print "CaseID: ", caseID
 #            print "Case prob: ", self.aCClassifier.predict_proba(x)
@@ -1112,7 +1111,7 @@ class ModelCBR(object):
 #            self.scaler = preprocessing.Normalizer().fit(X)
 #            self.aCClassifier = svm.SVC(kernel='rbf', C=1, gamma=0.1)
 #            self.aCClassifier = SGDClassifier(loss='log', penalty="l2")
-            self.aCClassifier = tree.DecisionTreeClassifier(criterion="gini", class_weight='auto')#, min_samples_leaf=5) max_leaf_nodes=len(self.abstractCases))#, max_features='auto')
+            self.aCClassifier = tree.DecisionTreeClassifier(criterion="gini", class_weight='auto', max_depth=3)#, min_samples_leaf=5) max_leaf_nodes=len(self.abstractCases))#, max_features='auto')
 #            self.aCClassifier = RandomForestClassifier()
 #            self.aCClassifier = AdaBoostClassifier(tree.DecisionTreeClassifier(max_depth=4), n_estimators=50)
 #            self.aCClassifier.fit(self.scaler.transform(X),Y)

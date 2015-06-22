@@ -250,7 +250,15 @@ class Action(State):
     @classmethod
     def sample(cls, number):
         return [cls(cmd=GZCMD["MOVE"], direction=np.array([0.5*math.cos(x), 0.5*math.sin(y),0.0])) for x in [0+i*math.pi/number for i in range(number)] for y in [0+i*math.pi/number for i in range(number)]]
-            
+         
+    @classmethod
+    def getGripperAction(cls, cmd=GZCMD["NOTHING"], direction = np.zeros(3)):
+        res = cls()
+        res["cmd"] = cmd
+        res["mvDir"] = direction
+        return res
+    
+         
 class InteractionState(State):
     
     def __init__(self, intId=-1, o1=None):
@@ -301,7 +309,7 @@ class InteractionState(State):
         self.relKeys.remove("seuler")
         self.relKeys.remove("sangVel")        
         self.relKeys.remove("slinVel")
-        self.relKeys.remove("dir")
+        
         
         if DIFFERENCES:
             self.relKeys.remove("dangVel")
@@ -313,6 +321,7 @@ class InteractionState(State):
         
         
         self.relSelKeys = copy.deepcopy(self.relKeys)
+        self.relKeys.remove("dir")
         self.relKeys.remove("dist")
 #        self.relSelKeys.remove("spos")
 #        self.relSelKeys.remove("sid")
@@ -532,6 +541,10 @@ class WorldState(object):
         self.interactionStates[intState["intId"]] = intState
         self.numIntStates += 1        
         self.predictionCases[intState["intId"]] = usedCase
+        
+    def addObjectState(self, objectState):
+        assert isinstance(objectState, ObjectState), "{} (objectState) is not an ObjectState object.".format(objectState)
+        self.objectStates[objectState["name"]] = objectState
     
     def parseModels(self, models):
         
@@ -627,3 +640,8 @@ class WorldState(object):
             if i["sname"] == sname:
                 return i
         return None    
+        
+    def getObjectState(self, OSName):
+        if OSName in self.objectStates:
+            return self.objectStates[OSName]
+        return None

@@ -47,10 +47,10 @@ FEATURE_SELECTION_THRESHOLD =5
 THRESHOLD = 0.01
 BLOCK_BIAS = 0.4
 
-MAXCASESCORE = 14-5
-MAXSTATESCORE = 12-5
+MAXCASESCORE = 14-6
+MAXSTATESCORE = 12-6
 #PREDICTIONTHRESHOLD = 0.5
-PREDICTIONTHRESHOLD = MAXSTATESCORE - 0.01
+PREDICTIONTHRESHOLD = MAXSTATESCORE - 0.1
 TARGETTHRESHOLD = MAXCASESCORE - 0.05
 
 NUM_SAMPLES = 10
@@ -1049,7 +1049,7 @@ class ModelCBR(object):
 #        predictionScore = sum(predictionRating.values())
         predictionScore = result.score(prediction)
 #        print "Correct attribSet for state: {} : {}".format(result["sname"], sorted(attribSet))
-#        print "predictionScore: ", predictionScore
+        print "predictionScore: ", predictionScore
         abstractCase = None
         retrain = False
         for ac in self.abstractCases.values():

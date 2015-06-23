@@ -18,7 +18,7 @@ import copy
 from operator import methodcaller, itemgetter
 from state2 import State, ObjectState, InteractionState, Action
 import state2
-
+from config import INTERACTION_STATES
             
 class WorldState(state2.WorldState):
     
@@ -36,6 +36,25 @@ class WorldState(state2.WorldState):
             if not np.array_equal(o1,gripperO):             
                 intState.fill(o1)
                 self.addInteractionState(intState)
+                
+    def reset2(self, worldState):
+        self.objectStates = {}
+        self.interactionStates = {}
+        ws = copy.deepcopy(worldState)
+        for os in ws.objectStates.values():
+            #Transform back to world coordinate system first
+            os.transform(ws.transM, ws.ori)
+            if INTERACTION_STATES and os["name"] == "blockA":
+                self.transM = common.eulerPosToTransformation(os["euler"],os["pos"])
+                self.invTrans = common.invertTransMatrix(self.transM)
+                self.ori = np.copy(os["euler"])
+            self.addObjectState(os)
+        if not INTERACTION_STATES:
+            self.transM = np.identity(4)
+            self.invTrans = np.identity(4)
+            self.ori = 0.0            
+            
+        self.parseInteractions()
                    
                 
     def reset(self, worldState):
@@ -55,14 +74,26 @@ class WorldState(state2.WorldState):
                 self.objectStates[tmp["name"]] = tmp
             if not self.objectStates.has_key(tmp2["name"]):
                 self.objectStates[tmp2["name"]] = tmp2
-            if tmp["name"] == "blockA":
-                self.transM = common.eulerPosToTransformation(tmp["euler"],tmp["pos"])
-                self.invTrans = common.invertTransMatrix(self.transM)
-                self.ori = np.copy(tmp["euler"])
-            if tmp2["name"] == "blockA":
-                self.transM = common.eulerPosToTransformation(tmp2["euler"],tmp2["pos"])
-                self.invTrans = common.invertTransMatrix(self.transM)
-                self.ori = np.copy(tmp2["euler"])
+            if INTERACTION_STATES:
+                if tmp["name"] == "blockA":
+                    self.transM = common.eulerPosToTransformation(tmp["euler"],tmp["pos"])
+                    self.invTrans = common.invertTransMatrix(self.transM)
+                    self.ori = np.copy(tmp["euler"])
+                if tmp2["name"] == "blockA":
+                    self.transM = common.eulerPosToTransformation(tmp2["euler"],tmp2["pos"])
+                    self.invTrans = common.invertTransMatrix(self.transM)
+                    self.ori = np.copy(tmp2["euler"])
         self.parseInteractions()
 #        
 #        print "InteractionStates: ", self.interactionStates.values()
+
+
+   
+    def items(self):
+        return self.getInteractionState("gripper").relevantItems()
+        
+    def toVec(self, unusedFeatures):
+        return self.getInteractionState("gripper").toVec(unusedFeatures)
+        
+    def __getitem__(self, k):
+        return self.getInteractionState("gripper")[k]

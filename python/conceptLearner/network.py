@@ -89,17 +89,20 @@ class Network(object):
     def removeEdge(self, fromNode, toNode):
         self.nodes[fromNode].removeNeighbour(toNode)
         self.nodes[toNode].removeNeighbour(fromNode)
-        if len(self.nodes[fromNode].neighbours) == 0:
+        if len(self.nodes[fromNode].neighbours) == 0 and len(self.nodes) > 1:
             del self.nodes[fromNode]
-        if len(self.nodes[toNode].neighbours) == 0:
+        if len(self.nodes[toNode].neighbours) == 0 and len(self.nodes) > 1:
             del self.nodes[toNode]
+#        if len(self.nodes) == 0:
+#            raise AttributeError("Remove Edge killed last node")
             
     def removeNode(self, node):
         for n in node.neighbours.values():
             self.removeEdge(node.name, n.name)
         if self.nodes.has_key(node.name):
             del self.nodes[node.name]
-            
+
+
 class TreeNode(object):
     
     def __init__(self, pre = None, elem = None):

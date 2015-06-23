@@ -62,7 +62,7 @@ DIRECTIONGENERALISATION = False
 
 
 
-NUM_TRAIN_RUNS = 5
+NUM_TRAIN_RUNS = 20
 NUM_TEST_RUNS = 50
 
 class GazeboInterface():
@@ -76,10 +76,12 @@ class GazeboInterface():
         self.lastState = None
         if INTERACTION_STATES:
             self.worldModel = model.ModelCBR()
+            self.lastAction = model.Action()
         else:
             self.worldModel = model.ModelAction()
+            self.lastAction = model.GripperAction()
         self.lastPrediction = None
-        self.lastAction = model.Action()
+        
         self.target = None
         
         self.trainRun = 0
@@ -428,7 +430,6 @@ class GazeboInterface():
         data: bytearry
             Protobuf bytearray containing a list of models
         """
-        print "NEW CALLBACK"
         worldState = worldState_pb2.WorldState.FromString(data)
         if self.lastPrediction != None:
 #            print "Parsing worldState with last coordinate system."
@@ -664,7 +665,10 @@ class GazeboInterface():
                 self.lastAction = model.Action.getGripperAction(cmd = GAZEBOCMDS["MOVE"], direction=self.direction)
                 if self.lastPrediction != None:
                     predictedWorldState = model.WorldState()
-                    predictedWorldState.reset(self.lastPrediction)
+                    if INTERACTION_STATES:
+                        predictedWorldState.reset(self.lastPrediction)
+                    else:
+                        predictedWorldState.reset2(self.lastPrediction)
                 else:
                     predictedWorldState = worldState
                     #Retransform

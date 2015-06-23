@@ -17,7 +17,7 @@ WINNER = 0
 NEIGHBOURS = 1
 BESTTWO = 2
 LINEAR = 3
-PREDICTIONMODE = LINEAR
+PREDICTIONMODE = WINNER
 
 class ITM(Network):
     
@@ -157,6 +157,7 @@ class ITM(Network):
         secDist = float('inf')
         minNode = None
         secNode = None
+        
         for n in self.nodes.values():
             d = np.linalg.norm(n.vecInA()-wIn)
             if d < minDist:
@@ -190,4 +191,8 @@ class ITM(Network):
                     return res/norm
                 else:
                     return minNode.wOut
+        else:
+            print "No minNode found!"
+            print "number of nodes: ", len(self.nodes)
+            
   

@@ -17,7 +17,7 @@ import copy
 from operator import methodcaller, itemgetter
 import itertools
 
-from config import DIFFERENCES
+from config import DIFFERENCES, INTERACTION_STATES
 
 class State(dict):
     """
@@ -169,7 +169,10 @@ class State(dict):
         return not self.__eq__(other)
         
     def __repr__(self):
-        s = "\n"
+        if "name" in self:
+            s= "name: {}\n".format(self["name"])
+        else:
+            s = "\n"
         for k,v in sorted(self.relevantItems(), key=itemgetter(0)):
             s+= "{}: {} \n".format(k,v)
         return s
@@ -191,6 +194,7 @@ class ObjectState(State):
         self.relKeys.remove("name")
         self.relKeys.remove("contact")
         self.relSelKeys = self.keys()
+        self.actionItems = ["linVel", "angVel"]
                           
     def transform(self, matrix, euler):
 #        print "calling transform for: ", self["name"]
@@ -247,6 +251,7 @@ class Action(State):
     def transform(self, matrix):
         tmpMVDir = np.matrix(np.concatenate((self["mvDir"],[0])))
         self["mvDir"] = np.round(np.array((matrix*tmpMVDir.T)[:3]).flatten(), NUMDEC)      
+   
     @classmethod
     def sample(cls, number):
         return [cls(cmd=GZCMD["MOVE"], direction=np.array([0.5*math.cos(x), 0.5*math.sin(y),0.0])) for x in [0+i*math.pi/number for i in range(number)] for y in [0+i*math.pi/number for i in range(number)]]
@@ -311,12 +316,16 @@ class InteractionState(State):
         self.relKeys.remove("slinVel")
         
         
+#        self.relKeys.remove("spos")
         if DIFFERENCES:
             self.relKeys.remove("dangVel")
             self.relKeys.remove("dlinVel")
+            pass
         else:
+#            self.relKeys.remove("opos")
             self.relKeys.remove("oangVel")
             self.relKeys.remove("olinVel")
+#            self.relKeys.remove("oeuler")
         
         
         
@@ -328,8 +337,8 @@ class InteractionState(State):
 #        self.relSelKeys.remove("oid")
         
 #        self.relKeys.remove("contact")
-#        self.relKeys.remove("sid")
-#        self.relKeys.remove("oid")
+        self.relKeys.remove("sid")
+        self.relKeys.remove("oid")
 #        self.relKeys.remove("spos")
 #        self.weights["slinVel"] = 2
 #        self.weights["spos"] = 0.5
@@ -341,7 +350,7 @@ class InteractionState(State):
     def fill(self, o2):
         assert isinstance(o2, ObjectState), "{} (o2) is not an ObjectState!".format(o2)
         self["dist"] = self.computeDistance(o2)
-        print "Computed dist: ", self["dist"]
+#        print "Computed dist: ", self["dist"]
 #        print "distance from {} to {}: {}".format(self["sid"], self["oid"], self["dist"])
         
         self["oid"] = o2["id"]
@@ -575,17 +584,25 @@ class WorldState(object):
                 self.objectStates[m.name] = tmp
                 
                 if m.name == "blockA" and self.transM == None:
-                    self.transM = common.eulerPosToTransformation(tmp["euler"],tmp["pos"])
-                    self.invTrans = common.invertTransMatrix(self.transM)
-#                    print "invTrans: ", self.invTrans
-                    self.ori = np.copy(tmp["euler"])
-
+                    if INTERACTION_STATES:
+                        self.transM = common.eulerPosToTransformation(tmp["euler"],tmp["pos"])
+                        
+                        self.invTrans = common.invertTransMatrix(self.transM)
+                                       
+    #                    print "invTrans: ", self.invTrans
+                        self.ori = np.copy(tmp["euler"])
+                    else:
+                        self.transM = np.identity(4)
+                        self.invTrans = np.identity(4)     
+                        self.ori = 0
+                    
                 
     def parseInteractions(self):
         tmpList = self.objectStates.values()
         for o in tmpList:
             #Transform to local block coordinate system
             o.transform(self.invTrans, -self.ori)
+#            pass
         for o1 in self.objectStates.values():
 #            print "interactionState for o1: ", o1
             intState = InteractionState(self.numIntStates, o1)
@@ -645,3 +662,4 @@ class WorldState(object):
         if OSName in self.objectStates:
             return self.objectStates[OSName]
         return None
+     

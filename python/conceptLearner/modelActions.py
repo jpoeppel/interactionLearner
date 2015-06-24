@@ -17,14 +17,16 @@ from common import GAZEBOCMDS as GZCMD
 from network import Node
 
 
-if SINGLE_INTSTATE:
-    from state3 import State, ObjectState, InteractionState, WorldState
-else:
-    from state2 import State, ObjectState, InteractionState, WorldState
+#if SINGLE_INTSTATE:
+#    from state3 import State, ObjectState, InteractionState, WorldState
+#else:
+#    from state2 import State, ObjectState, InteractionState, WorldState
+
+from state4 import State, ObjectState, InteractionState, WorldState
 
 from state2 import Action as GripperAction
 
-THRESHOLD = 7-0.001
+THRESHOLD = 0.98
 
 class BaseCase(object):
     
@@ -197,7 +199,7 @@ class ModelAction(object):
         sortedList = sorted(scoreList, key=itemgetter(0), reverse=True) 
 #        print "scorelist for {}: {}".format(objectState["name"], sortedList)
         filteredList = filter(lambda x: x[0] > 0.9, sortedList)
-        print "filteredList for {}: {}".format(objectState["name"], filteredList)
+#        print "filteredList for {}: {}".format(objectState["name"], filteredList)
         totalScore = np.sum([s[0] for s in filteredList])
         if totalScore == 0:
             totalScore = 1
@@ -207,7 +209,7 @@ class ModelAction(object):
         return res
         
     def predictObjectState(self, objectState):
-        print "predict: ", objectState
+#        print "predict: ", objectState
         for pred in self.predictors:
             if objectState["name"] in pred.targets:
                 return pred.predict(objectState)
@@ -216,11 +218,12 @@ class ModelAction(object):
         return copy.deepcopy(objectState)
     
     def predict(self, worldState, action):
+        print "predict"
 #        print "Actions: ", [(a.effect.keys(), a.targets) for a in self.actions]
         resultWS = WorldState()
-        resultWS.transM = np.copy(worldState.transM)
-        resultWS.invTrans = np.copy(worldState.invTrans)
-        resultWS.ori = np.copy(worldState.ori)
+#        resultWS.transM = np.copy(worldState.transM)
+#        resultWS.invTrans = np.copy(worldState.invTrans)
+#        resultWS.ori = np.copy(worldState.ori)
         for objectState in worldState.objectStates.values():
             newOS = self.applyMostSuitedAction(objectState, worldState, action)
             newOS = self.predictObjectState(newOS)
@@ -262,5 +265,6 @@ class ModelAction(object):
             self.cases.append(case)
     
     def update(self, worldState, action, prediction, result):
+        print "Update!: ", prediction.objectStates
         for os in prediction.objectStates.values():
             self.updateState(os, worldState, action, result.getObjectState(os["name"]))

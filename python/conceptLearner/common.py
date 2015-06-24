@@ -38,8 +38,19 @@ def quaternionToEuler(quat):
     return res
     
 def eulerToQuat(euler):
-    assert len(euler) == 3, "Euler represents roll, pitch, yaw angles (in radians)"
-    phi, the, psi = euler*0.5
+#    assert len(euler) == 3, "Euler represents roll, pitch, yaw angles (in radians): {}".format(euler)
+    if hasattr(euler, "__len__"):
+        if len(euler) == 1:
+            phi = 0.0
+            the = 0.0
+            psi = euler[0]*0.5
+        else:
+            assert len(euler) == 3, "Euler represents roll, pitch, yaw angles (in radians): {}".format(euler)
+            phi, the, psi = euler*0.5
+    else:
+        phi = 0.0
+        the = 0.0
+        psi = euler*0.5
     res = np.zeros(4)
     cos = math.cos
     sin = math.sin

@@ -9,6 +9,7 @@ Created on Wed Jun 24 11:40:03 2015
 import numpy as np
 import common
 from common import NUMDEC
+import math
 
 WIDTH = {"blockA":0.25} #Width from the middle point
 HEIGHT = {"blockA":0.05} #Height from the middle point
@@ -18,6 +19,7 @@ class State(dict):
     def __init__(self):
         self.vec = np.array([]) #Np.array representing the state vector
         self.mask = np.array(range(len(self.vec))) #Np.array to mask the access to the vector
+        self.relKeys = self.keys()
         
     def getVec(self, mask=None):
         if mask:
@@ -37,8 +39,10 @@ class ObjectState(State):
                      "posY": self.vec[2:3], "posZ": self.vec[3:4], "ori":self.vec[4:5], 
                      "linVelX": self.vec[5:6], "linVelY": self.vec[6:7],
                      "linVelZ": self.vec[7:8], "angVel": self.vec[8:9],
-                     "pos": self.vec[1:4], "linVel": self.vec[5:8]}, "contact":None)
+                     "pos": self.vec[1:4], "linVel": self.vec[5:8], "contact":None})
         self.mask = np.array(range(len(self.vec)))
+        self.relKeys = ["id", "posX", "posY", "posZ", "ori", "linVelX", "linVelY", "linVelZ", "angVel"]
+        self.actionItems = ["linVel", "angVel"]
         
 class InteractionState(State):
     
@@ -56,6 +60,9 @@ class WorldState(object):
     def __init__(self):
         self.objectStates = {}
         self.interactionStates = {}
+        self.transM = np.identity(4)
+        self.invTrans = np.identity(4)
+        self.ori = 0.0
         pass        
             
 
@@ -121,49 +128,67 @@ class WorldState(object):
         x1yn = x1x*s + x1y*c
         x2xn = x2x*c - x2y*s
         x2yn = x2x*s + x2y*c
-        x1n = np.array([x1xn,x1yn,0]) + mp
-        x2n = np.array([x2xn,x2yn,0]) + mp
+        x1n = np.array([x1xn,x1yn]) + mp
+        x2n = np.array([x2xn,x2yn]) + mp
         if x0x <= x2x and x0x >= x1x: 
-            d = np.abs((x2n[0]-x1n[0])*(x1n[1]-x0y)-(x1n[0]-x0x)*(x2n[1]-x1n[1]))/math.sqrt((x2n[0]-x1n[0])**2+(x2n[1]-x1n[1])**2) - 0.025
+            d = abs((x2n[0]-x1n[0])*(x1n[1]-x0y)-(x1n[0]-x0x)*(x2n[1]-x1n[1]))/math.sqrt((x2n[0]-x1n[0])**2+(x2n[1]-x1n[1])**2) - 0.025
         else:
-            d = np.min(np.linalg.norm(x1n-np.array([x0x,x0y,x0z])), np.linalg.norm(x2n-np.array([x0x,x0y,x0z])))
+            d = min(np.linalg.norm(x1n-np.array([x0x,x0y])), np.linalg.norm(x2n-np.array([x0x,x0y])))
         return d
         
     def computeDistanceClosing(self, os1, os2):
         if os1["name"] == "gripper":
             x0x,x0y = os1["pos"][:2]
-            mp = np.copy(o2["pos"][:2])
+            mp = np.copy(os2["pos"][:2])
             ang = os2["ori"]
             blockN = os2["name"]
+            vel = os2["linVel"]
         elif os2["name"] == "gripper":
             x0x,x0y = os2["pos"][:2]
-            mp = np.copy(o1["pos"][:2])
+            mp = np.copy(os1["pos"][:2])
             ang = os1["ori"]
             blockN = os1["name"]
+            vel = os1["linVel"]
         else:
             raise NotImplementedError("Currently only distance between gripper and object is implemented.")
         c = np.cos(ang)
         s = np.sin(ang)
         
-        x1x = -WIDTH[blockN]
-        x1y = -HEIGHT[blockN]
-        x2x = -x1x
-        x2y = x1y
+        x1x = WIDTH[blockN]
+        x1y = HEIGHT[blockN]
+        x2x = x1x
+        x2y = -x1y
         d1 = self.calcDist(x0x,x0y,mp,x1x,x1y,x2x,x2y,c,s)
-        x1x = -WIDTH[blockN]
+        
+        x1x = WIDTH[blockN]
         x1y = HEIGHT[blockN]
         x2x = -x1x
         x2y = x1y
         d2 = self.calcDist(x0x,x0y,mp,x1x,x1y,x2x,x2y,c,s)
+        
         x1x = -WIDTH[blockN]
-        x1y = -HEIGHT[blockN]
+        x1y = HEIGHT[blockN]
         x2x = x1x
         x2y = -x1y
         d3 = self.calcDist(x0x,x0y,mp,x1x,x1y,x2x,x2y,c,s)
+        
         x1x = WIDTH[blockN]
         x1y = -HEIGHT[blockN]
-        x2x = x1x
-        x2y = -x1y
+        x2x = -x1x
+        x2y = x1y
         d4 = self.calcDist(x0x,x0y,mp,x1x,x1y,x2x,x2y,c,s)
         
+        ds = [d1,d2,d3,d4]
+        di = np.argmin(ds)
+        normal = np.array([np.cos(ang+di*(math.pi/2.0)), np.sin(ang+di*(math.pi/2.0)), 0])
+        return ds[di], np.dot(normal, vel)
+        
+    def getInteractionState(self, name):
+        return self.interactionStates[name]
+        
+    def getObjectState(self, name):
+        return self.objectStates[name]
+        
+    def addObjectState(self, os):
+        self.objectStates[os["name"]] = os
             

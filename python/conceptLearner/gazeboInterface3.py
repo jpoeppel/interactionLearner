@@ -48,7 +48,7 @@ PUSHTASKSIMULATION = 2
 MOVE_TO_TARGET = 3
 MODE = PUSHTASKSIMULATION
 #MODE = FREE_EXPLORATION
-#MODE = MOVE_TO_TARGET
+MODE = MOVE_TO_TARGET
 
 
 RANDOM_BLOCK_ORI = False
@@ -62,7 +62,7 @@ DIRECTIONGENERALISATION = False
 
 
 
-NUM_TRAIN_RUNS = 20
+NUM_TRAIN_RUNS = 0
 NUM_TEST_RUNS = 50
 
 class GazeboInterface():
@@ -858,11 +858,11 @@ class GazeboInterface():
 #        target["name"] = "gripper"
 #        target["pos"] = np.array([0.0, -0.5, 0.03])
         target["name"] = "blockA"
-        target["pos"] = np.array([0.0, 0.075, 0.05])
+        target["pos"] = np.array([0.0, 0.75, 0.05])
         target["euler"] = np.zeros(3)
-        target["euler"][2] = -0.5*math.pi
-        target.relKeys = ["pos", "euler"]
-#        target.relKeys = ["euler"]
+        target["euler"][2] = 0.5*math.pi
+#        target.relKeys = ["pos", "euler"]
+        target.relKeys = ["euler"]
 #        target.weights = {"pos":20, "euler": 1}
         self.target = target
 

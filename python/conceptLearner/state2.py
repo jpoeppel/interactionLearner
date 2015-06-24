@@ -274,14 +274,14 @@ class InteractionState(State):
                          "seuler": np.zeros(3), "slinVel": np.zeros(3), 
                          "sangVel": mp.zeros(3), "dist": 0, "dir": np.zeros(3),
                          "contact": 0, "oid": -1, "oname": "", "otype": 0, 
-                         "deuler": np.zeros(3), "dlinVel": np.zeros(3), "dangVel":np.zeros(3)})
+                         "deuler": np.zeros(3), "dlinVel": np.zeros(3), "dangVel":np.zeros(3), "dir":np.zeros(3)})
             else:             
                 self.update({"intId": intId, "sid":-1, "sname": "", 
                          "stype": -1, "spos":np.zeros(3), 
                          "seuler": np.zeros(3), "slinVel": np.zeros(3), 
                          "sangVel": np.zeros(3), "dist": 0, "opos": np.zeros(3),
                          "contact": 0, "oid": -1, "oname": "", "otype": 0, 
-                         "oeuler": np.zeros(3), "olinVel": np.zeros(3), "oangVel":np.zeros(3)})
+                         "oeuler": np.zeros(3), "olinVel": np.zeros(3), "oangVel":np.zeros(3), "dir":np.zeros(3)})
         else:
             assert isinstance(o1, ObjectState), "{} (o1) is not an ObjectState!".format(o1)        
             if DIFFERENCES:
@@ -290,7 +290,7 @@ class InteractionState(State):
                          "seuler": o1["euler"], "slinVel": o1["linVel"], 
                          "sangVel": o1["angVel"], "dist": 0, "dir": np.zeros(3),
                          "contact": 0, "oid": -1, "oname": "", "otype": 0, 
-                         "deuler": np.zeros(3), "dlinVel": np.zeros(3), "dangVel":np.zeros(3)})
+                         "deuler": np.zeros(3), "dlinVel": np.zeros(3), "dangVel":np.zeros(3), "dir":np.zeros(3)})
             else:             
                 self.update({"intId": intId, "sid":o1["id"], "sname": o1["name"], 
                          "stype": o1["type"], "spos":o1["pos"], 
@@ -622,7 +622,7 @@ class WorldState(object):
             o1Name = c.wrench[0].body_1_name.split(':')[0]
             o2Name = c.wrench[0].body_2_name.split(':')[0]
             cTime = (c.time.sec*1e9 + c.time.nsec) * 1e-9
-            if np.abs(curTime-cTime) < 0.05:
+            if np.abs(curTime-cTime) < 0.02:
                 if self.objectStates.has_key(o1Name):
                     self.objectStates[o1Name]["contact"] = o2Name
                 if self.objectStates.has_key(o2Name):

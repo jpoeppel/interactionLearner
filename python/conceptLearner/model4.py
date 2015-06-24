@@ -175,10 +175,8 @@ class AbstractCase(object):
         action = np.zeros(4)
         inputs = np.zeros(len(self.refCases[0].preState.toVec(self.constants)))
 #        difChange = 0.0
-        norm = 0.0
         expectedDifs = {}
         for k in var:
-            norm += 1.0
             partialAction, partialInputs, expectedDifs[k] = self.predictors[k].getAction(dif[k])
             if np.any(expectedDifs[k] * dif[k] < 0):
                 partialAction, partialInputs, expectedDifs[k] = self.predictors[k].getBestAbsAction(dif[k])
@@ -191,8 +189,8 @@ class AbstractCase(object):
 #        if difChange > -0.01:
 #            print "Best Action: {} is too bad {}".format(action/norm, difChange)
 #            return None,None
-        action /= norm
-        inputs /= norm
+        action /= len(var)
+        inputs /= len(var)
         res = Action(cmd = action[0], direction=action[1:])
         preCons = InteractionState.fromVector(inputs, self.constants)
         res = Action(cmd = action[0], direction=action[1:])
@@ -326,9 +324,9 @@ class AbstractCase(object):
         self.refCases.append(ref)
         ref.abstCase = self
         
-        if len(self.refCases) % FEATURE_SELECTION_THRESHOLD == 0:
-            for k in self.variables:
-                self.findBestFeatureSet(k)
+#        if len(self.refCases) % FEATURE_SELECTION_THRESHOLD == 0:
+#            for k in self.variables:
+#                self.findBestFeatureSet(k)
         
         if retraining:
             self.retrain(self.refCases)

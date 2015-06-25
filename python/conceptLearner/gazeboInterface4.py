@@ -28,10 +28,8 @@ from config import DIFFERENCES, SINGLE_INTSTATE, INTERACTION_STATES
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
-if INTERACTION_STATES:
-    import model4 as model
-else:
-    import modelActions as model
+
+import modelActions as model
 #import model6 as model
 
 from sklearn.externals.six import StringIO
@@ -62,7 +60,7 @@ DIRECTIONGENERALISATION = False
 
 
 
-NUM_TRAIN_RUNS = 20
+NUM_TRAIN_RUNS = 5
 NUM_TEST_RUNS = 50
 
 class GazeboInterface():
@@ -77,8 +75,9 @@ class GazeboInterface():
         self.worldModel = model.ModelAction()
         self.lastAction = model.GripperAction()
         self.lastPrediction = None
-        
+        self.ignore = True
         self.target = None
+        self.startup = True
         
         self.trainRun = 0
         self.testRun = 0
@@ -128,6 +127,7 @@ class GazeboInterface():
                     
         
         
+        
                           
         while self.active:
             yield From(trollius.sleep(1))
@@ -159,6 +159,7 @@ class GazeboInterface():
         """
         Function to send a stop command to gazebo to stop the gripper from moving.
         """
+        print "sending stop command"
         msg = pygazebo.msg.gripperCommand_pb2.GripperCommand()
         msg.cmd = GAZEBOCMDS["MOVE"]
         msg.direction.x = 0.0
@@ -246,29 +247,34 @@ class GazeboInterface():
         data: bytearry
             Protobuf bytearray containing a list of models
         """
-        worldState = worldState_pb2.WorldState.FromString(data)
-#        if self.lastPrediction != None:
-##            print "Parsing worldState with last coordinate system."
-##            resultWS = model.WorldState(self.lastPrediction.transM, self.lastPrediction.invTrans, self.lastPrediction.quat)
-#            resultWS = model.WorldState(self.lastPrediction.transM, self.lastPrediction.invTrans, self.lastPrediction.ori)
-#            resultWS.parse(worldState)
-#        else:
-#            resultWS = None
-#        print "parsing new WorldState"
-        newWS = model.WorldState()
-        newWS.parse(worldState)
-        
-        if MODE == FREE_EXPLORATION:
-            self.randomExploration(newWS)
-        elif MODE == PUSHTASK:
-            self.pushTask(newWS)
-        elif MODE == PUSHTASKSIMULATION:
-            self.pushTaskSimulation(newWS)
-        elif MODE == MOVE_TO_TARGET:
-            self.getTarget()
-            self.moveToTarget(newWS)
+        if self.startup:
+            self.resetWorld()
+            self.startup= False
+            
         else:
-            raise AttributeError("Unknown MODE: ", MODE)
+            worldState = worldState_pb2.WorldState.FromString(data)
+    #        if self.lastPrediction != None:
+    ##            print "Parsing worldState with last coordinate system."
+    ##            resultWS = model.WorldState(self.lastPrediction.transM, self.lastPrediction.invTrans, self.lastPrediction.quat)
+    #            resultWS = model.WorldState(self.lastPrediction.transM, self.lastPrediction.invTrans, self.lastPrediction.ori)
+    #            resultWS.parse(worldState)
+    #        else:
+    #            resultWS = None
+    #        print "parsing new WorldState"
+            newWS = model.WorldState()
+            newWS.parse(worldState)
+            
+            if MODE == FREE_EXPLORATION:
+                self.randomExploration(newWS)
+            elif MODE == PUSHTASK:
+                self.pushTask(newWS)
+            elif MODE == PUSHTASKSIMULATION:
+                self.pushTaskSimulation(newWS)
+            elif MODE == MOVE_TO_TARGET:
+                self.getTarget()
+                self.moveToTarget(newWS)
+            else:
+                raise AttributeError("Unknown MODE: ", MODE)
 
 
     def runEnded(self, worldState):
@@ -309,6 +315,7 @@ class GazeboInterface():
         if RANDOM_BLOCK_ORI:
             self.sendPose("blockA", np.array([0.0, 0.5, 0.05]) , np.random.rand()-0.5)
         self.stepCounter = 0
+        self.ignore = True
         
     def startRun2(self, randomRange=0.5):
         self.runStarted = True
@@ -317,11 +324,13 @@ class GazeboInterface():
         self.sendPose("gripper", np.array([0.0,posy,0.03]), 0.0)
         self.sendPose("blockA", np.array([-0.5, 0.0, 0.05]) , 1.0)
         self.stepCounter = 0
+        self.ignore = True
         
     def startRun3(self):
         self.runStarted = True
         self.sendPose("gripper", np.array([-0.5, 0.5,0.03]), -1.0)
         self.stepCounter = 0
+        self.ignore = True
         
 
     def updateTmpErrors(self, worldState):

@@ -10,6 +10,7 @@ import numpy as np
 import common
 from common import NUMDEC
 import math
+import copy
 
 WIDTH = {"blockA":0.25} #Width from the middle point
 HEIGHT = {"blockA":0.05} #Height from the middle point
@@ -30,6 +31,10 @@ class State(dict):
     def score(self, other):
         return np.exp(-0.5*np.linalg.norm(self.getVec()-other.getVec()))
         
+    def relItems(self):
+        for k in self.relKeys:
+            yield k, self[k]
+        
     
 class ObjectState(State):
     
@@ -42,7 +47,16 @@ class ObjectState(State):
                      "pos": self.vec[1:4], "linVel": self.vec[5:8], "contact":None})
         self.mask = np.array(range(len(self.vec)))
         self.relKeys = ["id", "posX", "posY", "posZ", "ori", "linVelX", "linVelY", "linVelZ", "angVel"]
-        self.actionItems = ["linVel", "angVel"]
+        self.actionItems = ["linVelX", "linVelY", "linVelZ", "angVel"]
+        
+    @classmethod
+    def clone(cls, other):
+        assert isinstance(other, ObjectState), "{} is no ObjectState (but {})".format(other, type(other))
+        res = cls()
+        np.copyto(res.vec, other.vec)
+        res["name"] = other["name"]
+        res["contact"] = copy.deepcopy(other["contact"])
+        return res
         
 class InteractionState(State):
     
@@ -53,7 +67,7 @@ class InteractionState(State):
                      "relPosX": self.vec[5:6], "relPosY": self.vec[6:7], "relPosZ":self.vec[7:8],
                      "closingDivDist":self.vec[8:9], "relPos": self.vec[5:8] })
         self.mask = np.array(range(len(self.vec)))
-
+        self.relKeys = ["sid", "oid", "dist", "closing", "contact", "relPosX", "relPosY", "relPosZ", "closingDivDist"]
         
 class WorldState(object):
     
@@ -79,10 +93,21 @@ class WorldState(object):
                 tmp["posZ"][0] = np.round(m.pose.position.z, NUMDEC)
                 tmp["ori"][0] = np.round(common.quaternionToEuler(np.array([m.pose.orientation.x,m.pose.orientation.y,
                                             m.pose.orientation.z,m.pose.orientation.w])), NUMDEC)[2]
+                print "linVel before setting: ", tmp["linVel"]
                 tmp["linVelX"][0] = np.round(m.linVel.x, NUMDEC)
                 tmp["linVelY"][0] = np.round(m.linVel.y, NUMDEC)
                 tmp["linVelZ"][0] = np.round(m.linVel.z, NUMDEC)
+                print "linVel: ", tmp["linVel"]
+                print "norm linVel: ", np.linalg.norm(tmp["linVel"])
+                if np.linalg.norm(tmp["linVel"]) < 0.01:
+                    print "setting linVel to 0"
+                    tmp["linVelX"][0] = 0.0
+                    tmp["linVelY"][0] = 0.0
+                    tmp["linVelZ"][0] = 0.0
                 tmp["angVel"][0] = np.round(m.angVel.z, NUMDEC)
+#                if m.name == "blockA":
+                
+#                    print "pos: ", tmp["pos"]
                 self.objectStates[m.name] = tmp
                 
     def parseContacts(self, contacts):
@@ -111,77 +136,97 @@ class WorldState(object):
                     intState["dist"][0], intState["closing"][0] = self.computeDistanceClosing(os1,os2)
                     if os1["contact"] == n2:
                         intState["contact"][0] = 1
-                    intState["relPosX"][0] = os1["posX"]-os2["posX"]
-                    intState["relPosY"][0] = os1["posY"]-os2["posY"]
-                    intState["relPosZ"][0] = os1["posZ"]-os2["posZ"]
-                    intState["closingDivDist"][0] = intState["closing"]/intState["dist"]
+                    intState["relPosX"][0] = np.round(os1["posX"]-os2["posX"], NUMDEC)
+                    intState["relPosY"][0] = np.round(os1["posY"]-os2["posY"], NUMDEC)
+                    intState["relPosZ"][0] = np.round(os1["posZ"]-os2["posZ"], NUMDEC)
+                    if intState["dist"] != 0:
+                        intState["closingDivDist"][0] = intState["closing"]/intState["dist"]
+                    else:
+                        intState["closingDivDist"][0] = intState["closing"]/0.001
                     self.interactionStates[intState["name"]] = intState
             
             
     def parse(self, gzWS):
         self.parseModels(gzWS.model_v.models)
         self.parseContacts(gzWS.contacts)
+        print "parsing"
         self.parseInteractions()
         
-    def calcDist(self, x0x,x0y,mp, x1x,x1y,x2x,x2y,c,s):
+        
+    def calcDist(self, p, mp, x1x,x1y,x2x,x2y,c,s):
         x1xn = x1x*c - x1y*s
         x1yn = x1x*s + x1y*c
         x2xn = x2x*c - x2y*s
         x2yn = x2x*s + x2y*c
-        x1n = np.array([x1xn,x1yn]) + mp
-        x2n = np.array([x2xn,x2yn]) + mp
-        if x0x <= x2x and x0x >= x1x: 
-            d = abs((x2n[0]-x1n[0])*(x1n[1]-x0y)-(x1n[0]-x0x)*(x2n[1]-x1n[1]))/math.sqrt((x2n[0]-x1n[0])**2+(x2n[1]-x1n[1])**2) - 0.025
-        else:
-            d = min(np.linalg.norm(x1n-np.array([x0x,x0y])), np.linalg.norm(x2n-np.array([x0x,x0y])))
-        return d
+        v = np.array([x1xn,x1yn]) + mp
+        w = np.array([x2xn,x2yn]) + mp
+#        print "x1xn: {}, x1yn: {}, x2xn: {}, x2yn:{}".format(x1xn,x1yn,x2xn,x2yn)
+#        print "x1x: {}, x1y: {}, x2x: {}, x2y: {}".format(x1x,x1y,x2x,x2y)
+#        print "mp: ", mp
+        l2 = np.dot(v-w, v-w)
+#        print "l2: ", l2
+        if l2 == 0.0:
+            return np.sqrt(np.dot(v-p, v-p)), v
+        t = np.dot(p-v, w-v) / l2
+        if t < 0.0:
+            return np.sqrt(np.dot(v-p,v-p)), v
+        elif t > 1.0:
+            return np.sqrt(np.dot(w-p,w-p)), w
+        projection = v + t * (w - v)
+        return np.sqrt(np.dot(p-projection, p-projection)), projection
         
     def computeDistanceClosing(self, os1, os2):
+#        print "ComputeDistanceClosing: os1vel: {}, os2vel: {}".format(os1["linVel"], os2["linVel"])
         if os1["name"] == "gripper":
-            x0x,x0y = os1["pos"][:2]
+            p = os1["pos"][:2]
             mp = np.copy(os2["pos"][:2])
             ang = os2["ori"]
             blockN = os2["name"]
-            vel = os2["linVel"]
+            vel = os2["linVel"]-os1["linVel"]
         elif os2["name"] == "gripper":
-            x0x,x0y = os2["pos"][:2]
+            p = os2["pos"][:2]
             mp = np.copy(os1["pos"][:2])
             ang = os1["ori"]
             blockN = os1["name"]
-            vel = os1["linVel"]
+            vel = os2["linVel"]-os1["linVel"]
         else:
             raise NotImplementedError("Currently only distance between gripper and object is implemented.")
-        c = np.cos(ang)
-        s = np.sin(ang)
+        c = math.cos(ang)
+        s = math.sin(ang)
         
         x1x = WIDTH[blockN]
         x1y = HEIGHT[blockN]
         x2x = x1x
         x2y = -x1y
-        d1 = self.calcDist(x0x,x0y,mp,x1x,x1y,x2x,x2y,c,s)
+        d1, p1 = self.calcDist(p,mp,x1x,x1y,x2x,x2y,c,s) 
         
         x1x = WIDTH[blockN]
         x1y = HEIGHT[blockN]
         x2x = -x1x
         x2y = x1y
-        d2 = self.calcDist(x0x,x0y,mp,x1x,x1y,x2x,x2y,c,s)
+        d2, p2 = self.calcDist(p,mp,x1x,x1y,x2x,x2y,c,s)
         
         x1x = -WIDTH[blockN]
         x1y = HEIGHT[blockN]
         x2x = x1x
         x2y = -x1y
-        d3 = self.calcDist(x0x,x0y,mp,x1x,x1y,x2x,x2y,c,s)
+        d3, p3 = self.calcDist(p,mp,x1x,x1y,x2x,x2y,c,s)
         
         x1x = WIDTH[blockN]
         x1y = -HEIGHT[blockN]
         x2x = -x1x
         x2y = x1y
-        d4 = self.calcDist(x0x,x0y,mp,x1x,x1y,x2x,x2y,c,s)
+        d4, p4 = self.calcDist(p,mp,x1x,x1y,x2x,x2y,c,s)
         
         ds = [d1,d2,d3,d4]
+        ps = [p1,p2,p3,p4]
         di = np.argmin(ds)
-        normal = np.array([np.cos(ang+di*(math.pi/2.0)), np.sin(ang+di*(math.pi/2.0)), 0])
-        return ds[di], np.dot(normal, vel)
+        normal = np.zeros(3)
+        normal[:2] = (p-ps[di])/np.linalg.norm(ps[di])
+#        print "normal: ", normal
+#        print "vel: ", vel
+#        print "norm vel: ", np.linalg.norm(vel)
+        return ds[di]-0.025, np.dot(normal, vel)
         
     def getInteractionState(self, name):
         return self.interactionStates[name]
@@ -191,4 +236,7 @@ class WorldState(object):
         
     def addObjectState(self, os):
         self.objectStates[os["name"]] = os
+        
+    def getInteractionStates(self, sname):
+        return [intState for intState in self.interactionStates.values() if intState["sname"] == sname]
             

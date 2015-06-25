@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 """
 Created on Mon Jun 22 12:41:59 2015
-
+TODO: When using more then 2 objects, the actions need to differentiate which interactionState
+they primarily use!!
 @author: jpoeppel
 """
 
@@ -50,7 +51,8 @@ class BaseCase(object):
         return r
         
     def getSetOfActionAttribs(self):
-        
+#        if self.preState["name"] == "blockA":
+#            print "dif: ", self.dif
         r = Set()
         for k,v in self.dif.items():
             if k in self.preState.actionItems and np.linalg.norm(v) > 0.01:
@@ -76,27 +78,33 @@ class Action(object):
         self.targets = Set()
         self.effect = {}
         self.refCases = []
+        self.vecs = []
         self.unusedFeatures = []
         for k in variables:
             self.effect[k] = ITM()
         
-    def applyAction(self, state, worldState, strength = 1.0):
-        for k,v in self.effect.items():
-            if isinstance(v, ITM):
-                state[k] += strength * v.predict(worldState.toVec(self.unusedFeatures))
-            else:
-                state[k] += strength * v
+    def applyAction(self, state, intStates, strength = 1.0):
+        for intState in intStates:
+            for k,v in self.effect.items():
+                if isinstance(v, ITM):
+                    state[k] += strength * v.predict(intState.getVec())
+                else:
+                    state[k] += strength * v
             
-    def rate(self, objectState, worldState):
+    def rate(self, objectState, intStates):
 #        print "rating action: {}, precons: {}".format(self.effect.keys(), self.preConditions)
         if objectState["name"] not in self.targets:
             return 0
-            
-        r = {}
-        s = 0.0
-        for k,v in self.preConditions.items():
-             s += similarities[k](v,worldState[k])
-             r[k] = similarities[k](v,worldState[k])
+        print "rate: ", intStates
+        bestScore = 0.0
+        for intState in intStates:
+            r = {}
+            s = 0.0
+            for k,v in self.preConditions.items():
+                 s += similarities[k](v,intState[k])
+                 r[k] = similarities[k](v,intState[k])
+            if s > bestScore:
+                bestScore = s
              
         print "action: {} got rating: {} for {}".format(self.effect.keys(), r, objectState["name"])
         if len(self.preConditions) != 0:
@@ -104,23 +112,39 @@ class Action(object):
         else:
             return 1.0
             
-    def update(self, case, worldState):
+    def rate2(self, objectState, intStates):
+        if objectState["name"] not in self.targets:
+            return 0
+        bestScore = 0.0
+        print "intStates: ", intStates
+        for intState in intStates:
+            
+            for vec in self.vecs:
+                s = np.exp(-0.5*np.linalg.norm(vec-intState.getVec()))
+                if s > bestScore:
+                    bestScore = s
+                    
+        return bestScore
+            
+    def update(self, case, intStates):
         self.targets.add(case.preState["name"])
-        for k,v in worldState.items():
-            if k in self.preConditions:
-                if np.linalg.norm(v-self.preConditions[k]) > 0.1:
-                    del self.preConditions[k]
-            else:
-                if len(self.refCases) < 1:
-                    self.preConditions[k] = v 
+        for intState in intStates:
+            self.vecs.append(intState.getVec())
+#            for k,v in intState.relItems():
+#                if k in self.preConditions:
+#                    if np.linalg.norm(v-self.preConditions[k]) > 0.1:
+#                        del self.preConditions[k]
+#                else:
+#                    if len(self.refCases) < 1:
+#                        self.preConditions[k] = v 
         for k,v in self.effect.items():
 #            if not k in self.effect:
 #                self.effect[k] = ITM()
-            v.train(Node(0, wIn=worldState.toVec(self.unusedFeatures), wOut=case.dif[k]))
+            v.train(Node(0, wIn=intState.getVec(), wOut=case.dif[k]))
                 
-        self.refCases.append((case, worldState))
+        self.refCases.append((case, intStates))
         
-        
+
     @classmethod
     def getGripperAction(cls, cmd=GZCMD["NOTHING"] , direction=np.zeros(3)):
         res = GripperAction(cmd, direction)
@@ -150,9 +174,12 @@ class Predictor(object):
         self.unusedFeatures = []
         
     def predict(self, state):
-        res = copy.deepcopy(state)
+        res = ObjectState.clone(state)
+#        print "predict state: {} \n res: {}".format(state, res)
 #        prediction = self.pred.predict(state.toVec())
 #        print "prediction for state: {}: {}".format(state["name"], prediction)
+#        if state["name"] == "blockA":
+#            print "predicting block A with: ", state
         i = 0
         for k in state.relKeys:
 #            if hasattr(res[k], "__len__"):
@@ -161,13 +188,18 @@ class Predictor(object):
 #                l = 1
 #            res[k] += prediction[i:i+l]
 #            i += l
-            res[k] += self.pred[k].predict(state.toVec(self.unusedFeatures))
+            res[k] += self.pred[k].predict(state.getVec())
             
-        print "Prediction: ", res
+#        if state["name"] == "blockA":
+#            print "Prediction: ", res
         return res
         
-    def update(self, case):
-        print "updating predictor for ", self.targets
+    def update(self, case, action, worldState):
+#        print "updating predictor for ", self.targets
+        preState = ObjectState.clone(case.preState)
+        action.applyAction(preState, worldState.getInteractionStates(preState["name"]))
+#        if case.preState["name"] == "blockA":
+#            print "updating with: pre: {} \n post: {}".format(preState, case.postState)
         if len(self.refCases) == 0:
             for k in case.preState.relKeys:
                 self.pred[k] = ITM()
@@ -175,7 +207,7 @@ class Predictor(object):
 #            raise AttributeError("Case already present")
         self.refCases.append(case)
         for k in case.preState.relKeys:
-            self.pred[k].train(Node(0, wIn=case.preState.toVec(self.unusedFeatures), 
+            self.pred[k].train(Node(0, wIn=preState.getVec(), 
                              wOut=case.dif[k]))
 #        self.pred.train(Node(0, wIn=case.preState.toVec(self.unusedFeatures), 
 #                             wOut = case.postState.toVec()-case.preState.toVec()))   
@@ -195,17 +227,18 @@ class ModelAction(object):
         if objectState["name"] == "gripper":
             objectState["linVel"] = action["mvDir"]
 #        print "rating for: ", objectState["name"]
-        scoreList = [(a.rate(objectState, worldState), a) for a in self.actions]
+        scoreList = [(a.rate2(objectState, worldState.getInteractionStates(objectState["name"])), a) for a in self.actions]
         sortedList = sorted(scoreList, key=itemgetter(0), reverse=True) 
-#        print "scorelist for {}: {}".format(objectState["name"], sortedList)
-        filteredList = filter(lambda x: x[0] > 0.9, sortedList)
+        print "scorelist for {}: {}".format(objectState["name"], sortedList)
+        filteredList = filter(lambda x: x[0] > 0.75, sortedList)
 #        print "filteredList for {}: {}".format(objectState["name"], filteredList)
         totalScore = np.sum([s[0] for s in filteredList])
         if totalScore == 0:
             totalScore = 1
-        res = copy.deepcopy(objectState)
+        res = ObjectState.clone(objectState)
         for s,a in filteredList:
-            a.applyAction(res, worldState, s/totalScore)
+            a.applyAction(res, worldState.getInteractionStates(res["name"]), s/totalScore)
+            
         return res
         
     def predictObjectState(self, objectState):
@@ -215,7 +248,7 @@ class ModelAction(object):
                 return pred.predict(objectState)
                 
         #Return the state itself if no predictor was found
-        return copy.deepcopy(objectState)
+        return ObjectState.clone(objectState)
     
     def predict(self, worldState, action):
         print "predict"
@@ -229,6 +262,8 @@ class ModelAction(object):
             newOS = self.predictObjectState(newOS)
             objectState = newOS
             resultWS.addObjectState(newOS)
+            print "prediction interactions"
+            resultWS.parseInteractions()
             
         return resultWS
         
@@ -236,13 +271,15 @@ class ModelAction(object):
         for a in self.actions:
             if case.preState["name"] in a.targets:
                 if Set(a.effect.keys()) == case.getSetOfActionAttribs():
-                    a.update(case, worldState)
-                    return
+                    a.update(case, worldState.getInteractionStates(case.preState["name"]))
+                    return a
+
         #If no action was found
         print "creating new action for {}: {}".format(case.preState["name"], case.getSetOfActionAttribs())
         newAction = Action(case.getSetOfActionAttribs())
-        newAction.update(case, worldState)
+        newAction.update(case, worldState.getInteractionStates(case.preState["name"]))
         self.actions.append(newAction)
+        return newAction
         
         
     def updateState(self, objectState, worldState, action, resultingOS):
@@ -250,21 +287,20 @@ class ModelAction(object):
         predictionRating = resultingOS.score(objectState)
         print "Prediction rating: ", predictionRating
         if predictionRating < THRESHOLD:            
-            self.checkForAction(case, worldState)
+            responsibleAction = self.checkForAction(case, worldState)
             predFound = False
             for pred in self.predictors:
                 if objectState["name"] in pred.targets:
-                    pred.update(case)
+                    pred.update(case, responsibleAction, worldState)
                     
                     predFound = True
             if not predFound:
                 pred = Predictor()
                 pred.targets.add(objectState["name"])
-                pred.update(case)
+                pred.update(case, responsibleAction, worldState)
                 self.predictors.append(pred)
             self.cases.append(case)
     
     def update(self, worldState, action, prediction, result):
-        print "Update!: ", prediction.objectStates
         for os in prediction.objectStates.values():
             self.updateState(os, worldState, action, result.getObjectState(os["name"]))

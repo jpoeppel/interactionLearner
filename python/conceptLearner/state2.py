@@ -480,7 +480,7 @@ class InteractionState(State):
         x2yn = x2x*s + x2y*c
         x1n = np.array([x1xn,x1yn,0]) + mp
         x2n = np.array([x2xn,x2yn,0]) + mp
-        if x0x <= x2x and x0x >= x1x: 
+        if x0x <= x2xn and x0x >= x1xn: 
             d1 = abs((x2n[0]-x1n[0])*(x1n[1]-x0y)-(x1n[0]-x0x)*(x2n[1]-x1n[1]))/math.sqrt((x2n[0]-x1n[0])**2+(x2n[1]-x1n[1])**2) - 0.025
         else:
             d1 = min(np.linalg.norm(x1n-np.array([x0x,x0y,x0z])), np.linalg.norm(x2n-np.array([x0x,x0y,x0z])))
@@ -494,7 +494,7 @@ class InteractionState(State):
         x2yn = x2x*s + x2y*c
         x1n = np.array([x1xn,x1yn,0]) + mp
         x2n = np.array([x2xn,x2yn,0]) + mp
-        if x0x <= x2x and x0x >= x1x: 
+        if x0x <= x2xn and x0x >= x1xn: 
             d2 = abs((x2n[0]-x1n[0])*(x1n[1]-x0y)-(x1n[0]-x0x)*(x2n[1]-x1n[1]))/math.sqrt((x2n[0]-x1n[0])**2+(x2n[1]-x1n[1])**2) - 0.025
         else:
             d2 = min(np.linalg.norm(x1n-np.array([x0x,x0y,x0z])), np.linalg.norm(x2n-np.array([x0x,x0y,x0z])))
@@ -508,7 +508,7 @@ class InteractionState(State):
         x2yn = x2x*s + x2y*c
         x1n = np.array([x1xn,x1yn,0]) + mp
         x2n = np.array([x2xn,x2yn,0]) + mp
-        if x0y <= x1y and x0y >= x2y: 
+        if x0y <= x1yn and x0y >= x2yn: 
             d3 = abs((x2n[0]-x1n[0])*(x1n[1]-x0y)-(x1n[0]-x0x)*(x2n[1]-x1n[1]))/math.sqrt((x2n[0]-x1n[0])**2+(x2n[1]-x1n[1])**2) - 0.025
         else:
             d3 = min(np.linalg.norm(x1n-np.array([x0x,x0y,x0z])), np.linalg.norm(x2n-np.array([x0x,x0y,x0z])))
@@ -522,7 +522,7 @@ class InteractionState(State):
         x2yn = x2x*s + x2y*c
         x1n = np.array([x1xn,x1yn,0]) + mp
         x2n = np.array([x2xn,x2yn,0]) + mp
-        if x0y <= x1y and x0y >= x2y: 
+        if x0y <= x1yn and x0y >= x2yn: 
             d4 = abs((x2n[0]-x1n[0])*(x1n[1]-x0y)-(x1n[0]-x0x)*(x2n[1]-x1n[1]))/math.sqrt((x2n[0]-x1n[0])**2+(x2n[1]-x1n[1])**2) - 0.025
         else:
             d4 = min(np.linalg.norm(x1n-np.array([x0x,x0y,x0z])), np.linalg.norm(x2n-np.array([x0x,x0y,x0z])))

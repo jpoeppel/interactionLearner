@@ -5,7 +5,7 @@ TESTSUITE to try out different models
 @author: jpoeppel
 """
 import numpy as np
-
+import copy
 
 quatZero = np.array([0.0,0.0,0.0,1.0])
 quatRot = np.array([0.0,0.0,0.2326,0.9726])
@@ -48,13 +48,43 @@ def getInverse(matrix):
     invTrans[3,3] = 1.0
     return invTrans
 
+class dummy(object):
+    
+    def __init__(self):
+        self.vec = np.array(range(10))
+        self.a = self.vec[0:1]
+        self.b = self.vec[0:3]
+
 
 if __name__ == "__main__":
-    transM = getTransformationMatrix(quatRot, trans)
-    inv = getInverse(transM)
-    a,b = transform(trans, quatRot, inv, quatRot)
-    q = quatRot
-    q[:3] *= -1
-    print transform(a+np.array([0.0,0.1,0.0]), b, transM, q)
-    
-    
+#    transM = getTransformationMatrix(quatRot, trans)
+#    inv = getInverse(transM)
+#    a,b = transform(trans, quatRot, inv, quatRot)
+#    q = quatRot
+#    q[:3] *= -1
+#    print transform(a+np.array([0.0,0.1,0.0]), b, transM, q)
+    c = dummy()
+    print "c.vec: ", c.vec
+    print "c.a: ", c.a
+    print "c.b: ", c.b
+    d = copy.deepcopy(c)
+    e = dummy()
+    e.vec = np.copy(c.vec)
+    print "d.vec: ", d.vec
+    print "d.a: ", d.a
+    print "d.b: ", d.b
+    c.a += 10
+    print "c.vec: ", c.vec
+    print "c.a: ", c.a
+    print "c.b: ", c.b
+    d.a += 20
+    print "d.vec: ", d.vec
+    print "d.a: ", d.a
+    print "d.b: ", d.b
+    e.a += 30
+    print "e.vec: ", e.vec
+    print "e.a: ", e.a
+    print "e.b: ", e.b
+    print "c.vec: ", c.vec
+    print "c.a: ", c.a
+    print "c.b: ", c.b

@@ -24,7 +24,7 @@ def cosS(a, b):
         print "b: " + str(b)
     
 def expS(a,b):
-    return math.exp(-10*(np.linalg.norm(a-b)))
+    return math.exp(-0.5*(np.linalg.norm(a-b)))
     
 def equalS(a,b):
     if a == b:
@@ -50,7 +50,8 @@ similarities = {"dir": expS, "linVel": expS, "orientation": expS, "pos": expS,
            "dangVel": expS, "mvDir": expS, "otype": equalS, "sangVel":expS, "oangVel": expS, 
            "sori": expS, "spos": expS, "opos": expS, "stype":equalS, "sid": equalS, 
            "slinVel": expS, "olinVel":expS, "oname": equalS, "euler": expS, "seuler": expS, 
-           "deuler": expS, "oeuler": expS, "side": equalS}
+           "deuler": expS, "oeuler": expS, "side": equalS, "relPosX": expS, "relPosY": expS,
+           "relPosZ": expS, "closing" : expS, "closingDivDist": expS, }
            
 def cosD(a,b):
     return 1-cosS(a,b)

@@ -60,7 +60,7 @@ DIRECTIONGENERALISATION = False
 
 
 
-NUM_TRAIN_RUNS = 5
+NUM_TRAIN_RUNS = 10
 NUM_TEST_RUNS = 50
 
 class GazeboInterface():
@@ -305,9 +305,9 @@ class GazeboInterface():
          #Set up Starting position
         posX = ((np.random.rand()-0.5)*randomRange) #* 0.5
         if self.trainRun == 0:
-            posX = -0.2656
+            posX = -0.25
         elif self.trainRun == 1:
-            posX = 0.2656
+            posX = 0.25
         elif self.trainRun == 2:
             posX = 0
             

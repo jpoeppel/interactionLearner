@@ -93,14 +93,13 @@ class WorldState(object):
                 tmp["posZ"][0] = np.round(m.pose.position.z, NUMDEC)
                 tmp["ori"][0] = np.round(common.quaternionToEuler(np.array([m.pose.orientation.x,m.pose.orientation.y,
                                             m.pose.orientation.z,m.pose.orientation.w])), NUMDEC)[2]
-                print "linVel before setting: ", tmp["linVel"]
                 tmp["linVelX"][0] = np.round(m.linVel.x, NUMDEC)
                 tmp["linVelY"][0] = np.round(m.linVel.y, NUMDEC)
                 tmp["linVelZ"][0] = np.round(m.linVel.z, NUMDEC)
-                print "linVel: ", tmp["linVel"]
-                print "norm linVel: ", np.linalg.norm(tmp["linVel"])
+#                print "linVel: ", tmp["linVel"]
+#                print "norm linVel: ", np.linalg.norm(tmp["linVel"])
                 if np.linalg.norm(tmp["linVel"]) < 0.01:
-                    print "setting linVel to 0"
+#                    print "setting linVel to 0"
                     tmp["linVelX"][0] = 0.0
                     tmp["linVelY"][0] = 0.0
                     tmp["linVelZ"][0] = 0.0
@@ -139,10 +138,10 @@ class WorldState(object):
                     intState["relPosX"][0] = np.round(os1["posX"]-os2["posX"], NUMDEC)
                     intState["relPosY"][0] = np.round(os1["posY"]-os2["posY"], NUMDEC)
                     intState["relPosZ"][0] = np.round(os1["posZ"]-os2["posZ"], NUMDEC)
-                    if intState["dist"] != 0:
-                        intState["closingDivDist"][0] = intState["closing"]/intState["dist"]
-                    else:
-                        intState["closingDivDist"][0] = intState["closing"]/0.001
+#                    if intState["dist"] != 0:
+#                        intState["closingDivDist"][0] = intState["closing"]/intState["dist"]
+#                    else:
+#                        intState["closingDivDist"][0] = intState["closing"]/0.001
                     self.interactionStates[intState["name"]] = intState
             
             

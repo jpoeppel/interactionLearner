@@ -87,9 +87,11 @@ class Action(object):
         for intState in intStates:
             for k,v in self.effect.items():
                 if isinstance(v, ITM):
-                    state[k] += strength * v.predict(intState.getVec())
+#                    state[k] += strength * v.predict(intState.getVec())
+                    state[k] = strength * v.predict(intState.getVec())
                 else:
-                    state[k] += strength * v
+#                    state[k] += strength * v
+                    state[k] = strength * v
             
     def rate(self, objectState, intStates):
 #        print "rating action: {}, precons: {}".format(self.effect.keys(), self.preConditions)
@@ -116,11 +118,12 @@ class Action(object):
         if objectState["name"] not in self.targets:
             return 0
         bestScore = 0.0
-        print "intStates: ", intStates
+#        print "intStates: ", intStates
+        mask = [2,5,6,7,8]
         for intState in intStates:
             
             for vec in self.vecs:
-                s = np.exp(-0.5*np.linalg.norm(vec-intState.getVec()))
+                s = np.exp(-0.5*np.linalg.norm(vec[mask]-intState.getVec(mask)))
                 if s > bestScore:
                     bestScore = s
                     
@@ -130,17 +133,18 @@ class Action(object):
         self.targets.add(case.preState["name"])
         for intState in intStates:
             self.vecs.append(intState.getVec())
-#            for k,v in intState.relItems():
-#                if k in self.preConditions:
-#                    if np.linalg.norm(v-self.preConditions[k]) > 0.1:
-#                        del self.preConditions[k]
-#                else:
-#                    if len(self.refCases) < 1:
-#                        self.preConditions[k] = v 
+            for k,v in intState.relItems():
+                if k in self.preConditions:
+                    if np.linalg.norm(v-self.preConditions[k]) > 0.1:
+                        del self.preConditions[k]
+                else:
+                    if len(self.refCases) < 1:
+                        self.preConditions[k] = v 
         for k,v in self.effect.items():
 #            if not k in self.effect:
 #                self.effect[k] = ITM()
-            v.train(Node(0, wIn=intState.getVec(), wOut=case.dif[k]))
+#            v.train(Node(0, wIn=intState.getVec(), wOut=case.dif[k]))
+            v.train(Node(0, wIn=intState.getVec(), wOut=case.postState[k]))
                 
         self.refCases.append((case, intStates))
         
@@ -229,15 +233,21 @@ class ModelAction(object):
 #        print "rating for: ", objectState["name"]
         scoreList = [(a.rate2(objectState, worldState.getInteractionStates(objectState["name"])), a) for a in self.actions]
         sortedList = sorted(scoreList, key=itemgetter(0), reverse=True) 
-        print "scorelist for {}: {}".format(objectState["name"], sortedList)
-        filteredList = filter(lambda x: x[0] > 0.75, sortedList)
+#        print "scorelist for {}: {}".format(objectState["name"], sortedList)
+        filteredList = filter(lambda x: x[0] > 0.92, sortedList)
 #        print "filteredList for {}: {}".format(objectState["name"], filteredList)
         totalScore = np.sum([s[0] for s in filteredList])
         if totalScore == 0:
             totalScore = 1
         res = ObjectState.clone(objectState)
-        for s,a in filteredList:
-            a.applyAction(res, worldState.getInteractionStates(res["name"]), s/totalScore)
+#        for s,a in filteredList:
+#            a.applyAction(res, worldState.getInteractionStates(res["name"]), s/totalScore)
+        if len(sortedList) > 0:
+#            if sortedList[0][1].effect.keys() == [] and sortedList[0][0] > 0.9 and len(sortedList) > 1:
+#                sortedList[1][1].applyAction(res, worldState.getInteractionStates(res["name"]))
+#            else:
+            print "selected Action for {}: {} ".format(objectState["name"], sortedList[0][1])
+            sortedList[0][1].applyAction(res, worldState.getInteractionStates(res["name"]))
             
         return res
         
@@ -288,6 +298,7 @@ class ModelAction(object):
         print "Prediction rating: ", predictionRating
         if predictionRating < THRESHOLD:            
             responsibleAction = self.checkForAction(case, worldState)
+            print "Responsible action for {}: {}".format(objectState["name"], responsibleAction)
             predFound = False
             for pred in self.predictors:
                 if objectState["name"] in pred.targets:

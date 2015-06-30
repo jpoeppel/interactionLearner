@@ -470,6 +470,7 @@ class GazeboInterface():
                 self.trainRun += 1
                 if self.trainRun == NUM_TRAIN_RUNS:
                     self.pauseWorld()
+                    print "actions: ", self.worldModel.actions.values()
 #                    dot_data = StringIO()
 #                    self.worldModel.getGraphViz(dot_data)
 #                    graph = pydot.graph_from_dot_data(dot_data.getvalue())

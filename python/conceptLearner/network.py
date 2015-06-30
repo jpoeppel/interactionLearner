@@ -8,9 +8,13 @@ Created on Mon Apr 13 00:32:22 2015
 import numpy as np
 from sets import Set
 import copy
+from operator import itemgetter
 
 EQU = 0
 CMP = 1
+
+alpha = 0.01
+beta = 0.001
 
 class Node(object):
     def __init__(self, name, pos=np.array([]), wIn=np.array([]), action = np.array([]), wOut = np.array([]), A = np.array([])):
@@ -102,6 +106,84 @@ class Network(object):
         if self.nodes.has_key(node.name):
             del self.nodes[node.name]
 
+
+class LVQNeuron(object):
+    
+    def __init__(self, vec, label):
+        self.vector = np.copy(vec)
+        self.label = label
+        
+    def dist(self, vec, weights):
+        return np.dot(weights, np.square(self.vector-vec))
+        
+    def train(self, vec, label, alpha, factor, d1, d2, weights):
+        if label == self.label:
+            self.vector += alpha * factor * d2 * np.dot(weights, -2*(vec - self.vector))
+        else:
+            self.vector -= alpha * factor * d1 * np.dot(weights, -2*(vec - self.vector))
+            
+    def __repr__(self):
+        return str(self.label)
+            
+class LVQNeuralNet(object):
+    def __init__(self, inDim):
+        self.neurons = []
+        self.weights = np.ones(inDim)/inDim
+        self.inDim = inDim
+            
+    def get_classifier(self, vec):
+        s = [(neuron, neuron.dist(vec, self.weights)) for neuron in self.neurons]
+#        print "classifiers: ", s
+        return min(s, key=itemgetter(1))[0]
+        
+    def addNeuron(self, vec, label):
+        self.neurons.append(LVQNeuron(vec, label))
+        
+    def addRandomNeurons(self, k, label):
+        self.neurons.extend([LVQNeuron((np.random.rand(self.inDim) - 0.5)*2, label) for x in xrange(k) ])
+        
+    def train(self, vec, label):
+        s = [(neuron, neuron.dist(vec, self.weights), neuron.label) for neuron in self.neurons]
+        sortedList = sorted(s, key=itemgetter(1))
+        d1 = None
+        d2 = None
+        if sortedList[0][2] == label:
+            w1 = sortedList[0][0]
+            d1 = sortedList[0][1]
+            for x in sortedList:
+                if x[2] != label:
+                    w2 = x[0]
+                    d2 = x[1]
+                    break
+        else:
+            w2 = sortedList[0][0]
+            d2 = sortedList[0][1]
+            for x in sortedList:
+                if x[2] == label:
+                    w1 = x[0]
+                    d1 = x[1]
+                    break
+        if d1 != None and d2 != None:
+            u = (d1-d2)/(d1+d2)
+            dist2 = np.square(d1+d2)
+            difsig = np.exp(u)/np.square(np.exp(u)+1)
+            print "difsig: ", difsig
+            print "dist2: ", dist2
+            w1.train(vec, label, alpha, 2*difsig/dist2, d1, d2, self.weights)
+            w2.train(vec, label, alpha, 2*difsig/dist2, d1, d2, self.weights)
+            self.weights += beta * difsig * (2 * d2/dist2 * np.square(vec-w1.vector) - 2*d1/dist2*np.square(vec-w2.vector))
+            self.weights[self.weights<0] = 0
+            self.weights /= np.sum(self.weights)#np.linalg.norm(self.weights)
+            print "new weights: ", self.weights
+#            print "sum weights: ", np.sum(self.weights)
+#            print "norm: ", np.linalg.norm(self.weights)
+        
+    def classify(self, vec):
+        if len(self.neurons) > 0:
+            return self.get_classifier(vec).label
+        else:
+            return None
+                
 
 class TreeNode(object):
     

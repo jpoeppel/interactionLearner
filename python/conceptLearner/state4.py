@@ -95,7 +95,7 @@ class WorldState(object):
                                             m.pose.orientation.z,m.pose.orientation.w])), NUMDEC)[2]
                 tmp["linVelX"][0] = np.round(m.linVel.x, NUMDEC)
                 tmp["linVelY"][0] = np.round(m.linVel.y, NUMDEC)
-                tmp["linVelZ"][0] = np.round(m.linVel.z, NUMDEC)
+                tmp["linVelZ"][0] = 0.0 # np.round(m.linVel.z, NUMDEC)
 #                print "linVel: ", tmp["linVel"]
 #                print "norm linVel: ", np.linalg.norm(tmp["linVel"])
                 if np.linalg.norm(tmp["linVel"]) < 0.01:

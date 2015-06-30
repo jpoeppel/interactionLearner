@@ -16,8 +16,8 @@ from metrics import similarities
 from config import SINGLE_INTSTATE
 from common import GAZEBOCMDS as GZCMD
 from network import Node
-
-
+from network import LVQNeuron, LVQNeuralNet
+import random
 #if SINGLE_INTSTATE:
 #    from state3 import State, ObjectState, InteractionState, WorldState
 #else:
@@ -27,7 +27,9 @@ from state4 import State, ObjectState, InteractionState, WorldState
 
 from state2 import Action as GripperAction
 
-THRESHOLD = 0.98
+THRESHOLD = 1.98
+
+NUM_PROTOTYPES = 5
 
 class BaseCase(object):
     
@@ -54,8 +56,11 @@ class BaseCase(object):
 #        if self.preState["name"] == "blockA":
 #            print "dif: ", self.dif
         r = Set()
-        for k,v in self.dif.items():
-            if k in self.preState.actionItems and np.linalg.norm(v) > 0.01:
+#        for k,v in self.dif.items():
+#            if k in self.preState.actionItems and np.linalg.norm(v) > 0.01:
+#                r.add(k)
+        for k in self.preState.actionItems:
+            if np.linalg.norm(self.dif[k]) > 0.01:
                 r.add(k)
         return r
         
@@ -74,6 +79,7 @@ class Action(object):
     """
     
     def __init__(self, variables):
+        self.id = -1
         self.preConditions = {}
         self.targets = Set()
         self.effect = {}
@@ -148,6 +154,21 @@ class Action(object):
                 
         self.refCases.append((case, intStates))
         
+    def getPrototype(self):
+        if len(self.refCases) > 0:
+            ref, refInts = random.choice(self.refCases)
+            vec = np.copy(random.choice(refInts).vec)
+            vec += (np.random.rand(len(vec))- 0.5) * 0.5
+        else:
+            vec = np.random.rand(len(InteractionState().vec))-0.5
+        return vec
+        
+    def getReferenzes(self):
+        if len(self.refCases) > 0:
+            return [(random.choice(vec[1]).vec, self.id) for vec in self.refCases]
+        else:
+            return [(self.getPrototype(), self.id)]
+        
 
     @classmethod
     def getGripperAction(cls, cmd=GZCMD["NOTHING"] , direction=np.zeros(3)):
@@ -221,8 +242,9 @@ class ModelAction(object):
     
     def __init__(self):
         self.predictors = []
-        self.actions = []
+        self.actions = {}
         self.cases = []
+        self.lvq = LVQNeuralNet(len(InteractionState().vec))
 
     def getAction(self):
         pass
@@ -231,7 +253,7 @@ class ModelAction(object):
         if objectState["name"] == "gripper":
             objectState["linVel"] = action["mvDir"]
 #        print "rating for: ", objectState["name"]
-        scoreList = [(a.rate2(objectState, worldState.getInteractionStates(objectState["name"])), a) for a in self.actions]
+        scoreList = [(a.rate2(objectState, worldState.getInteractionStates(objectState["name"])), a) for a in self.actions.values()]
         sortedList = sorted(scoreList, key=itemgetter(0), reverse=True) 
 #        print "scorelist for {}: {}".format(objectState["name"], sortedList)
         filteredList = filter(lambda x: x[0] > 0.92, sortedList)
@@ -251,6 +273,20 @@ class ModelAction(object):
             
         return res
         
+    def applyMostSuitedAction2(self, objectState, worldState, action):
+        if objectState["name"] == "gripper":
+            objectState["linVel"] = action["mvDir"]
+            
+        res = ObjectState.clone(objectState)
+        for intState in worldState.getInteractionStates(objectState["name"]):
+            l = self.lvq.classify(intState.vec)
+            if l != None:
+                print "selected Action for {}: {} ".format(objectState["name"], self.actions[l])
+                self.actions[l].applyAction(res, worldState.getInteractionStates(res["name"]))
+            else:
+                print "No action found"
+        return res
+        
     def predictObjectState(self, objectState):
 #        print "predict: ", objectState
         for pred in self.predictors:
@@ -268,28 +304,61 @@ class ModelAction(object):
 #        resultWS.invTrans = np.copy(worldState.invTrans)
 #        resultWS.ori = np.copy(worldState.ori)
         for objectState in worldState.objectStates.values():
-            newOS = self.applyMostSuitedAction(objectState, worldState, action)
+            newOS = self.applyMostSuitedAction2(objectState, worldState, action)
             newOS = self.predictObjectState(newOS)
             objectState = newOS
             resultWS.addObjectState(newOS)
-            print "prediction interactions"
+#            print "prediction interactions"
             resultWS.parseInteractions()
             
         return resultWS
         
     def checkForAction(self, case, worldState):
-        for a in self.actions:
-            if case.preState["name"] in a.targets:
-                if Set(a.effect.keys()) == case.getSetOfActionAttribs():
+        for l,a in self.actions.items():
+#            if Set(a.effect.keys()) == case.getSetOfActionAttribs():
+#                if case.preState["name"] in a.targets:                
+#                    a.update(case, worldState.getInteractionStates(case.preState["name"]))
+#                    self.lvq.train(random.choice(worldState.getInteractionStates(case.preState["name"])).vec, l)
+#                    return a
+#                else:
+#                    a.targets.add(case.preState["name"])
+#                    a.update(case, worldState.getInteractionStates(case.preState["name"]))
+#                    self.lvq.train(random.choice(worldState.getInteractionStates(case.preState["name"])).vec, l)
+#                    return a
+#            else:
+                invalid = False
+                for k in case.preState.actionItems:
+                    if np.linalg.norm(case.preState[k]-a.effect[k].predict(worldState.getInteractionStates(case.preState["name"])[0].getVec())) > 0.1:
+                        invalid = True
+                        break
+                if not invalid:
+                    a.targets.add(case.preState["name"])
                     a.update(case, worldState.getInteractionStates(case.preState["name"]))
+                    self.lvq.train(random.choice(worldState.getInteractionStates(case.preState["name"])).vec, l)
                     return a
 
         #If no action was found
         print "creating new action for {}: {}".format(case.preState["name"], case.getSetOfActionAttribs())
         newAction = Action(case.getSetOfActionAttribs())
         newAction.update(case, worldState.getInteractionStates(case.preState["name"]))
-        self.actions.append(newAction)
+        newAction.id = len(self.actions)
+        self.actions[newAction.id] = newAction
+        self.updateLVQ()
         return newAction
+        
+    def updateLVQ(self):
+        self.lvq = LVQNeuralNet(len(InteractionState().vec))
+        for l,a in self.actions.items():
+            for i in xrange(NUM_PROTOTYPES):
+                self.lvq.addNeuron(a.getPrototype(), l)
+        trainData = []
+        for a in self.actions.values():
+            trainData.extend(a.getReferenzes())
+        np.random.shuffle(trainData)
+#        print "traindata: ", trainData
+        for v, l in trainData:
+            self.lvq.train(v, l)
+            
         
         
     def updateState(self, objectState, worldState, action, resultingOS):

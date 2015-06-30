@@ -23,9 +23,11 @@ import common
 from sklearn.gaussian_process import GaussianProcess
 from topoMaps import ITM
 from network import Node, Tree
+from network import LVQNeuron, LVQNeuralNet
 import copy
 import math
 import heapq
+import random
 from sets import Set
 from operator import methodcaller, itemgetter
 
@@ -56,6 +58,9 @@ TARGETTHRESHOLD = MAXCASESCORE - 0.05
 NUM_SAMPLES = 10
 
 USE_CONSTANTS = True
+
+NUM_PROTOTYPES = 5
+
 #
 import logging
 logging.basicConfig()
@@ -118,6 +123,9 @@ class BaseCase(object):
         
     def __repr__(self):
         return "Pre: {} \n Action: {} \n Post: {}".format(self.preState,self.action,self.postState)
+        
+    def toSelVec(self):
+        return np.concatenate((self.preState.toSelVec(),self.action.toSelVec()))
         
 class AbstractCase(object):
     
@@ -505,7 +513,14 @@ class AbstractCase(object):
                 bestCase = c
         return bestCase
         
-    
+    def getPrototypes(self, k):
+        vecs = []
+        for i in xrange(k):
+            refCase = random.choice(self.refCases)
+            v = np.concatenate((refCase.preState.toSelVec(),refCase.action.toSelVec()))
+            v += (np.random.rand(len(v)) - 0.5) * 0.1
+            vecs.append(v)
+        return vecs
     
 class ModelCBR(object):
     
@@ -521,6 +536,7 @@ class ModelCBR(object):
         self.avgCorrectPrediction = 0.0
         self.correctPredictions = 0
         self.aCClassifier = None
+        self.lvq = None
         self.scaler = None
         
     def createRelativeTargetInteraction(self, worldState, target):
@@ -959,17 +975,24 @@ class ModelCBR(object):
         
 #        print "getBestCase with state: {} \n action: {}".format(state, action)
         bestCase = None
-        if self.aCClassifier != None:
-            x = [np.concatenate((state.toSelVec(),action.toSelVec()))]
-#            print "X before scaling: ", x
-            if self.scaler != None:
-                x = self.scaler.transform(x)
-#            print "X after scaling: ", x
-            caseID = int(self.aCClassifier.predict(x)[0])
-#            print "CLASS PROBABILITIES: ", self.aCClassifier.predict_proba(x)
-#            print "CaseID: ", caseID
-#            print "Case prob: ", self.aCClassifier.predict_proba(x)
-            bestCase = self.abstractCases[caseID]
+
+        if self.lvq != None:
+            x = np.concatenate((state.toSelVec(),action.toSelVec()))
+            caseId = self.lvq.classify(x)
+            if caseId != None:
+                bestCase = self.abstractCases[caseId]
+        
+#        if self.aCClassifier != None:
+#            x = [np.concatenate((state.toSelVec(),action.toSelVec()))]
+##            print "X before scaling: ", x
+#            if self.scaler != None:
+#                x = self.scaler.transform(x)
+##            print "X after scaling: ", x
+#            caseID = int(self.aCClassifier.predict(x)[0])
+##            print "CLASS PROBABILITIES: ", self.aCClassifier.predict_proba(x)
+##            print "CaseID: ", caseID
+##            print "Case prob: ", self.aCClassifier.predict_proba(x)
+#            bestCase = self.abstractCases[caseID]
         else:
 #            scoreList = [(c,c.score(state,action)) for c in self.abstractCases]
             scoreList = [(c.abstCase,c.score(state,action)) for c in self.cases]
@@ -1070,8 +1093,8 @@ class ModelCBR(object):
                 print "correct case selected!!!!!!!!!!!!!!!!!"
                 usedCase.updatePredictionScore(predictionScore)
                 self.numCorrectCase += 1
-            else:
-                retrain = True
+#            else:
+#                retrain = True
                 
         if predictionScore < PREDICTIONTHRESHOLD:
             if abstractCase != None:
@@ -1082,6 +1105,10 @@ class ModelCBR(object):
                         print "case was already present"
                     else:
                         self.addBaseCase(newCase)
+                        if self.lvq != None:
+                            self.lvq.train(newCase.toSelVec(), abstractCase.id)
+                        else:
+                            retrain = True
                     
             else:
                 #Create a new abstract case
@@ -1091,9 +1118,21 @@ class ModelCBR(object):
                 self.addBaseCase(newCase)
                 retrain = True
         if retrain:
-            self.retrainACClassifier()
-        if attribSet == Set(["spos"]) and state["contact"] == 1:
-            raise NotImplementedError
+#            self.retrainACClassifier()
+            self.retrainLVQ()
+#        if attribSet == Set(["spos"]) and state["contact"] == 1:
+#            raise NotImplementedError
+            
+    def retrainLVQ(self):
+        if len(self.abstractCases) > 1:
+            dim = np.size(np.concatenate((self.cases[0].preState.toSelVec(),self.cases[0].action.toSelVec())))
+            self.lvq = LVQNeuralNet(dim)
+            for ac in self.abstractCases.values():
+                for p in ac.getPrototypes(NUM_PROTOTYPES):
+                    self.lvq.addNeuron(p, ac.id)
+            for c in self.cases:
+                self.lvq.train(c.toSelVec(), c.abstCase.id)
+                    
 
 
     def retrainACClassifier(self):

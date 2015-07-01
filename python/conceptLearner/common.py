@@ -9,7 +9,7 @@ Created on Thu Apr  9 11:31:07 2015
 import numpy as np
 import math
 
-NUMDEC = 4
+NUMDEC = 3
 GAZEBOCMDS = { "NOTHING": 0,"MOVE": 1, "GRAB": 2, "RELEASE": 3}
 SIDE = {"NONE": 0, "DOWN": 1, "UP": 2}
 
@@ -81,7 +81,7 @@ def eulerPosToTransformation(euler, pos):
 #                      [-ca*sg-sa*cb*cg, -sa*sg+ca*cb*cg, sb*cg, py],
 #                      [sa*sb, -ca*sb, cb, pz],
 #                      [0.0, 0.0, 0.0, 1.0]],NUMDEC))
-    return np.matrix([[cb*ca, sg*sb*ca-cg*sa, cg*sb*ca+sg*sa, px],
+    return np.array([[cb*ca, sg*sb*ca-cg*sa, cg*sb*ca+sg*sa, px],
                                [cb*sa, sg*sb*sa+cg*ca, cg*sb*sa-sg*ca, py],
                                [-sb, sg*cb, cg*cb, pz],
                                [0.0,0.0,0.0,1.0]])
@@ -102,14 +102,14 @@ def eulerPosToTransformation2d(euler, pos):
 
 def invertTransMatrix(matrix):
     r,c = np.shape(matrix)
-    invTrans = np.matrix(np.zeros((r,c)))
+    invTrans = np.zeros((r,c))
     r -= 1
     c -= 1
     matrixRot = matrix[:r,:c]
     
     invTransRot = invTrans[:r,:c]
     invTransRot[:,:] = np.copy(matrixRot.T)
-    invTrans[:r,c] = -matrixRot.T*matrix[:r,c]
+    invTrans[:r,c] = np.dot(-matrixRot.T,matrix[:r,c])
     invTrans[r,c] = 1.0
     return invTrans                      
                       

@@ -60,7 +60,8 @@ class ITM(Network):
                     self.removeEdge(nearest.name, n.name)
             if np.dot(nearest.vec()-x.vec(),second.vec()-x.vec()) > 0 and np.linalg.norm(x.vec()-nearest.vec()) > EMAX:
                 self.addNode(x)
-#                x.adapt(nearest, ETA)
+                x.adapt(nearest, ETA)
+                print "adding new node"
                 self.addEdge(nearest.name, name)
             if np.linalg.norm(nearest.vec()-second.vec()) < 0.5*EMAX:
                 self.removeNode(second)

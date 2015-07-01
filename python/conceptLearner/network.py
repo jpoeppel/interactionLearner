@@ -167,14 +167,14 @@ class LVQNeuralNet(object):
             u = (d1-d2)/(d1+d2)
             dist2 = np.square(d1+d2)
             difsig = np.exp(u)/np.square(np.exp(u)+1)
-            print "difsig: ", difsig
-            print "dist2: ", dist2
+#            print "difsig: ", difsig
+#            print "dist2: ", dist2
             w1.train(vec, label, alpha, 2*difsig/dist2, d1, d2, self.weights)
             w2.train(vec, label, alpha, 2*difsig/dist2, d1, d2, self.weights)
             self.weights += beta * difsig * (2 * d2/dist2 * np.square(vec-w1.vector) - 2*d1/dist2*np.square(vec-w2.vector))
             self.weights[self.weights<0] = 0
             self.weights /= np.sum(self.weights)#np.linalg.norm(self.weights)
-            print "new weights: ", self.weights
+#            print "new weights: ", self.weights
 #            print "sum weights: ", np.sum(self.weights)
 #            print "norm: ", np.linalg.norm(self.weights)
         

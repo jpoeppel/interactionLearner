@@ -337,8 +337,8 @@ class InteractionState(State):
 #        self.relSelKeys.remove("oid")
         
 #        self.relKeys.remove("contact")
-        self.relKeys.remove("sid")
-        self.relKeys.remove("oid")
+#        self.relKeys.remove("sid")
+#        self.relKeys.remove("oid")
 #        self.relKeys.remove("spos")
 #        self.weights["slinVel"] = 2
 #        self.weights["spos"] = 0.5

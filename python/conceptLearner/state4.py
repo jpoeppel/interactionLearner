@@ -46,7 +46,7 @@ class ObjectState(State):
                      "linVelZ": self.vec[7:8], "angVel": self.vec[8:9],
                      "pos": self.vec[1:4], "linVel": self.vec[5:8], "contact":None})
         self.mask = np.array(range(len(self.vec)))
-        self.relKeys = ["id", "posX", "posY", "posZ", "ori", "linVelX", "linVelY", "linVelZ", "angVel"]
+        self.relKeys = ["id", "posX", "posY", "posZ", "ori"]#, "linVelX", "linVelY", "linVelZ", "angVel"]
         self.actionItems = ["linVelX", "linVelY", "linVelZ", "angVel"]
         
     @classmethod
@@ -133,15 +133,23 @@ class WorldState(object):
                     intState["sid"][0] = os1["id"]
                     intState["oid"][0] = os2["id"]
                     intState["dist"][0], intState["closing"][0] = self.computeDistanceClosing(os1,os2)
+#                    print "Closing for os1 {}: {}".format(os1["name"], intState["closing"])
+                    if intState["dist"] < 0.0:
+                        intState["dist"] = 0.0
                     if os1["contact"] == n2:
                         intState["contact"][0] = 1
-                    intState["relPosX"][0] = np.round(os1["posX"]-os2["posX"], NUMDEC)
-                    intState["relPosY"][0] = np.round(os1["posY"]-os2["posY"], NUMDEC)
-                    intState["relPosZ"][0] = np.round(os1["posZ"]-os2["posZ"], NUMDEC)
-#                    if intState["dist"] != 0:
-#                        intState["closingDivDist"][0] = intState["closing"]/intState["dist"]
-#                    else:
-#                        intState["closingDivDist"][0] = intState["closing"]/0.001
+#                    intState["relPosX"][0] = np.round(os1["posX"]-os2["posX"], NUMDEC)
+#                    intState["relPosY"][0] = np.round(os1["posY"]-os2["posY"], NUMDEC)
+#                    intState["relPosZ"][0] = np.round(os1["posZ"]-os2["posZ"], NUMDEC)
+                    intState["relPos"][:3] = self.calcRelPosition(os1,os2)
+#                    print "os1 name: ", os1["name"]
+#                    print "relPos: ", intState["relPos"]
+#                    print "relPosY: ", intState["relPosY"]
+                    if intState["dist"] != 0:
+                        intState["closingDivDist"][0] = intState["closing"]/intState["dist"]
+                    else:
+                        intState["closingDivDist"][0] = intState["closing"]/0.001
+                    intState["closingDivDist"][0] = np.round(math.tanh(intState["closingDivDist"]), NUMDEC)
                     self.interactionStates[intState["name"]] = intState
             
             
@@ -150,6 +158,17 @@ class WorldState(object):
         self.parseContacts(gzWS.contacts)
         print "parsing"
         self.parseInteractions()
+        
+    def calcRelPosition(self, os1, os2):
+        euler = np.zeros(3)
+        euler[2] = os1["ori"][0]
+        trans = common.eulerPosToTransformation(euler, os1["pos"])
+        invTrans = common.invertTransMatrix(trans)
+        tmpPos = np.ones(4)
+        tmpPos[:3] = np.copy(os2["pos"])
+        newPos = np.dot(invTrans, tmpPos)[:3]
+        return np.round(newPos, NUMDEC)
+        
         
         
     def calcDist(self, p, mp, x1x,x1y,x2x,x2y,c,s):
@@ -181,7 +200,7 @@ class WorldState(object):
             mp = np.copy(os2["pos"][:2])
             ang = os2["ori"]
             blockN = os2["name"]
-            vel = os2["linVel"]-os1["linVel"]
+            vel = os1["linVel"]-os2["linVel"]
         elif os2["name"] == "gripper":
             p = os2["pos"][:2]
             mp = np.copy(os1["pos"][:2])
@@ -221,11 +240,12 @@ class WorldState(object):
         ps = [p1,p2,p3,p4]
         di = np.argmin(ds)
         normal = np.zeros(3)
-        normal[:2] = (p-ps[di])/np.linalg.norm(ps[di])
+        normal[:2] = (p-ps[di])
+        normal /= np.linalg.norm(normal)
 #        print "normal: ", normal
 #        print "vel: ", vel
 #        print "norm vel: ", np.linalg.norm(vel)
-        return ds[di]-0.025, np.dot(normal, vel)
+        return np.round(ds[di]-0.025, NUMDEC), np.round(np.dot(normal, vel), NUMDEC)
         
     def getInteractionState(self, name):
         return self.interactionStates[name]

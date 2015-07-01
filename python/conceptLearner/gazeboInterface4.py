@@ -60,7 +60,7 @@ DIRECTIONGENERALISATION = False
 
 
 
-NUM_TRAIN_RUNS = 10
+NUM_TRAIN_RUNS = 5
 NUM_TEST_RUNS = 50
 
 class GazeboInterface():
@@ -437,7 +437,7 @@ class GazeboInterface():
             
     def pushTaskSimulation(self, worldState, resultState=None):
         self.stepCounter += 1
-        resultState=worldState
+        resultState=copy.deepcopy(worldState)
         print "num cases: " + str(len(self.worldModel.cases))
 #        print "num abstract cases: " + str(len(self.worldModel.abstractCases))
         
@@ -470,7 +470,20 @@ class GazeboInterface():
                 self.trainRun += 1
                 if self.trainRun == NUM_TRAIN_RUNS:
                     self.pauseWorld()
-                    print "actions: ", self.worldModel.actions.values()
+#                    print "actions: ", self.worldModel.actions.values()
+                    with open("../../data/actionVectors", 'w') as f:
+                        for a in self.worldModel.actions.values():      
+                            f.write("================================\n")
+                            f.write("Action for {}\n".format(a.targets))
+                            f.write("sid; oid; dist; closing; contact; relPosX; relPosY; relPosZ; closingDivDist; Dif_linVelY; Dif_linVelX; Dif_linVelZ; Dif_posY; Dif_posZ; Dif_posX; Dif_ori; Dif_id; Dif_angVel; post_linVelX; post_linVelY; post_linVelZ; post_angVel \n")
+                            for case, intStates in a.refCases:
+                                for x in intStates[0].vec:
+                                    f.write("{:.4f};".format(x))
+                                for v in case.dif.values():
+                                    f.write("{:.4f};".format(v[0]))
+                                for k in case.postState.actionItems:
+                                    f.write("{:.4f};".format(case.postState[k][0]))
+                                f.write("\n")
 #                    dot_data = StringIO()
 #                    self.worldModel.getGraphViz(dot_data)
 #                    graph = pydot.graph_from_dot_data(dot_data.getvalue())

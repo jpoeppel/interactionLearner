@@ -1093,22 +1093,22 @@ class ModelCBR(object):
                 print "correct case selected!!!!!!!!!!!!!!!!!"
                 usedCase.updatePredictionScore(predictionScore)
                 self.numCorrectCase += 1
-#            else:
-#                retrain = True
+            else:
+                retrain = True
                 
         if predictionScore < PREDICTIONTHRESHOLD:
             if abstractCase != None:
                     try:
                         abstractCase.addRef(newCase)
-#                        retrain = True
+                        retrain = True
                     except TypeError, e:
                         print "case was already present"
                     else:
                         self.addBaseCase(newCase)
-                        if self.lvq != None:
-                            self.lvq.train(newCase.toSelVec(), abstractCase.id)
-                        else:
-                            retrain = True
+#                        if self.lvq != None:
+#                            self.lvq.train(newCase.toSelVec(), abstractCase.id)
+#                        else:
+#                            retrain = True
                     
             else:
                 #Create a new abstract case
@@ -1118,8 +1118,8 @@ class ModelCBR(object):
                 self.addBaseCase(newCase)
                 retrain = True
         if retrain:
-#            self.retrainACClassifier()
-            self.retrainLVQ()
+            self.retrainACClassifier()
+#            self.retrainLVQ()
 #        if attribSet == Set(["spos"]) and state["contact"] == 1:
 #            raise NotImplementedError
             

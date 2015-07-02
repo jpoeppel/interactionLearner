@@ -28,9 +28,9 @@ from state4 import State, ObjectState, InteractionState, WorldState
 
 from state2 import Action as GripperAction
 
-THRESHOLD = 0.98
+THRESHOLD = 0.9999
 
-NUM_PROTOTYPES = 5
+NUM_PROTOTYPES = 10
 
 class BaseCase(object):
     
@@ -87,6 +87,8 @@ class Action(object):
         self.refCases = []
         self.vecs = []
         self.unusedFeatures = []
+        self.weights = np.ones(len(InteractionState().getVec()))
+        self.weights /= sum(self.weights)
         for k in variables:
             self.effect[k] = ITM()
         
@@ -158,16 +160,16 @@ class Action(object):
     def getPrototype(self):
         if len(self.refCases) > 0:
             ref, refInts = random.choice(self.refCases)
-            vec = np.copy(random.choice(refInts).vec)
+            vec = np.copy(random.choice(refInts).getVec())
             vec += (np.random.rand(len(vec))- 0.5) * 0.1
         else:
-            vec = np.random.rand(len(InteractionState().vec))-0.5
+            vec = np.random.rand(len(InteractionState().getVec()))-0.5
         return vec
         
     def getReferenzes(self):
         if len(self.refCases) > 0:
 #            return [(random.choice(vec[1]).vec, self.id) for vec in self.refCases]
-            return [(v, self.id) for v in self.vecs]
+            return [(v, self.id, self.weights) for v in self.vecs]
         else:
             return [(self.getPrototype(), self.id)]
         
@@ -215,16 +217,22 @@ class Predictor(object):
 #                l = 1
 #            res[k] += prediction[i:i+l]
 #            i += l
-            res[k] += self.pred[k].predict(state.getVec())
+            p = np.round(self.pred[k].predict(state.getVec()), 3)
+            if state["name"] == "blockA":
+                print "Prediction for {}: {}".format(k, p)
+            res[k] += p #self.pred[k].predict(state.getVec())
             
 #        if state["name"] == "blockA":
 #            print "Prediction: ", res
         return res
         
-    def update(self, case, action, worldState):
+    def update(self, case, action, worldAction, worldState):
 #        print "updating predictor for ", self.targets
+#        print "case preState: ", case.preState.vec
         preState = ObjectState.clone(case.preState)
-        action.applyAction(preState, worldState.getInteractionStates(preState["name"]))
+        worldAction.applyAction(preState, worldState.getInteractionStates(preState["name"]))
+        if preState["name"] == "gripper":
+            preState["linVel"][:3] = action["mvDir"]
 #        if case.preState["name"] == "blockA":
 #            print "updating with: pre: {} \n post: {}".format(preState, case.postState)
         if len(self.refCases) == 0:
@@ -234,6 +242,8 @@ class Predictor(object):
 #            raise AttributeError("Case already present")
         self.refCases.append(case)
         for k in case.preState.relKeys:
+            print "updating feature: ", k
+            print "inputVec: ", preState.getVec()
             self.pred[k].train(Node(0, wIn=preState.getVec(), 
                              wOut=case.dif[k]))
 #        self.pred.train(Node(0, wIn=case.preState.toVec(self.unusedFeatures), 
@@ -246,7 +256,7 @@ class ModelAction(object):
         self.predictors = []
         self.actions = {}
         self.cases = []
-        self.lvq = LVQNeuralNet(len(InteractionState().vec))
+        self.lvq = LVQNeuralNet(len(InteractionState().getVec()))
 
     def getAction(self):
         pass
@@ -276,17 +286,19 @@ class ModelAction(object):
         return res
         
     def applyMostSuitedAction2(self, objectState, worldState, action):
-        if objectState["name"] == "gripper":
-            objectState["linVel"] = action["mvDir"]
+#        if objectState["name"] == "gripper":
+#            objectState["linVel"] = action["mvDir"]
             
         res = ObjectState.clone(objectState)
         for intState in worldState.getInteractionStates(objectState["name"]):
-            l = self.lvq.classify(intState.vec)
+            l = self.lvq.classify(intState.getVec())
             if l != None:
 #                print "selected Action for {}: {} ".format(objectState["name"], self.actions[l])
                 self.actions[l].applyAction(res, worldState.getInteractionStates(res["name"]))
             else:
                 print "No action found"
+#        if objectState["name"] == "gripper":
+#            res["linVel"] = action["mvDir"]
         return res
         
     def predictObjectState(self, objectState):
@@ -306,8 +318,12 @@ class ModelAction(object):
 #        resultWS.invTrans = np.copy(worldState.invTrans)
 #        resultWS.ori = np.copy(worldState.ori)
         for objectState in worldState.objectStates.values():
+            print "OS before action: ", objectState
             newOS = self.applyMostSuitedAction2(objectState, worldState, action)
-#            print "newOS after action: ", newOS
+            if objectState["name"] == "gripper":
+                print "action: ", action
+                newOS["linVel"][:3] = action["mvDir"]
+            print "newOS after action: ", newOS
             newOS = self.predictObjectState(newOS)
 #            objectState = newOS
             resultWS.addObjectState(newOS)
@@ -367,7 +383,7 @@ class ModelAction(object):
             if valid:
                 a.targets.add(case.preState["name"])
                 a.update(case, worldState.getInteractionStates(case.preState["name"]))
-                self.lvq.train(random.choice(worldState.getInteractionStates(case.preState["name"])).vec, l)
+                self.lvq.train(random.choice(worldState.getInteractionStates(case.preState["name"])).getVec(), l, a.weights)
                 return a
         
         newAction = Action(case.preState.actionItems)
@@ -378,26 +394,27 @@ class ModelAction(object):
         return newAction
         
     def updateLVQ(self):
-        self.lvq = LVQNeuralNet(len(InteractionState().vec))
+        self.lvq = LVQNeuralNet(len(InteractionState().getVec()))
         for l,a in self.actions.items():
             for i in xrange(NUM_PROTOTYPES):
-                self.lvq.addNeuron(a.getPrototype(), l)
+                self.lvq.addNeuron(a.getPrototype(), l, a.weights)
         trainData = []
         for a in self.actions.values():
             trainData.extend(a.getReferenzes())
         np.random.shuffle(trainData)
 #        print "traindata: ", trainData
-        for v, l in trainData:
-            self.lvq.train(v, l)
+        for v, l, w in trainData:
+            self.lvq.train(v, l, w)
             
         
         
     def updateState(self, predictedOS, worldState, action, resultingOS):
         case = BaseCase(worldState.getObjectState(predictedOS["name"]), resultingOS)
         predictionRating = resultingOS.score(predictedOS)
-#        print "Prediction rating for {}: {}".format(predictedOS["name"], predictionRating)
+        print "Prediction rating for {}: {}".format(predictedOS["name"], predictionRating)
+        print "update casePrestate: ", case.preState.vec
 #        print "prediction: ", predictedOS
-        print "result: ", {k: resultingOS[k] for k in resultingOS.actionItems}
+#        print "result: ", {k: resultingOS[k] for k in resultingOS.actionItems}
         responsibleAction = self.checkForAction2(case, worldState)
         if predictionRating < THRESHOLD:            
 #            responsibleAction = self.checkForAction2(case, worldState)
@@ -405,13 +422,13 @@ class ModelAction(object):
             predFound = False
             for pred in self.predictors:
                 if predictedOS["name"] in pred.targets:
-                    pred.update(case, responsibleAction, worldState)
+                    pred.update(case, action, responsibleAction, worldState)
                     
                     predFound = True
             if not predFound:
                 pred = Predictor()
                 pred.targets.add(predictedOS["name"])
-                pred.update(case, responsibleAction, worldState)
+                pred.update(case, action, responsibleAction, worldState)
                 self.predictors.append(pred)
             self.cases.append(case)
     

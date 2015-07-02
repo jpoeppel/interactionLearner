@@ -330,7 +330,7 @@ class InteractionState(State):
         
         
         self.relSelKeys = copy.deepcopy(self.relKeys)
-        self.relKeys.remove("dir")
+#        self.relKeys.remove("dir")
         self.relKeys.remove("dist")
 #        self.relSelKeys.remove("spos")
 #        self.relSelKeys.remove("sid")

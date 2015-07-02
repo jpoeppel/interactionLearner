@@ -14,7 +14,7 @@ EQU = 0
 CMP = 1
 
 alpha = 0.01
-beta = 0.001
+beta = 0.005
 
 class Node(object):
     def __init__(self, name, pos=np.array([]), wIn=np.array([]), action = np.array([]), wOut = np.array([]), A = np.array([])):
@@ -52,7 +52,9 @@ class Node(object):
         
         er = x.wOut-(self.wOut + self.A.dot(x.vecInA()-self.vecInA()))
         dwOut =  eta*er + self.A.dot(dwInA)
+        print "wOut before adapting: ", self.wOut
         self.wOut += dwOut
+        print "wOut after adapting: ", self.wOut
         d = x.vecInA()-self.vecInA()
         norm = np.linalg.norm(d)
         if norm > 0.0001:
@@ -109,14 +111,23 @@ class Network(object):
 
 class LVQNeuron(object):
     
-    def __init__(self, vec, label):
+    def __init__(self, vec, label, weights = None):
         self.vector = np.copy(vec)
         self.label = label
+        if weights == None:
+            self.weights = np.ones(len(vec))
+            self.weights /= sum(self.weights)
+        else:
+            self.weights = weights
         
-    def dist(self, vec, weights):
+    def dist(self, vec, weights = None):
+        if weights == None:
+            weights = self.weights
         return np.dot(weights, np.square(self.vector-vec))
         
-    def train(self, vec, label, alpha, factor, d1, d2, weights):
+    def train(self, vec, label, alpha, factor, d1, d2, weights=None):
+        if weights == None:
+            weights = self.weights
         if label == self.label:
             self.vector += alpha * factor * d2 * np.dot(weights, -2*(vec - self.vector))
         else:
@@ -132,18 +143,24 @@ class LVQNeuralNet(object):
         self.inDim = inDim
             
     def get_classifier(self, vec):
-        s = [(neuron, neuron.dist(vec, self.weights)) for neuron in self.neurons]
+        s = [(neuron, neuron.dist(vec, neuron.weights)) for neuron in self.neurons]
 #        print "classifiers: ", s
         return min(s, key=itemgetter(1))[0]
         
-    def addNeuron(self, vec, label):
-        self.neurons.append(LVQNeuron(vec, label))
+    def addNeuron(self, vec, label, weights = None):
+        if weights == None:
+            weights = self.weights
+        self.neurons.append(LVQNeuron(vec, label, weights))
         
-    def addRandomNeurons(self, k, label):
-        self.neurons.extend([LVQNeuron((np.random.rand(self.inDim) - 0.5)*2, label) for x in xrange(k) ])
+    def addRandomNeurons(self, k, label, weights = None):
+        if weights == None:
+            weights = self.weights
+        self.neurons.extend([LVQNeuron((np.random.rand(self.inDim) - 0.5)*2, label, weights) for x in xrange(k) ])
         
-    def train(self, vec, label):
-        s = [(neuron, neuron.dist(vec, self.weights), neuron.label) for neuron in self.neurons]
+    def train(self, vec, label, weights = None):
+        if weights == None:
+            weights = self.weights
+        s = [(neuron, neuron.dist(vec, neuron.weights), neuron.label) for neuron in self.neurons]
         sortedList = sorted(s, key=itemgetter(1))
         d1 = None
         d2 = None
@@ -169,12 +186,12 @@ class LVQNeuralNet(object):
             difsig = np.exp(u)/np.square(np.exp(u)+1)
 #            print "difsig: ", difsig
 #            print "dist2: ", dist2
-            w1.train(vec, label, alpha, 2*difsig/dist2, d1, d2, self.weights)
-            w2.train(vec, label, alpha, 2*difsig/dist2, d1, d2, self.weights)
-            self.weights += beta * difsig * (2 * d2/dist2 * np.square(vec-w1.vector) - 2*d1/dist2*np.square(vec-w2.vector))
-            self.weights[self.weights<0] = 0
-            self.weights /= np.sum(self.weights)#np.linalg.norm(self.weights)
-#            print "new weights: ", self.weights
+            w1.train(vec, label, alpha, 2*difsig/dist2, d1, d2, w1.weights)
+            w2.train(vec, label, alpha, 2*difsig/dist2, d1, d2, w2.weights)
+            w1.weights += beta * difsig * (2 * d2/dist2 * np.square(vec-w1.vector) - 2*d1/dist2*np.square(vec-w2.vector))
+            w1.weights[w1.weights<0] = 0
+            w1.weights /= np.sum(w1.weights)#np.linalg.norm(self.weights)
+#            print "new weights: ", weights
 #            print "sum weights: ", np.sum(self.weights)
 #            print "norm: ", np.linalg.norm(self.weights)
         

@@ -48,6 +48,7 @@ class ObjectState(State):
         self.mask = np.array(range(len(self.vec)))
         self.relKeys = ["id", "posX", "posY", "posZ", "ori"]#, "linVelX", "linVelY", "linVelZ", "angVel"]
         self.actionItems = ["linVelX", "linVelY", "linVelZ", "angVel"]
+        self.mask = np.array([1,2,3,4,5,6,7,8])
         
     @classmethod
     def clone(cls, other):
@@ -61,12 +62,15 @@ class ObjectState(State):
 class InteractionState(State):
     
     def __init__(self):
-        self.vec = np.zeros(9)
+        self.vec = np.zeros(12)
         self.update({"name": "", "sname":"", "oname": "", "sid": self.vec[0:1], "oid":self.vec[1:2],
                      "dist": self.vec[2:3], "closing": self.vec[3:4], "contact":self.vec[4:5],
                      "relPosX": self.vec[5:6], "relPosY": self.vec[6:7], "relPosZ":self.vec[7:8],
-                     "closingDivDist":self.vec[8:9], "relPos": self.vec[5:8] })
+                     "relVlX": self.vec[8:9], "relVlY": self.vec[9:10], "relVlZ": self.vec[10:11],
+                     "closingDivDist":self.vec[11:12], "relPos": self.vec[5:8], "relVl": self.vec[8:11] })
+        self.features = ["sid","oid","dist","closing","contact","relPosX", "relPosY", "relPosZ", "relVlX", "relVlY", "relVlZ", "closingDivDist"]
         self.mask = np.array(range(len(self.vec)))
+#        self.mask = [0,1,2,3,5,6,8]
         self.relKeys = ["sid", "oid", "dist", "closing", "contact", "relPosX", "relPosY", "relPosZ", "closingDivDist"]
         
 class WorldState(object):
@@ -142,6 +146,7 @@ class WorldState(object):
 #                    intState["relPosY"][0] = np.round(os1["posY"]-os2["posY"], NUMDEC)
 #                    intState["relPosZ"][0] = np.round(os1["posZ"]-os2["posZ"], NUMDEC)
                     intState["relPos"][:3] = self.calcRelPosition(os1,os2)
+                    intState["relVl"][:3] = os2["linVel"][:3]-os1["linVel"][:3]
 #                    print "os1 name: ", os1["name"]
 #                    print "relPos: ", intState["relPos"]
 #                    print "relPosY: ", intState["relPosY"]
@@ -149,7 +154,7 @@ class WorldState(object):
                         intState["closingDivDist"][0] = intState["closing"]/intState["dist"]
                     else:
                         intState["closingDivDist"][0] = intState["closing"]/0.001
-                    intState["closingDivDist"][0] = np.round(math.tanh(intState["closingDivDist"]), NUMDEC)
+                    intState["closingDivDist"][0] = np.round(math.tanh(1+10*intState["closingDivDist"]), NUMDEC)
                     self.interactionStates[intState["name"]] = intState
             
             

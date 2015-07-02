@@ -60,7 +60,7 @@ DIRECTIONGENERALISATION = False
 
 
 
-NUM_TRAIN_RUNS = 5
+NUM_TRAIN_RUNS = 10
 NUM_TEST_RUNS = 50
 
 class GazeboInterface():
@@ -475,9 +475,14 @@ class GazeboInterface():
                         for a in self.worldModel.actions.values():      
                             f.write("================================\n")
                             f.write("Action for {}\n".format(a.targets))
-                            f.write("sid; oid; dist; closing; contact; relPosX; relPosY; relPosZ; closingDivDist; Dif_linVelY; Dif_linVelX; Dif_linVelZ; Dif_posY; Dif_posZ; Dif_posX; Dif_ori; Dif_id; Dif_angVel; post_linVelX; post_linVelY; post_linVelZ; post_angVel \n")
+                            case, intStates = a.refCases[0]
+#                            f.write("sid; oid; dist; closing; contact; relPosX; relPosY; relPosZ; closingDivDist; Dif_linVelY; Dif_linVelX; Dif_linVelZ; Dif_posY; Dif_posZ; Dif_posX; Dif_ori; Dif_id; Dif_angVel; post_linVelX; post_linVelY; post_linVelZ; post_angVel \n")
+                            f.write("; ".join(np.array(intStates[0].features)[intStates[0].mask]) + "; " + "(dif); ".join(case.dif.keys()) + "(dif); " + "(post); ".join(case.postState.actionItems) + "(post)\n")
+                            for w in a.weights:
+                                f.write("{:.4f};".format(w))
+                            f.write("\n")
                             for case, intStates in a.refCases:
-                                for x in intStates[0].vec:
+                                for x in intStates[0].getVec():
                                     f.write("{:.4f};".format(x))
                                 for v in case.dif.values():
                                     f.write("{:.4f};".format(v[0]))

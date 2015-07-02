@@ -8,8 +8,9 @@ Created on Mon Apr 13 00:33:38 2015
 from network import Network
 import numpy as np
 import math
+from operator import itemgetter
 
-EMAX = 0.05
+EMAX = 0.001
 ETA = 0.01
 SIGMAE = 0.5
 
@@ -29,19 +30,22 @@ class ITM(Network):
         if len(self.nodes)< 2:
             return None, None
         else:
-            minDist = float('inf')
-            secDist = float('inf')
-            minNode = None
-            secNode = None
-            for n in self.nodes.values():
-                d = np.linalg.norm(n.vec()-x)
-                if d < minDist:
-                    minDist = d
-                    minNode = n
-                elif d < secDist:
-                    secDist = d
-                    secNode = n
-            return minNode, secNode
+#            minDist = float('inf')
+#            secDist = float('inf')
+#            minNode = None
+#            secNode = None
+#            for n in self.nodes.values():
+#                d = np.linalg.norm(n.vec()-x)
+#                if d < minDist:
+#                    minDist = d
+#                    minNode = n
+#                elif d < secDist:
+#                    secDist = d
+#                    secNode = n
+                    
+#            ds = sorted([(np.linalg.norm(n.vec()-x), n) for n in self.nodes.values()], key=itemgetter(0))
+            ds = sorted([(np.dot(n.vec()-x,n.vec()-x), n) for n in self.nodes.values()], key=itemgetter(0))
+            return ds[0][1], ds[1][1]
             
     def train(self, x):
         """
@@ -60,13 +64,15 @@ class ITM(Network):
                     self.removeEdge(nearest.name, n.name)
             if np.dot(nearest.vec()-x.vec(),second.vec()-x.vec()) > 0 and np.linalg.norm(x.vec()-nearest.vec()) > EMAX:
                 self.addNode(x)
-                x.adapt(nearest, ETA)
-                print "adding new node"
+#                x.adapt(nearest, ETA)
+                print "adding new node: ", x.wOut
                 self.addEdge(nearest.name, name)
             if np.linalg.norm(nearest.vec()-second.vec()) < 0.5*EMAX:
+                print "removing node"
                 self.removeNode(second)
         else:
             self.addNode(x)
+            print "adding node because there are not enough"
             
     def getAction(self, wOut):
         if not hasattr(wOut, "__len__"):
@@ -169,6 +175,8 @@ class ITM(Network):
                 secNode = n
         if minNode != None:
             if PREDICTIONMODE == WINNER:
+                print "minNode win: ", minNode.vecInA()
+                print "number of nodes: ", len(self.nodes)
                 return minNode.wOut
             elif PREDICTIONMODE == LINEAR:
 #                print "MinNode: ", minNode

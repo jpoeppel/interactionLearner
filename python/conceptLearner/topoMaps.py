@@ -11,7 +11,7 @@ import math
 from operator import itemgetter
 
 EMAX = 0.001
-ETA = 0.01
+ETA = 0.1
 SIGMAE = 0.5
 
 WINNER = 0

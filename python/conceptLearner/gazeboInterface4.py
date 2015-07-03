@@ -60,7 +60,7 @@ DIRECTIONGENERALISATION = False
 
 
 
-NUM_TRAIN_RUNS = 10
+NUM_TRAIN_RUNS = 20
 NUM_TEST_RUNS = 50
 
 class GazeboInterface():
@@ -474,7 +474,7 @@ class GazeboInterface():
                     with open("../../data/actionVectors", 'w') as f:
                         for a in self.worldModel.actions.values():      
                             f.write("================================\n")
-                            f.write("Action for {}\n".format(a.targets))
+                            f.write("Action for {}(id: {})\n".format(a.targets, a.id))
                             case, intStates = a.refCases[0]
 #                            f.write("sid; oid; dist; closing; contact; relPosX; relPosY; relPosZ; closingDivDist; Dif_linVelY; Dif_linVelX; Dif_linVelZ; Dif_posY; Dif_posZ; Dif_posX; Dif_ori; Dif_id; Dif_angVel; post_linVelX; post_linVelY; post_linVelZ; post_angVel \n")
                             f.write("; ".join(np.array(intStates[0].features)[intStates[0].mask]) + "; " + "(dif); ".join(case.dif.keys()) + "(dif); " + "(post); ".join(case.postState.actionItems) + "(post)\n")

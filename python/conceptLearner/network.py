@@ -181,8 +181,13 @@ class LVQNeuralNet(object):
                     d1 = x[1]
                     break
         if d1 != None and d2 != None:
-            u = (d1-d2)/(d1+d2)
-            dist2 = np.square(d1+d2)
+            if d1 == d2 == 0.0:
+                u = 0.0
+                dist2 = 1
+            else:
+                u = (d1-d2)/(d1+d2)
+                dist2 = np.square(d1+d2)
+                
             difsig = np.exp(u)/np.square(np.exp(u)+1)
 #            print "difsig: ", difsig
 #            print "dist2: ", dist2
@@ -190,7 +195,12 @@ class LVQNeuralNet(object):
             w2.train(vec, label, alpha, 2*difsig/dist2, d1, d2, w2.weights)
             w1.weights += beta * difsig * (2 * d2/dist2 * np.square(vec-w1.vector) - 2*d1/dist2*np.square(vec-w2.vector))
             w1.weights[w1.weights<0] = 0
-            w1.weights /= np.sum(w1.weights)#np.linalg.norm(self.weights)
+            s = np.sum(w1.weights)
+            if s != 0.0:
+                w1.weights /= np.sum(w1.weights)#np.linalg.norm(self.weights)
+            else:
+                w1.weights += 1.0/len(w1.weights)
+                
 #            print "new weights: ", weights
 #            print "sum weights: ", np.sum(self.weights)
 #            print "norm: ", np.linalg.norm(self.weights)

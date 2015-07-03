@@ -30,7 +30,7 @@ from state2 import Action as GripperAction
 
 THRESHOLD = 0.9999
 
-NUM_PROTOTYPES = 10
+NUM_PROTOTYPES = 3
 
 class BaseCase(object):
     
@@ -97,10 +97,10 @@ class Action(object):
             for k,v in self.effect.items():
                 if isinstance(v, ITM):
 #                    state[k] += strength * v.predict(intState.getVec())
-                    state[k] = strength * v.predict(intState.getVec())
+                    state[k][:] = strength * v.predict(intState.getVec())
                 else:
 #                    state[k] += strength * v
-                    state[k] = strength * v
+                    state[k][:] = strength * v
             
     def rate(self, objectState, intStates):
 #        print "rating action: {}, precons: {}".format(self.effect.keys(), self.preConditions)
@@ -161,8 +161,10 @@ class Action(object):
         if len(self.refCases) > 0:
             ref, refInts = random.choice(self.refCases)
             vec = np.copy(random.choice(refInts).getVec())
-            vec += (np.random.rand(len(vec))- 0.5) * 0.1
+            vec += (np.random.rand(len(vec))- 0.5) * 0.01
         else:
+            print "prototype without ref!!!!"
+            raise NotImplementedError
             vec = np.random.rand(len(InteractionState().getVec()))-0.5
         return vec
         
@@ -217,6 +219,8 @@ class Predictor(object):
 #                l = 1
 #            res[k] += prediction[i:i+l]
 #            i += l
+            print "prediction OS: ", state
+#            p = np.round(self.pred[k].predict(state.getVec(np.array([5,6,7,8]))), 3)
             p = np.round(self.pred[k].predict(state.getVec()), 3)
             if state["name"] == "blockA":
                 print "Prediction for {}: {}".format(k, p)
@@ -243,9 +247,11 @@ class Predictor(object):
         self.refCases.append(case)
         for k in case.preState.relKeys:
             print "updating feature: ", k
-            print "inputVec: ", preState.getVec()
+            print "inputVec: ", preState.getVec(np.array([5,6,7,8]))
             self.pred[k].train(Node(0, wIn=preState.getVec(), 
                              wOut=case.dif[k]))
+#            self.pred[k].train(Node(0, wIn=preState.getVec(np.array([5,6,7,8])), 
+#                             wOut=case.dif[k]))
 #        self.pred.train(Node(0, wIn=case.preState.toVec(self.unusedFeatures), 
 #                             wOut = case.postState.toVec()-case.preState.toVec()))   
 
@@ -293,7 +299,7 @@ class ModelAction(object):
         for intState in worldState.getInteractionStates(objectState["name"]):
             l = self.lvq.classify(intState.getVec())
             if l != None:
-#                print "selected Action for {}: {} ".format(objectState["name"], self.actions[l])
+                print "selected Action for {}: {} ".format(objectState["name"], self.actions[l].id)
                 self.actions[l].applyAction(res, worldState.getInteractionStates(res["name"]))
             else:
                 print "No action found"
@@ -368,23 +374,26 @@ class ModelAction(object):
     def checkForAction2(self, case, worldState):
         
         for l, a in self.actions.items():
-            valid = True
-            tmpOS = ObjectState.clone(case.preState)
-            a.applyAction(tmpOS, worldState.getInteractionStates(case.preState["name"]))
-            for k in case.preState.actionItems:
-                if case.postState[k] != 0.0:
-                    if case.postState[k]*tmpOS[k] <= 0.0:
-                        valid = False
-                        break
-                else:
-                    if tmpOS[k] != 0.0:
-                        valid = False
-                        break
-            if valid:
-                a.targets.add(case.preState["name"])
-                a.update(case, worldState.getInteractionStates(case.preState["name"]))
-                self.lvq.train(random.choice(worldState.getInteractionStates(case.preState["name"])).getVec(), l, a.weights)
-                return a
+            if case.preState["name"] in a.targets:
+                valid = True
+                tmpOS = ObjectState.clone(case.preState)
+                a.applyAction(tmpOS, worldState.getInteractionStates(case.preState["name"]))
+                for k in case.preState.actionItems:
+#                    if np.linalg.norm(tmpOS[k]) > 0.1 and tmpOS[k]*case.postState[k] > 0.0 and np.linalg.norm(tmpOS[k]-case.postState[k]) > 0.1:
+#                        valid = False
+#                        break
+                    if case.postState[k] != 0.0:
+                        if np.linalg.norm(tmpOS[k]) > 0.1 and case.postState[k]*tmpOS[k] <= 0.0:
+                            valid = False
+                            break
+                    else:
+                        if np.linalg.norm(tmpOS[k]) > 0.1:
+                            valid = False
+                            break
+                if valid:
+                    a.update(case, worldState.getInteractionStates(case.preState["name"]))
+                    self.lvq.train(random.choice(worldState.getInteractionStates(case.preState["name"])).getVec(), l, a.weights)
+                    return a
         
         newAction = Action(case.preState.actionItems)
         newAction.update(case, worldState.getInteractionStates(case.preState["name"]))

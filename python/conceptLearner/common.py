@@ -16,6 +16,20 @@ SIDE = {"NONE": 0, "DOWN": 1, "UP": 2}
 GRIPPERSTATES = {"OPEN":0, "CLOSED": 1}
 
 def quaternionToEuler(quat):
+    """
+        Function to compute the euler angles around the x,y,z axes of a rotation given by a quaternion
+        
+        Parameters
+        ---------
+        quat: np.array(4)
+            The quaternion representing the rotation
+            
+        Returns
+        -------
+        np.array(3)
+            The angles around the x,y,z axes respectively
+        
+    """
     assert len(quat)== 4, "quat should be a x,y,z,w quaternion"
     quat /= np.linalg.norm(quat)
     x,y,z,w = quat
@@ -38,7 +52,19 @@ def quaternionToEuler(quat):
     return res
     
 def eulerToQuat(euler):
-#    assert len(euler) == 3, "Euler represents roll, pitch, yaw angles (in radians): {}".format(euler)
+    """
+        Function to compute the rotation quaternion from angles around the x,y,z axes
+        
+        Paramters
+        ---------
+        euler: np.array(3)/np.array(1)/float
+            The rotation angle(s) around the axis. If only one value is given, it is assumed to be around the z axis.
+            
+        Returns
+        -------
+        np.array(4)
+            Quaternion representing the rotation
+    """
     if hasattr(euler, "__len__"):
         if len(euler) == 1:
             phi = 0.0

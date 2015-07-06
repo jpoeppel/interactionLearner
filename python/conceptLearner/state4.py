@@ -68,9 +68,9 @@ class InteractionState(State):
                      "relPosX": self.vec[5:6], "relPosY": self.vec[6:7], "relPosZ":self.vec[7:8],
                      "relVlX": self.vec[8:9], "relVlY": self.vec[9:10], "relVlZ": self.vec[10:11],
                      "closingDivDist":self.vec[11:12], "relPos": self.vec[5:8], "relVl": self.vec[8:11] })
-        self.features = ["sid","oid","dist","closing","contact","relPosX", "relPosY", "relPosZ", "relVlX", "relVlY", "relVlZ", "closingDivDist"]
+        self.features = np.array(["sid","oid","dist","closing","contact","relPosX", "relPosY", "relPosZ", "relVlX", "relVlY", "relVlZ", "closingDivDist"])
 #        self.mask = np.array(range(len(self.vec)))
-        self.mask = [0,1,2,3,5,6,8,9,11]
+        self.mask = [2,3,5,6,8,9,11]
         self.relKeys = ["sid", "oid", "dist", "closing", "contact", "relPosX", "relPosY", "relPosZ", "closingDivDist"]
         
 class WorldState(object):
@@ -138,7 +138,7 @@ class WorldState(object):
                     intState["sid"][0] = os1["id"]
                     intState["oid"][0] = os2["id"]
                     intState["dist"][0], intState["closing"][0] = self.computeDistanceClosing(os1,os2)
-#                    print "Closing for os1 {}: {}".format(os1["name"], intState["closing"])
+                    
                     if intState["dist"] < 0.0:
                         intState["dist"] = 0.0
                     if os1["contact"] == n2:
@@ -148,6 +148,12 @@ class WorldState(object):
 #                    intState["relPosZ"][0] = np.round(os1["posZ"]-os2["posZ"], NUMDEC)
                     intState["relPos"][:3] = self.calcRelPosition(os1,os2)
                     intState["relVl"][:3] = os2["linVel"][:3]-os1["linVel"][:3]
+                    if os1["name"] == "blockA":                    
+                        print "Closing for os1 {}: {}".format(os1["name"], intState["closing"])
+                        print "dist: ", intState["dist"]
+                        print "relVl: ", intState["relVl"]
+                        print "o1lv: ", os1["linVel"]
+                        print "o2lv: ", os2["linVel"]
 #                    print "os1 name: ", os1["name"]
 #                    print "relPos: ", intState["relPos"]
 #                    print "relPosY: ", intState["relPosY"]

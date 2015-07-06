@@ -260,7 +260,7 @@ class GazeboInterface():
     #            resultWS.parse(worldState)
     #        else:
     #            resultWS = None
-    #        print "parsing new WorldState"
+            print "parsing new WorldState"
             newWS = model.WorldState()
             newWS.parse(worldState)
             
@@ -489,11 +489,11 @@ class GazeboInterface():
                                 for k in case.postState.actionItems:
                                     f.write("{:.4f};".format(case.postState[k][0]))
                                 f.write("\n")
-#                    dot_data = StringIO()
-#                    self.worldModel.getGraphViz(dot_data)
-#                    graph = pydot.graph_from_dot_data(dot_data.getvalue())
-#                    if graph != None:
-#                        graph.write_pdf("../../data/miniMalTree.pdf")
+                    dot_data = StringIO()
+                    self.worldModel.getGraphViz(dot_data)
+                    graph = pydot.graph_from_dot_data(dot_data.getvalue())
+                    if graph != None:
+                        graph.write_pdf("../../data/ActionTree1.pdf")
 #                    print "ACs: ", [(ac.id, ac.variables) for ac in self.worldModel.abstractCases.values() ]
 #                    np.random.seed(1234)
         elif self.testRun < NUM_TEST_RUNS:

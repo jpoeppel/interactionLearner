@@ -130,8 +130,8 @@ class LVQNeuron(object):
             weights = self.weights
         if label == self.label:
             self.vector += alpha * factor * d2 * np.dot(weights, -2*(vec - self.vector))
-        else:
-            self.vector -= alpha * factor * d1 * np.dot(weights, -2*(vec - self.vector))
+#        else:
+#            self.vector -= alpha * factor * d1 * np.dot(weights, -2*(vec - self.vector))
             
     def __repr__(self):
         return str(self.label)
@@ -143,9 +143,11 @@ class LVQNeuralNet(object):
         self.inDim = inDim
             
     def get_classifier(self, vec):
-        s = [(neuron, neuron.dist(vec, neuron.weights)) for neuron in self.neurons]
-#        print "classifiers: ", s
-        return min(s, key=itemgetter(1))[0]
+        s = sorted([(neuron, neuron.dist(vec, neuron.weights)) for neuron in self.neurons], key=itemgetter(1))
+        print "classifiers: ", s
+        print "winner vec: ", s[0][0].vector
+        print "vec: ", vec
+        return s[0][0]#min(s, key=itemgetter(1))[0]
         
     def addNeuron(self, vec, label, weights = None):
         if weights == None:

@@ -493,7 +493,7 @@ class GazeboInterface():
                     self.worldModel.getGraphViz(dot_data)
                     graph = pydot.graph_from_dot_data(dot_data.getvalue())
                     if graph != None:
-                        graph.write_pdf("../../data/ActionTree1.pdf")
+                        graph.write_pdf("../../data/ActionTree20.pdf")
 #                    print "ACs: ", [(ac.id, ac.variables) for ac in self.worldModel.abstractCases.values() ]
 #                    np.random.seed(1234)
         elif self.testRun < NUM_TEST_RUNS:

@@ -52,9 +52,9 @@ class Node(object):
         
         er = x.wOut-(self.wOut + self.A.dot(x.vecInA()-self.vecInA()))
         dwOut =  eta*er + self.A.dot(dwInA)
-        print "wOut before adapting: ", self.wOut
+#        print "wOut before adapting: ", self.wOut
         self.wOut += dwOut
-        print "wOut after adapting: ", self.wOut
+#        print "wOut after adapting: ", self.wOut
         d = x.vecInA()-self.vecInA()
         norm = np.linalg.norm(d)
         if norm > 0.0001:

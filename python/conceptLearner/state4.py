@@ -70,7 +70,7 @@ class InteractionState(State):
                      "closingDivDist":self.vec[11:12], "relPos": self.vec[5:8], "relVl": self.vec[8:11] })
         self.features = np.array(["sid","oid","dist","closing","contact","relPosX", "relPosY", "relPosZ", "relVlX", "relVlY", "relVlZ", "closingDivDist"])
 #        self.mask = np.array(range(len(self.vec)))
-        self.mask = [2,3,5,6,8,9,11]
+        self.mask = [0,1,2,3,5,6,8,9,11]
         self.relKeys = ["sid", "oid", "dist", "closing", "contact", "relPosX", "relPosY", "relPosZ", "closingDivDist"]
         
 class WorldState(object):
@@ -100,7 +100,7 @@ class WorldState(object):
                 tmp["linVelX"][0] = np.round(m.linVel.x, NUMDEC)
                 tmp["linVelY"][0] = np.round(m.linVel.y, NUMDEC)
                 tmp["linVelZ"][0] = 0.0 # np.round(m.linVel.z, NUMDEC)
-#                print "linVel: ", tmp["linVel"]
+                print "linVel of {}: {} ".format(m.name, tmp["linVel"])
 #                print "norm linVel: ", np.linalg.norm(tmp["linVel"])
                 if np.linalg.norm(tmp["linVel"]) < 0.01:
 #                    print "setting linVel to 0"
@@ -148,12 +148,12 @@ class WorldState(object):
 #                    intState["relPosZ"][0] = np.round(os1["posZ"]-os2["posZ"], NUMDEC)
                     intState["relPos"][:3] = self.calcRelPosition(os1,os2)
                     intState["relVl"][:3] = os2["linVel"][:3]-os1["linVel"][:3]
-                    if os1["name"] == "blockA":                    
-                        print "Closing for os1 {}: {}".format(os1["name"], intState["closing"])
-                        print "dist: ", intState["dist"]
-                        print "relVl: ", intState["relVl"]
-                        print "o1lv: ", os1["linVel"]
-                        print "o2lv: ", os2["linVel"]
+#                    if os1["name"] == "blockA":                    
+#                        print "Closing for os1 {}: {}".format(os1["name"], intState["closing"])
+#                        print "dist: ", intState["dist"]
+#                        print "relVl: ", intState["relVl"]
+#                        print "o1lv: ", os1["linVel"]
+#                        print "o2lv: ", os2["linVel"]
 #                    print "os1 name: ", os1["name"]
 #                    print "relPos: ", intState["relPos"]
 #                    print "relPosY: ", intState["relPosY"]
@@ -253,7 +253,10 @@ class WorldState(object):
         di = np.argmin(ds)
         normal = np.zeros(3)
         normal[:2] = (p-ps[di])
-        normal /= np.linalg.norm(normal)
+        norm = np.linalg.norm(normal)
+        if norm > 0.0:
+            normal /= np.linalg.norm(normal)
+        
 #        print "normal: ", normal
 #        print "vel: ", vel
 #        print "norm vel: ", np.linalg.norm(vel)

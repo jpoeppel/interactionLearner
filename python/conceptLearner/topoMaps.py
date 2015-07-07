@@ -175,8 +175,8 @@ class ITM(Network):
                 secNode = n
         if minNode != None:
             if PREDICTIONMODE == WINNER:
-                print "minNode win: ", minNode.vecInA()
-                print "number of nodes: ", len(self.nodes)
+#                print "minNode win: ", minNode.vecInA()
+#                print "number of nodes: ", len(self.nodes)
                 return minNode.wOut
             elif PREDICTIONMODE == LINEAR:
 #                print "MinNode: ", minNode
@@ -203,5 +203,6 @@ class ITM(Network):
         else:
             print "No minNode found!"
             print "number of nodes: ", len(self.nodes)
+            return 0.0
             
   

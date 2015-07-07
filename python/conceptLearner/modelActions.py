@@ -33,6 +33,7 @@ from sklearn import tree
 THRESHOLD = 0.9999
 
 NUM_PROTOTYPES = 3
+SINGLE_ACTION = True
 
 class BaseCase(object):
     
@@ -221,11 +222,11 @@ class Predictor(object):
 #                l = 1
 #            res[k] += prediction[i:i+l]
 #            i += l
-            print "prediction OS: ", state
+#            print "prediction OS: ", state
 #            p = np.round(self.pred[k].predict(state.getVec(np.array([5,6,7,8]))), 3)
             p = np.round(self.pred[k].predict(state.getVec()), 3)
-            if state["name"] == "blockA":
-                print "Prediction for {}: {}".format(k, p)
+#            if state["name"] == "blockA":
+#                print "Prediction for {}: {}".format(k, p)
             res[k] += p #self.pred[k].predict(state.getVec())
             
 #        if state["name"] == "blockA":
@@ -248,8 +249,8 @@ class Predictor(object):
 #            raise AttributeError("Case already present")
         self.refCases.append(case)
         for k in case.preState.relKeys:
-            print "updating feature: ", k
-            print "inputVec: ", preState.getVec(np.array([5,6,7,8]))
+#            print "updating feature: ", k
+#            print "inputVec: ", preState.getVec(np.array([5,6,7,8]))
             self.pred[k].train(Node(0, wIn=preState.getVec(), 
                              wOut=case.dif[k]))
 #            self.pred[k].train(Node(0, wIn=preState.getVec(np.array([5,6,7,8])), 
@@ -262,7 +263,10 @@ class ModelAction(object):
     
     def __init__(self):
         self.predictors = []
-        self.actions = {}
+        if SINGLE_ACTION:
+            self.actions = {0: Action(ObjectState().actionItems)}
+        else:
+            self.actions = {}
         self.cases = []
         self.lvq = LVQNeuralNet(len(InteractionState().getVec()))
         self.tree = None
@@ -300,15 +304,18 @@ class ModelAction(object):
             
         res = ObjectState.clone(objectState)
         for intState in worldState.getInteractionStates(objectState["name"]):
-#            l = self.lvq.classify(intState.getVec())
-            l = None
-            if self.tree != None:
-                l = int(self.tree.predict(intState.getVec())[0])
-            if l != None:
-                print "selected Action for {}: {} ".format(objectState["name"], self.actions[l].id)
-                self.actions[l].applyAction(res, worldState.getInteractionStates(res["name"]))
+            if SINGLE_ACTION:
+                self.actions[0].applyAction(res, worldState.getInteractionStates(res["name"]))
             else:
-                print "No action found"
+    #            l = self.lvq.classify(intState.getVec())
+                l = None
+                if self.tree != None:
+                    l = int(self.tree.predict(intState.getVec())[0])
+                if l != None:
+                    print "selected Action for {}: {} ".format(objectState["name"], self.actions[l].id)
+                    self.actions[l].applyAction(res, worldState.getInteractionStates(res["name"]))
+                else:
+                    print "No action found"
 #        if objectState["name"] == "gripper":
 #            res["linVel"] = action["mvDir"]
         return res
@@ -330,12 +337,12 @@ class ModelAction(object):
 #        resultWS.invTrans = np.copy(worldState.invTrans)
 #        resultWS.ori = np.copy(worldState.ori)
         for objectState in worldState.objectStates.values():
-            print "OS before action: ", objectState
+#            print "OS before action: ", objectState
             newOS = self.applyMostSuitedAction2(objectState, worldState, action)
             if objectState["name"] == "gripper":
-                print "action: ", action
+#                print "action: ", action
                 newOS["linVel"][:3] = action["mvDir"]
-            print "newOS after action: ", newOS
+#            print "newOS after action: ", newOS
             newOS = self.predictObjectState(newOS)
 #            objectState = newOS
             resultWS.addObjectState(newOS)
@@ -357,12 +364,12 @@ class ModelAction(object):
 #                    self.lvq.train(random.choice(worldState.getInteractionStates(case.preState["name"])).vec, l)
 #                    return a
 #            else:
-                invalid = False
+                valid = True
                 for k in case.preState.actionItems:
                     if np.linalg.norm(case.preState[k]-a.effect[k].predict(worldState.getInteractionStates(case.preState["name"])[0].getVec())) > 0.1:
-                        invalid = True
+                        valid = False
                         break
-                if not invalid:
+                if valid:
                     a.targets.add(case.preState["name"])
                     a.update(case, worldState.getInteractionStates(case.preState["name"]))
                     self.lvq.train(random.choice(worldState.getInteractionStates(case.preState["name"])).vec, l)
@@ -379,46 +386,53 @@ class ModelAction(object):
         
     def checkForAction2(self, case, worldState):
         
-        for l, a in self.actions.items():
-            if case.preState["name"] in a.targets:
-                valid = True
-                tmpOS = ObjectState.clone(case.preState)
-                a.applyAction(tmpOS, worldState.getInteractionStates(case.preState["name"]))
-                for k in case.preState.actionItems:
-#                    if np.linalg.norm(tmpOS[k]) > 0.1 and tmpOS[k]*case.postState[k] > 0.0 and np.linalg.norm(tmpOS[k]-case.postState[k]) > 0.1:
-#                        valid = False
-#                        break
-                    if np.linalg.norm(case.postState[k]) > 0.05:
-                        if case.postState[k]*tmpOS[k] <= 0.0:
-                            valid = False
-                            break
-#                        elif np.linalg.norm(tmpOS[k]-case.postState[k]) > 0.1:
-#                            valid = False
-#                            break;
-                    else:
-                        if np.linalg.norm(tmpOS[k]) > 0.05:
-                            valid = False
-                            break
-#                    else:
-#                        if np.linalg.norm(tmpOS[k]) > 0.1:
-#                            valid = False
-#                            break
-                if valid:
-                    a.update(case, worldState.getInteractionStates(case.preState["name"]))
-#                    self.lvq.train(random.choice(worldState.getInteractionStates(case.preState["name"])).getVec(), l, a.weights)
-                    self.updateTree()
-                    return a
-        
-        newAction = Action(case.preState.actionItems)
-        newAction.update(case, worldState.getInteractionStates(case.preState["name"]))
-        newAction.id = len(self.actions)
-        self.actions[newAction.id] = newAction
-#        self.updateLVQ()
-        self.updateTree()
-        return newAction
+        if SINGLE_ACTION:
+            self.actions[0].update(case, worldState.getInteractionStates(case.preState["name"]))
+            return self.actions[0]
+        else:
+            for l, a in self.actions.items():
+                if case.preState["name"] in a.targets:
+                    valid = True
+                    tmpOS = ObjectState.clone(case.preState)
+                    a.applyAction(tmpOS, worldState.getInteractionStates(case.preState["name"]))
+                    for k in case.preState.actionItems:
+    #                    if np.linalg.norm(tmpOS[k]) > 0.1 and tmpOS[k]*case.postState[k] > 0.0 and np.linalg.norm(tmpOS[k]-case.postState[k]) > 0.1:
+    #                        valid = False
+    #                        break
+    #                    if np.linalg.norm(case.postState[k]) > 0.05:
+                            if case.postState[k]*tmpOS[k] < 0.0:
+                                valid = False
+                                break
+                            if case.postState[k] == 0.0 and tmpOS[k] != 0.0:
+                                valid =False
+                                break
+    #                        elif np.linalg.norm(tmpOS[k]-case.postState[k]) > 0.1:
+    #                            valid = False
+    #                            break;
+    #                    else:
+    #                        if np.linalg.norm(tmpOS[k]) > 0.05:
+    #                            valid = False
+    #                            break
+    #                    else:
+    #                        if np.linalg.norm(tmpOS[k]) > 0.1:
+    #                            valid = False
+    #                            break
+                    if valid:
+                        a.update(case, worldState.getInteractionStates(case.preState["name"]))
+    #                    self.lvq.train(random.choice(worldState.getInteractionStates(case.preState["name"])).getVec(), l, a.weights)
+                        self.updateTree()
+                        return a
+            
+            newAction = Action(case.preState.actionItems)
+            newAction.update(case, worldState.getInteractionStates(case.preState["name"]))
+            newAction.id = len(self.actions)
+            self.actions[newAction.id] = newAction
+    #        self.updateLVQ()
+            self.updateTree()
+            return newAction
         
     def updateTree(self):
-        self.tree = tree.DecisionTreeClassifier(criterion="gini", max_depth=4)
+        self.tree = tree.DecisionTreeClassifier(criterion="gini", max_depth=4, class_weight='auto')
         c = 0
         for a in self.actions.values():
             c += len(a.vecs)

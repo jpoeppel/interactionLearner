@@ -7,5 +7,5 @@ Created on Fri Jun  5 16:48:10 2015
 """
 
 SINGLE_INTSTATE= True
-DIFFERENCES = True
+DIFFERENCES = False
 INTERACTION_STATES = True

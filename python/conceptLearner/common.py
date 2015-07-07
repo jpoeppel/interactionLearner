@@ -9,7 +9,7 @@ Created on Thu Apr  9 11:31:07 2015
 import numpy as np
 import math
 
-NUMDEC = 3
+NUMDEC = 2
 GAZEBOCMDS = { "NOTHING": 0,"MOVE": 1, "GRAB": 2, "RELEASE": 3}
 SIDE = {"NONE": 0, "DOWN": 1, "UP": 2}
 

@@ -33,7 +33,8 @@ from sklearn import tree
 THRESHOLD = 0.9999
 
 NUM_PROTOTYPES = 3
-SINGLE_ACTION = True
+SINGLE_ACTION = False
+DUAL_ACTION = False
 
 class BaseCase(object):
     
@@ -265,6 +266,8 @@ class ModelAction(object):
         self.predictors = []
         if SINGLE_ACTION:
             self.actions = {0: Action(ObjectState().actionItems)}
+        elif DUAL_ACTION:
+            self.actions =  {0: Action(ObjectState().actionItems), 1: Action(ObjectState().actionItems)}
         else:
             self.actions = {}
         self.cases = []
@@ -306,6 +309,11 @@ class ModelAction(object):
         for intState in worldState.getInteractionStates(objectState["name"]):
             if SINGLE_ACTION:
                 self.actions[0].applyAction(res, worldState.getInteractionStates(res["name"]))
+            elif DUAL_ACTION:
+                if objectState["name"] == "gripper":
+                    self.actions[0].applyAction(res, worldState.getInteractionStates(res["name"]))
+                else:
+                    self.actions[1].applyAction(res, worldState.getInteractionStates(res["name"]))
             else:
     #            l = self.lvq.classify(intState.getVec())
                 l = None
@@ -337,12 +345,12 @@ class ModelAction(object):
 #        resultWS.invTrans = np.copy(worldState.invTrans)
 #        resultWS.ori = np.copy(worldState.ori)
         for objectState in worldState.objectStates.values():
-#            print "OS before action: ", objectState
+            print "OS before action: ", objectState
             newOS = self.applyMostSuitedAction2(objectState, worldState, action)
             if objectState["name"] == "gripper":
 #                print "action: ", action
                 newOS["linVel"][:3] = action["mvDir"]
-#            print "newOS after action: ", newOS
+            print "newOS after action: ", newOS
             newOS = self.predictObjectState(newOS)
 #            objectState = newOS
             resultWS.addObjectState(newOS)
@@ -389,6 +397,13 @@ class ModelAction(object):
         if SINGLE_ACTION:
             self.actions[0].update(case, worldState.getInteractionStates(case.preState["name"]))
             return self.actions[0]
+        elif DUAL_ACTION:
+            if case.preState["name"] == "gripper":
+                self.actions[0].update(case, worldState.getInteractionStates(case.preState["name"]))
+                return self.actions[0]
+            else:
+                self.actions[1].update(case, worldState.getInteractionStates(case.preState["name"]))
+                return self.actions[1]
         else:
             for l, a in self.actions.items():
                 if case.preState["name"] in a.targets:

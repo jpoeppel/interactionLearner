@@ -15,6 +15,8 @@ import copy
 WIDTH = {"blockA":0.25} #Width from the middle point
 HEIGHT = {"blockA":0.05} #Height from the middle point
 
+CLOSING_REFERAL = False
+
 class State(dict):
     
     def __init__(self):
@@ -59,19 +61,40 @@ class ObjectState(State):
         res["contact"] = copy.deepcopy(other["contact"])
         return res
         
+    def getKeyPoints(self):
+        p1x = WIDTH[self["name"]]
+        p2x = -p1x
+        p1y = HEIGHT[self["name"]]
+        p2y = p1y
+        ang = self["ori"]
+        c = math.cos(ang)
+        s = math.sin(ang)
+        p1xn = p1x*c -p1y*s
+        p1yn = p1x*s + p1y*c
+        p2xn = p2x*c - p2y*s
+        p2yn = p2x*s + p2y*c
+        return np.array([np.copy(self["pos"][:]), np.array([p1xn,p1yn,self["posY"]]), np.array([p2xn,p2yn,self["posY"]])])
+        
+    def compare(self, other):
+        assert self["name"] == other["name"], "Should only compare the same objects not {} and {}".format(self["name"], other["name"])
+        sKeyPoints = self.getKeyPoints()
+        oKeyPoints = other.getKeyPoints()
+        return sum(np.linalg.norm(sKeyPoints-oKeyPoints,axis=1))/3.0
+
+        
 class InteractionState(State):
     
     def __init__(self):
-        self.vec = np.zeros(12)
+        self.vec = np.zeros(13)
         self.update({"name": "", "sname":"", "oname": "", "sid": self.vec[0:1], "oid":self.vec[1:2],
                      "dist": self.vec[2:3], "closing": self.vec[3:4], "contact":self.vec[4:5],
                      "relPosX": self.vec[5:6], "relPosY": self.vec[6:7], "relPosZ":self.vec[7:8],
                      "relVlX": self.vec[8:9], "relVlY": self.vec[9:10], "relVlZ": self.vec[10:11],
-                     "closingDivDist":self.vec[11:12], "relPos": self.vec[5:8], "relVl": self.vec[8:11] })
-        self.features = np.array(["sid","oid","dist","closing","contact","relPosX", "relPosY", "relPosZ", "relVlX", "relVlY", "relVlZ", "closingDivDist"])
+                     "closingDivDist":self.vec[11:12], "relPos": self.vec[5:8], "relVl": self.vec[8:11], "closing2":self.vec[12:13] })
+        self.features = np.array(["sid","oid","dist","closing","contact","relPosX", "relPosY", "relPosZ", "relVlX", "relVlY", "relVlZ", "closingDivDist", "closing2"])
 #        self.mask = np.array(range(len(self.vec)))
         self.mask = [0,1,2,3,5,6,8,9,11]
-        self.relKeys = ["sid", "oid", "dist", "closing", "contact", "relPosX", "relPosY", "relPosZ", "closingDivDist"]
+        self.relKeys = ["sid", "oid", "dist", "closing", "contact", "relPosX", "relPosY", "relPosZ", "closingDivDist", "closing2"]
         
 class WorldState(object):
     
@@ -137,7 +160,10 @@ class WorldState(object):
                     intState["oname"] = n2
                     intState["sid"][0] = os1["id"]
                     intState["oid"][0] = os2["id"]
-                    intState["dist"][0], intState["closing"][0] = self.computeDistanceClosing(os1,os2)
+                    if CLOSING_REFERAL:
+                        intState["dist"][0], intState["closing"][0], intState["closing2"][0] = self.computeDistanceClosing(os1,os2)
+                    else:
+                        intState["dist"][0], intState["closing"][0] = self.computeDistanceClosing(os1,os2)
                     
                     if intState["dist"] < 0.0:
                         intState["dist"] = 0.0
@@ -224,43 +250,57 @@ class WorldState(object):
         c = math.cos(ang)
         s = math.sin(ang)
         
+        #Right
         x1x = WIDTH[blockN]
         x1y = HEIGHT[blockN]
         x2x = x1x
         x2y = -x1y
         d1, p1 = self.calcDist(p,mp,x1x,x1y,x2x,x2y,c,s) 
         
+        #Top
         x1x = WIDTH[blockN]
         x1y = HEIGHT[blockN]
         x2x = -x1x
         x2y = x1y
         d2, p2 = self.calcDist(p,mp,x1x,x1y,x2x,x2y,c,s)
         
+        #Left
         x1x = -WIDTH[blockN]
         x1y = HEIGHT[blockN]
         x2x = x1x
         x2y = -x1y
         d3, p3 = self.calcDist(p,mp,x1x,x1y,x2x,x2y,c,s)
         
+        #Bottom
         x1x = WIDTH[blockN]
         x1y = -HEIGHT[blockN]
         x2x = -x1x
         x2y = x1y
         d4, p4 = self.calcDist(p,mp,x1x,x1y,x2x,x2y,c,s)
         
-        ds = [d1,d2,d3,d4]
+        ds = np.array([d1,d2,d3,d4])
         ps = [p1,p2,p3,p4]
         di = np.argmin(ds)
+        
         normal = np.zeros(3)
         normal[:2] = (p-ps[di])
         norm = np.linalg.norm(normal)
         if norm > 0.0:
             normal /= np.linalg.norm(normal)
         
+        
 #        print "normal: ", normal
 #        print "vel: ", vel
 #        print "norm vel: ", np.linalg.norm(vel)
-        return np.round(ds[di]-0.025, NUMDEC), np.round(np.dot(normal, vel), NUMDEC)
+        if CLOSING_REFERAL:
+            normal1 = np.array([math.cos(di*math.pi/2.0+ang), math.sin(di*math.pi/2.0+ang),0.0])
+            if ds[di-1] < ds[(di+1) % len(ds)]:
+                normal2 = np.array([math.cos((di-1)*math.pi/2.0+ang), math.sin((di-1)*math.pi/2.0+ang),0.0])
+            else:
+                normal2 = np.array([math.cos((di+1)*math.pi/2.0+ang), math.sin((di+1)*math.pi/2.0+ang),0.0])
+            return np.round(ds[di]-0.025, NUMDEC), np.round(np.dot(normal1, vel), NUMDEC), np.round(np.dot(normal2, vel), NUMDEC)
+        else:        
+            return np.round(ds[di]-0.025, NUMDEC), np.round(np.dot(normal, vel), NUMDEC)
         
     def getInteractionState(self, name):
         return self.interactionStates[name]

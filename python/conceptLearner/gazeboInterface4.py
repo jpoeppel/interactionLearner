@@ -98,6 +98,7 @@ class GazeboInterface():
         self.tmpBlockErrorPos = 0.0
         self.tmpBlockErrorOri = 0.0
         self.direction = np.array([0.0,0.5,0.0])
+        self.finalPrediction = None
         np.random.seed(1234)
         
     @trollius.coroutine
@@ -229,6 +230,7 @@ class GazeboInterface():
         msg.reset.all = True
         self.worldControlPublisher.publish(msg)
         self.lastAction = None
+        self.finalPrediction = self.lastPrediction
         self.lastPrediction = None
         self.lastState = None
         
@@ -468,32 +470,34 @@ class GazeboInterface():
                 self.updateModel(worldState, resultState, self.direction)
             else:
                 self.trainRun += 1
+#                self.finalPrediction = self.lastPrediction
                 if self.trainRun == NUM_TRAIN_RUNS:
                     self.pauseWorld()
+                    
 #                    print "actions: ", self.worldModel.actions.values()
-                    with open("../../data/actionVectors", 'w') as f:
-                        for a in self.worldModel.actions.values():      
-                            f.write("================================\n")
-                            f.write("Action for {}(id: {})\n".format(a.targets, a.id))
-                            case, intStates = a.refCases[0]
-#                            f.write("sid; oid; dist; closing; contact; relPosX; relPosY; relPosZ; closingDivDist; Dif_linVelY; Dif_linVelX; Dif_linVelZ; Dif_posY; Dif_posZ; Dif_posX; Dif_ori; Dif_id; Dif_angVel; post_linVelX; post_linVelY; post_linVelZ; post_angVel \n")
-                            f.write("; ".join(np.array(intStates[0].features)[intStates[0].mask]) + "; " + "(dif); ".join(case.dif.keys()) + "(dif); " + "(post); ".join(case.postState.actionItems) + "(post)\n")
-                            for w in a.weights:
-                                f.write("{:.4f};".format(w))
-                            f.write("\n")
-                            for case, intStates in a.refCases:
-                                for x in intStates[0].getVec():
-                                    f.write("{:.4f};".format(x))
-                                for v in case.dif.values():
-                                    f.write("{:.4f};".format(v[0]))
-                                for k in case.postState.actionItems:
-                                    f.write("{:.4f};".format(case.postState[k][0]))
-                                f.write("\n")
-                    dot_data = StringIO()
-                    self.worldModel.getGraphViz(dot_data)
-                    graph = pydot.graph_from_dot_data(dot_data.getvalue())
-                    if graph != None:
-                        graph.write_pdf("../../data/ActionTree20.pdf")
+#                    with open("../../data/actionVectors", 'w') as f:
+#                        for a in self.worldModel.actions.values():      
+#                            f.write("================================\n")
+#                            f.write("Action for {}(id: {})\n".format(a.targets, a.id))
+#                            case, intStates = a.refCases[0]
+##                            f.write("sid; oid; dist; closing; contact; relPosX; relPosY; relPosZ; closingDivDist; Dif_linVelY; Dif_linVelX; Dif_linVelZ; Dif_posY; Dif_posZ; Dif_posX; Dif_ori; Dif_id; Dif_angVel; post_linVelX; post_linVelY; post_linVelZ; post_angVel \n")
+#                            f.write("; ".join(np.array(intStates[0].features)[intStates[0].mask]) + "; " + "(dif); ".join(case.dif.keys()) + "(dif); " + "(post); ".join(case.postState.actionItems) + "(post)\n")
+#                            for w in a.weights:
+#                                f.write("{:.4f};".format(w))
+#                            f.write("\n")
+#                            for case, intStates in a.refCases:
+#                                for x in intStates[0].getVec():
+#                                    f.write("{:.4f};".format(x))
+#                                for v in case.dif.values():
+#                                    f.write("{:.4f};".format(v[0]))
+#                                for k in case.postState.actionItems:
+#                                    f.write("{:.4f};".format(case.postState[k][0]))
+#                                f.write("\n")
+#                    dot_data = StringIO()
+#                    self.worldModel.getGraphViz(dot_data)
+#                    graph = pydot.graph_from_dot_data(dot_data.getvalue())
+#                    if graph != None:
+#                        graph.write_pdf("../../data/ActionTree20.pdf")
 #                    print "ACs: ", [(ac.id, ac.variables) for ac in self.worldModel.abstractCases.values() ]
 #                    np.random.seed(1234)
         elif self.testRun < NUM_TEST_RUNS:
@@ -512,6 +516,10 @@ class GazeboInterface():
                 self.sendCommand(self.lastAction)
             else:
                 self.testRun += 1
+                difference = self.compare(worldState, self.finalPrediction)
+                print difference
+                with open("../../data/differencesDT.txt", "a") as f:
+                    f.write("{}; ".format(difference))
 #                self.startRun()
         else:
             self.pauseWorld()
@@ -519,6 +527,13 @@ class GazeboInterface():
 #        if self.worldModel.numPredictions > 0:
 #            print "% correctCase selected: ", self.worldModel.numCorrectCase/(float)(self.worldModel.numPredictions)
 #        print "numPredictions: ", self.worldModel.numPredictions
+        
+        
+    def compare(self, worldState, prediction):
+        blockOSReal = worldState.getObjectState("blockA")
+        blockOSPrediction = prediction.getObjectState("blockA")
+        return blockOSReal.compare(blockOSPrediction)
+        
         
             
     def updateModel(self, worldState, resultState, direction=np.array([0.0,0.5,0.0])):

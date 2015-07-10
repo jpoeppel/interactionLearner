@@ -60,8 +60,8 @@ DIRECTIONGENERALISATION = False
 
 
 
-NUM_TRAIN_RUNS = 20
-NUM_TEST_RUNS = 50
+NUM_TRAIN_RUNS = 100
+NUM_TEST_RUNS = 0
 
 class GazeboInterface():
     """
@@ -99,6 +99,10 @@ class GazeboInterface():
         self.tmpBlockErrorOri = 0.0
         self.direction = np.array([0.0,0.5,0.0])
         self.finalPrediction = None
+        
+        self.accDif = 0.0
+        self.numSteps = 0        
+        
         np.random.seed(1234)
         
     @trollius.coroutine
@@ -475,24 +479,32 @@ class GazeboInterface():
                     self.pauseWorld()
                     
 #                    print "actions: ", self.worldModel.actions.values()
-#                    with open("../../data/actionVectors", 'w') as f:
-#                        for a in self.worldModel.actions.values():      
+                    with open("../../data/actionVectors3", 'w') as f:
+                        a = self.worldModel.actions.values()[0]
+                        f.write("#"+"; ".join(model.InteractionState().features) + "; ActionID; " + "; ".join(model.ObjectState().actionItems) + "\n")
+                        for a in self.worldModel.actions.values():      
 #                            f.write("================================\n")
 #                            f.write("Action for {}(id: {})\n".format(a.targets, a.id))
 #                            case, intStates = a.refCases[0]
-##                            f.write("sid; oid; dist; closing; contact; relPosX; relPosY; relPosZ; closingDivDist; Dif_linVelY; Dif_linVelX; Dif_linVelZ; Dif_posY; Dif_posZ; Dif_posX; Dif_ori; Dif_id; Dif_angVel; post_linVelX; post_linVelY; post_linVelZ; post_angVel \n")
-#                            f.write("; ".join(np.array(intStates[0].features)[intStates[0].mask]) + "; " + "(dif); ".join(case.dif.keys()) + "(dif); " + "(post); ".join(case.postState.actionItems) + "(post)\n")
+#                            f.write("sid; oid; dist; closing; contact; relPosX; relPosY; relPosZ; closingDivDist; Dif_linVelY; Dif_linVelX; Dif_linVelZ; Dif_posY; Dif_posZ; Dif_posX; Dif_ori; Dif_id; Dif_angVel; post_linVelX; post_linVelY; post_linVelZ; post_angVel \n")
+#                            f.write("; ".join(intStates[0].features[intStates[0].mask]) + "; " 
+#                                + "(dif); ".join(case.dif.keys()) + "(dif); " 
+#                                + "(post); ".join(case.postState.actionItems) + "(post)\n")
 #                            for w in a.weights:
 #                                f.write("{:.4f};".format(w))
 #                            f.write("\n")
-#                            for case, intStates in a.refCases:
+                            for case, intStates in a.refCases:
+                                for i in intStates:
+                                    for x in i.vec:
+                                        f.write("{:.4f};".format(x))
+                                    f.write("{}; ".format(a.id))
 #                                for x in intStates[0].getVec():
 #                                    f.write("{:.4f};".format(x))
 #                                for v in case.dif.values():
 #                                    f.write("{:.4f};".format(v[0]))
-#                                for k in case.postState.actionItems:
-#                                    f.write("{:.4f};".format(case.postState[k][0]))
-#                                f.write("\n")
+                                for k in case.postState.actionItems:
+                                    f.write("{:.4f};".format(case.postState[k][0]))
+                                f.write("\n")
 #                    dot_data = StringIO()
 #                    self.worldModel.getGraphViz(dot_data)
 #                    graph = pydot.graph_from_dot_data(dot_data.getvalue())
@@ -506,6 +518,9 @@ class GazeboInterface():
                 self.lastAction = model.Action.getGripperAction(cmd = GAZEBOCMDS["MOVE"], direction=self.direction)
                 if self.lastPrediction != None:
                     predictedWorldState = self.lastPrediction
+                    curDif = self.compare(worldState, self.lastPrediction)
+                    self.accDif += curDif
+                    self.numSteps +=1
                 else:
                     predictedWorldState = worldState
                     #Retransform
@@ -516,10 +531,15 @@ class GazeboInterface():
                 self.sendCommand(self.lastAction)
             else:
                 self.testRun += 1
-                difference = self.compare(worldState, self.finalPrediction)
-                print difference
-                with open("../../data/differencesDT.txt", "a") as f:
-                    f.write("{}; ".format(difference))
+#                difference = self.compare(worldState, self.finalPrediction)
+#                print difference
+#                with open("../../data/differencesSINGLES3.txt", "a") as f:
+#                    f.write("{}; ".format(difference))
+#                    f.write("{}; ".format(self.accDif))
+#                    f.write("{}; ".format(self.accDif/self.numSteps))
+#                    f.write("\n")
+#                self.accDif = 0.0
+#                self.numSteps = 0
 #                self.startRun()
         else:
             self.pauseWorld()

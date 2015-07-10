@@ -85,15 +85,22 @@ class ObjectState(State):
 class InteractionState(State):
     
     def __init__(self):
-        self.vec = np.zeros(13)
+        self.vec = np.zeros(16)
         self.update({"name": "", "sname":"", "oname": "", "sid": self.vec[0:1], "oid":self.vec[1:2],
                      "dist": self.vec[2:3], "closing": self.vec[3:4], "contact":self.vec[4:5],
                      "relPosX": self.vec[5:6], "relPosY": self.vec[6:7], "relPosZ":self.vec[7:8],
                      "relVlX": self.vec[8:9], "relVlY": self.vec[9:10], "relVlZ": self.vec[10:11],
-                     "closingDivDist":self.vec[11:12], "relPos": self.vec[5:8], "relVl": self.vec[8:11], "closing2":self.vec[12:13] })
-        self.features = np.array(["sid","oid","dist","closing","contact","relPosX", "relPosY", "relPosZ", "relVlX", "relVlY", "relVlZ", "closingDivDist", "closing2"])
+                     "closingDivDist":self.vec[11:12], "relPos": self.vec[5:8], "relVl": self.vec[8:11], 
+                     "closing1":self.vec[12:13], "closing2":self.vec[13:14], "closing1DivDist":self.vec[14:15], 
+                     "closing2DivDist":self.vec[15:16] })
+        self.features = np.array(["sid","oid","dist","closing","contact","relPosX", "relPosY", "relPosZ", 
+                                  "relVlX", "relVlY", "relVlZ", 
+                                  "closingDivDist", "closing1", "closing2", "closing1DivDist", "closing2DivDist"])
 #        self.mask = np.array(range(len(self.vec)))
-        self.mask = [0,1,2,3,5,6,8,9,11]
+        if CLOSING_REFERAL:
+            self.mask=[0,1,2,5,6,8,9,12,13,14,15]
+        else:            
+            self.mask = [0,1,2,3,5,6,8,9,11]
         self.relKeys = ["sid", "oid", "dist", "closing", "contact", "relPosX", "relPosY", "relPosZ", "closingDivDist", "closing2"]
         
 class WorldState(object):
@@ -123,7 +130,7 @@ class WorldState(object):
                 tmp["linVelX"][0] = np.round(m.linVel.x, NUMDEC)
                 tmp["linVelY"][0] = np.round(m.linVel.y, NUMDEC)
                 tmp["linVelZ"][0] = 0.0 # np.round(m.linVel.z, NUMDEC)
-                print "linVel of {}: {} ".format(m.name, tmp["linVel"])
+#                print "linVel of {}: {} ".format(m.name, tmp["linVel"])
 #                print "norm linVel: ", np.linalg.norm(tmp["linVel"])
                 if np.linalg.norm(tmp["linVel"]) < 0.01:
 #                    print "setting linVel to 0"
@@ -132,8 +139,10 @@ class WorldState(object):
                     tmp["linVelZ"][0] = 0.0
                 if m.name == "blockA":
                     tmp["angVel"][0] = np.round(m.angVel.z, NUMDEC)
-#                if m.name == "blockA":
-                
+                if m.name == "blockA":
+                    print "angVel: ", tmp["angVel"]
+                    print "angVel.x: {}, angVel.y: {}".format(m.angVel.x, m.angVel.y)
+                    print "ori: ", tmp["ori"]
 #                    print "pos: ", tmp["pos"]
                 self.objectStates[m.name] = tmp
                 
@@ -160,11 +169,11 @@ class WorldState(object):
                     intState["oname"] = n2
                     intState["sid"][0] = os1["id"]
                     intState["oid"][0] = os2["id"]
-                    if CLOSING_REFERAL:
-                        intState["dist"][0], intState["closing"][0], intState["closing2"][0] = self.computeDistanceClosing(os1,os2)
-                    else:
-                        intState["dist"][0], intState["closing"][0] = self.computeDistanceClosing(os1,os2)
-                    
+#                    if CLOSING_REFERAL:
+#                        intState["dist"][0], intState["closing1"][0], intState["closing2"][0] = self.computeDistanceClosing(os1,os2)
+#                    else:
+#                        intState["dist"][0], intState["closing"][0] = self.computeDistanceClosing(os1,os2)
+                    intState["dist"][0], intState["closing"][0], intState["closing1"][0], intState["closing2"][0]= self.computeDistanceClosing(os1,os2)
                     if intState["dist"] < 0.0:
                         intState["dist"] = 0.0
                     if os1["contact"] == n2:
@@ -194,7 +203,7 @@ class WorldState(object):
     def parse(self, gzWS):
         self.parseModels(gzWS.model_v.models)
         self.parseContacts(gzWS.contacts)
-        print "parsing"
+#        print "parsing"
         self.parseInteractions()
         
     def calcRelPosition(self, os1, os2):
@@ -292,15 +301,21 @@ class WorldState(object):
 #        print "normal: ", normal
 #        print "vel: ", vel
 #        print "norm vel: ", np.linalg.norm(vel)
-        if CLOSING_REFERAL:
-            normal1 = np.array([math.cos(di*math.pi/2.0+ang), math.sin(di*math.pi/2.0+ang),0.0])
-            if ds[di-1] < ds[(di+1) % len(ds)]:
-                normal2 = np.array([math.cos((di-1)*math.pi/2.0+ang), math.sin((di-1)*math.pi/2.0+ang),0.0])
-            else:
-                normal2 = np.array([math.cos((di+1)*math.pi/2.0+ang), math.sin((di+1)*math.pi/2.0+ang),0.0])
-            return np.round(ds[di]-0.025, NUMDEC), np.round(np.dot(normal1, vel), NUMDEC), np.round(np.dot(normal2, vel), NUMDEC)
-        else:        
-            return np.round(ds[di]-0.025, NUMDEC), np.round(np.dot(normal, vel), NUMDEC)
+#        if CLOSING_REFERAL:
+#            normal1 = np.array([math.cos(di*math.pi/2.0+ang), math.sin(di*math.pi/2.0+ang),0.0])
+#            if ds[di-1] < ds[(di+1) % len(ds)]:
+#                normal2 = np.array([math.cos((di-1)*math.pi/2.0+ang), math.sin((di-1)*math.pi/2.0+ang),0.0])
+#            else:
+#                normal2 = np.array([math.cos((di+1)*math.pi/2.0+ang), math.sin((di+1)*math.pi/2.0+ang),0.0])
+#            return np.round(ds[di]-0.025, NUMDEC), np.round(np.dot(normal1, vel), NUMDEC), np.round(np.dot(normal2, vel), NUMDEC)
+#        else:        
+#            return np.round(ds[di]-0.025, NUMDEC), np.round(np.dot(normal, vel), NUMDEC)
+        normal1 = np.array([math.cos(di*math.pi/2.0+ang), math.sin(di*math.pi/2.0+ang),0.0])
+        if ds[di-1] < ds[(di+1) % len(ds)]:
+            normal2 = np.array([math.cos((di-1)*math.pi/2.0+ang), math.sin((di-1)*math.pi/2.0+ang),0.0])
+        else:
+            normal2 = np.array([math.cos((di+1)*math.pi/2.0+ang), math.sin((di+1)*math.pi/2.0+ang),0.0])
+        return np.round(ds[di]-0.025, NUMDEC), np.round(np.dot(normal, vel), NUMDEC), np.round(np.dot(normal1, vel), NUMDEC), np.round(np.dot(normal2, vel), NUMDEC)
         
     def getInteractionState(self, name):
         return self.interactionStates[name]

@@ -65,14 +65,14 @@ class ITM(Network):
             if np.dot(nearest.vec()-x.vec(),second.vec()-x.vec()) > 0 and np.linalg.norm(x.vec()-nearest.vec()) > EMAX:
                 self.addNode(x)
 #                x.adapt(nearest, ETA)
-                print "adding new node: ", x.wOut
+#                print "adding new node: ", x.wOut
                 self.addEdge(nearest.name, name)
             if np.linalg.norm(nearest.vec()-second.vec()) < 0.5*EMAX:
-                print "removing node"
+#                print "removing node"
                 self.removeNode(second)
         else:
             self.addNode(x)
-            print "adding node because there are not enough"
+#            print "adding node because there are not enough"
             
     def getAction(self, wOut):
         if not hasattr(wOut, "__len__"):
@@ -96,7 +96,7 @@ class ITM(Network):
             else:
                 raise AttributeError("Unsupported Predictionmode used: ", PREDICTIONMODE)
         else:
-            print "No minNode found: NrNodes: {}".format(len(self.nodes))
+#            print "No minNode found: NrNodes: {}".format(len(self.nodes))
             return None, None, None
 
     def getBestAbsAction(self, wOut):
@@ -121,8 +121,8 @@ class ITM(Network):
             else:
                 raise AttributeError("Unsupported Predictionmode used: ", PREDICTIONMODE)
         else:
-            print "number of nodes: ", len(self.nodes)
-            print "last d: ", d
+#            print "number of nodes: ", len(self.nodes)
+#            print "last d: ", d
             return None, None, None
         
     def predictAction(self, wIn, wOut):
@@ -201,8 +201,8 @@ class ITM(Network):
                 else:
                     return minNode.wOut
         else:
-            print "No minNode found!"
-            print "number of nodes: ", len(self.nodes)
+#            print "No minNode found!"
+#            print "number of nodes: ", len(self.nodes)
             return 0.0
             
   

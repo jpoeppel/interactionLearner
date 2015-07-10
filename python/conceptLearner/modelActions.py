@@ -30,7 +30,7 @@ from state2 import Action as GripperAction
 
 from sklearn import tree
 
-THRESHOLD = 0.9999
+THRESHOLD = 0.8
 
 NUM_PROTOTYPES = 3
 SINGLE_ACTION = False
@@ -110,7 +110,7 @@ class Action(object):
 #        print "rating action: {}, precons: {}".format(self.effect.keys(), self.preConditions)
         if objectState["name"] not in self.targets:
             return 0
-        print "rate: ", intStates
+#        print "rate: ", intStates
         bestScore = 0.0
         for intState in intStates:
             r = {}
@@ -121,7 +121,7 @@ class Action(object):
             if s > bestScore:
                 bestScore = s
              
-        print "action: {} got rating: {} for {}".format(self.effect.keys(), r, objectState["name"])
+#        print "action: {} got rating: {} for {}".format(self.effect.keys(), r, objectState["name"])
         if len(self.preConditions) != 0:
             return s/len(self.preConditions)
         else:
@@ -153,11 +153,12 @@ class Action(object):
                 else:
                     if len(self.refCases) < 1:
                         self.preConditions[k] = v 
-        for k,v in self.effect.items():
-#            if not k in self.effect:
-#                self.effect[k] = ITM()
-#            v.train(Node(0, wIn=intState.getVec(), wOut=case.dif[k]))
-            v.train(Node(0, wIn=intState.getVec(), wOut=case.postState[k]))
+        if len(self.refCases) < 10:
+            for k,v in self.effect.items():
+    #            if not k in self.effect:
+    #                self.effect[k] = ITM()
+    #            v.train(Node(0, wIn=intState.getVec(), wOut=case.dif[k]))
+                v.train(Node(0, wIn=intState.getVec(), wOut=case.postState[k]))
                 
         self.refCases.append((case, intStates))
         
@@ -296,7 +297,7 @@ class ModelAction(object):
 #            if sortedList[0][1].effect.keys() == [] and sortedList[0][0] > 0.9 and len(sortedList) > 1:
 #                sortedList[1][1].applyAction(res, worldState.getInteractionStates(res["name"]))
 #            else:
-            print "selected Action for {}: {} ".format(objectState["name"], sortedList[0][1])
+#            print "selected Action for {}: {} ".format(objectState["name"], sortedList[0][1])
             sortedList[0][1].applyAction(res, worldState.getInteractionStates(res["name"]))
             
         return res
@@ -320,7 +321,7 @@ class ModelAction(object):
                 if self.tree != None:
                     l = int(self.tree.predict(intState.getVec())[0])
                 if l != None:
-                    print "selected Action for {}: {} ".format(objectState["name"], self.actions[l].id)
+#                    print "selected Action for {}: {} ".format(objectState["name"], self.actions[l].id)
                     self.actions[l].applyAction(res, worldState.getInteractionStates(res["name"]))
                 else:
                     print "No action found"
@@ -345,12 +346,12 @@ class ModelAction(object):
 #        resultWS.invTrans = np.copy(worldState.invTrans)
 #        resultWS.ori = np.copy(worldState.ori)
         for objectState in worldState.objectStates.values():
-            print "OS before action: ", objectState
+#            print "OS before action: ", objectState
             newOS = self.applyMostSuitedAction2(objectState, worldState, action)
             if objectState["name"] == "gripper":
 #                print "action: ", action
                 newOS["linVel"][:3] = action["mvDir"]
-            print "newOS after action: ", newOS
+#            print "newOS after action: ", newOS
             newOS = self.predictObjectState(newOS)
 #            objectState = newOS
             resultWS.addObjectState(newOS)
@@ -406,7 +407,7 @@ class ModelAction(object):
                 return self.actions[1]
         else:
             for l, a in self.actions.items():
-                if case.preState["name"] in a.targets:
+#                if case.preState["name"] in a.targets:
                     valid = True
                     tmpOS = ObjectState.clone(case.preState)
                     a.applyAction(tmpOS, worldState.getInteractionStates(case.preState["name"]))
@@ -480,8 +481,8 @@ class ModelAction(object):
     def updateState(self, predictedOS, worldState, action, resultingOS):
         case = BaseCase(worldState.getObjectState(predictedOS["name"]), resultingOS)
         predictionRating = resultingOS.score(predictedOS)
-        print "Prediction rating for {}: {}".format(predictedOS["name"], predictionRating)
-        print "update casePrestate: ", case.preState.vec
+#        print "Prediction rating for {}: {}".format(predictedOS["name"], predictionRating)
+#        print "update casePrestate: ", case.preState.vec
 #        print "prediction: ", predictedOS
 #        print "result: ", {k: resultingOS[k] for k in resultingOS.actionItems}
         responsibleAction = self.checkForAction2(case, worldState)

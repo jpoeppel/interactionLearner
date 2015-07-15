@@ -98,10 +98,11 @@ class InteractionState(State):
                                   "closingDivDist", "closing1", "closing2", "closing1DivDist", "closing2DivDist"])
 #        self.mask = np.array(range(len(self.vec)))
         if CLOSING_REFERAL:
-            self.mask=[0,1,2,5,6,8,9,12,13,14,15]
+            self.mask=[0,1,2,5,6,8,9,12,13]
         else:            
-            self.mask = [0,1,2,3,5,6,8,9,11]
-        self.relKeys = ["sid", "oid", "dist", "closing", "contact", "relPosX", "relPosY", "relPosZ", "closingDivDist", "closing2"]
+            self.mask = [0,1,2,3,5,6,8,9]
+#            self.mask = np.array([0,1,4,5,6,8,9,12,13,14,15])
+#        self.relKeys = ["sid", "oid", "dist", "closing", "contact", "relPosX", "relPosY", "relPosZ", "closingDivDist", "closing2"]
         
 class WorldState(object):
     
@@ -141,7 +142,7 @@ class WorldState(object):
                     tmp["angVel"][0] = np.round(m.angVel.z, NUMDEC)
                 if m.name == "blockA":
                     print "angVel: ", tmp["angVel"]
-                    print "angVel.x: {}, angVel.y: {}".format(m.angVel.x, m.angVel.y)
+                    print "angVel.x: {:.4f}, angVel.y: {:.4f}".format(m.angVel.x, m.angVel.y)
                     print "ori: ", tmp["ori"]
 #                    print "pos: ", tmp["pos"]
                 self.objectStates[m.name] = tmp
@@ -193,9 +194,13 @@ class WorldState(object):
 #                    print "relPos: ", intState["relPos"]
 #                    print "relPosY: ", intState["relPosY"]
                     if intState["dist"] != 0:
-                        intState["closingDivDist"][0] = intState["closing"]/intState["dist"] *0.1
+                        intState["closingDivDist"][0] = intState["closing"]/intState["dist"]
+                        intState["closing1DivDist"][0] = intState["closing1"]/intState["dist"]
+                        intState["closing2DivDist"][0] = intState["closing2"]/intState["dist"]
                     else:
-                        intState["closingDivDist"][0] = intState["closing"]/0.001 * 0.1
+                        intState["closingDivDist"][0] = intState["closing"]/0.001
+                        intState["closing1DivDist"][0] = intState["closing1"]/0.001
+                        intState["closing2DivDist"][0] = intState["closing2"]/0.001
 #                    intState["closingDivDist"][0] = np.round(math.tanh(1+0.1*intState["closingDivDist"]), NUMDEC)
                     self.interactionStates[intState["name"]] = intState
             

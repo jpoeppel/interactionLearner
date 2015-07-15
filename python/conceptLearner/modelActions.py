@@ -30,10 +30,10 @@ from state2 import Action as GripperAction
 
 from sklearn import tree
 
-THRESHOLD = 0.8
+THRESHOLD = 0.995
 
 NUM_PROTOTYPES = 3
-SINGLE_ACTION = False
+SINGLE_ACTION = True
 DUAL_ACTION = False
 
 class BaseCase(object):
@@ -146,19 +146,19 @@ class Action(object):
         self.targets.add(case.preState["name"])
         for intState in intStates:
             self.vecs.append(intState.getVec())
-            for k,v in intState.relItems():
-                if k in self.preConditions:
-                    if np.linalg.norm(v-self.preConditions[k]) > 0.1:
-                        del self.preConditions[k]
-                else:
-                    if len(self.refCases) < 1:
-                        self.preConditions[k] = v 
-        if len(self.refCases) < 10:
-            for k,v in self.effect.items():
-    #            if not k in self.effect:
-    #                self.effect[k] = ITM()
-    #            v.train(Node(0, wIn=intState.getVec(), wOut=case.dif[k]))
-                v.train(Node(0, wIn=intState.getVec(), wOut=case.postState[k]))
+#            for k,v in intState.relItems():
+#                if k in self.preConditions:
+#                    if np.linalg.norm(v-self.preConditions[k]) > 0.1:
+#                        del self.preConditions[k]
+#                else:
+#                    if len(self.refCases) < 1:
+#                        self.preConditions[k] = v 
+#        if len(self.refCases) < 10:
+        for k,v in self.effect.items():
+#            if not k in self.effect:
+#                self.effect[k] = ITM()
+#            v.train(Node(0, wIn=intState.getVec(), wOut=case.dif[k]))
+            v.train(Node(0, wIn=intState.getVec(), wOut=case.postState[k]))
                 
         self.refCases.append((case, intStates))
         
@@ -481,7 +481,7 @@ class ModelAction(object):
     def updateState(self, predictedOS, worldState, action, resultingOS):
         case = BaseCase(worldState.getObjectState(predictedOS["name"]), resultingOS)
         predictionRating = resultingOS.score(predictedOS)
-#        print "Prediction rating for {}: {}".format(predictedOS["name"], predictionRating)
+        print "Prediction rating for {}: {}".format(predictedOS["name"], predictionRating)
 #        print "update casePrestate: ", case.preState.vec
 #        print "prediction: ", predictedOS
 #        print "result: ", {k: resultingOS[k] for k in resultingOS.actionItems}

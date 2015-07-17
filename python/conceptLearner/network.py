@@ -13,8 +13,10 @@ from operator import itemgetter
 EQU = 0
 CMP = 1
 
-alpha = 0.01
-beta = 0.005
+alpha = 0.1
+beta = 0.01
+
+numEpochs = 100
 
 class Node(object):
     def __init__(self, name, pos=np.array([]), wIn=np.array([]), action = np.array([]), wOut = np.array([]), A = np.array([])):
@@ -130,8 +132,8 @@ class LVQNeuron(object):
             weights = self.weights
         if label == self.label:
             self.vector += alpha * factor * d2 * np.dot(weights, -2*(vec - self.vector))
-#        else:
-#            self.vector -= alpha * factor * d1 * np.dot(weights, -2*(vec - self.vector))
+        else:
+            self.vector -= alpha * factor * d1 * np.dot(weights, -2*(vec - self.vector))
             
     def __repr__(self):
         return str(self.label)
@@ -144,9 +146,9 @@ class LVQNeuralNet(object):
             
     def get_classifier(self, vec):
         s = sorted([(neuron, neuron.dist(vec, neuron.weights)) for neuron in self.neurons], key=itemgetter(1))
-        print "classifiers: ", s
-        print "winner vec: ", s[0][0].vector
-        print "vec: ", vec
+#        print "classifiers: ", s
+#        print "winner vec: ", s[0][0].vector
+#        print "vec: ", vec
         return s[0][0]#min(s, key=itemgetter(1))[0]
         
     def addNeuron(self, vec, label, weights = None):
@@ -195,13 +197,13 @@ class LVQNeuralNet(object):
 #            print "dist2: ", dist2
             w1.train(vec, label, alpha, 2*difsig/dist2, d1, d2, w1.weights)
             w2.train(vec, label, alpha, 2*difsig/dist2, d1, d2, w2.weights)
-            w1.weights += beta * difsig * (2 * d2/dist2 * np.square(vec-w1.vector) - 2*d1/dist2*np.square(vec-w2.vector))
-            w1.weights[w1.weights<0] = 0
-            s = np.sum(w1.weights)
-            if s != 0.0:
-                w1.weights /= np.sum(w1.weights)#np.linalg.norm(self.weights)
-            else:
-                w1.weights += 1.0/len(w1.weights)
+#            w1.weights += beta * difsig * (2 * d2/dist2 * np.square(vec-w1.vector) - 2*d1/dist2*np.square(vec-w2.vector))
+#            w1.weights[w1.weights<0] = 0
+#            s = np.sum(w1.weights)
+#            if s != 0.0:
+#                w1.weights /= np.sum(w1.weights)#np.linalg.norm(self.weights)
+#            else:
+#                w1.weights += 1.0/len(w1.weights)
                 
 #            print "new weights: ", weights
 #            print "sum weights: ", np.sum(self.weights)
@@ -212,6 +214,21 @@ class LVQNeuralNet(object):
             return self.get_classifier(vec).label
         else:
             return None
+            
+    def trainOffline(self, trainData, labels, protos = None):
+        if protos != None:
+            if isinstance(protos, int):
+                numClasses = int(max(labels))
+                self.neurons = []
+                for i in xrange(numClasses):
+                    for j in xrange(protos):
+                        self.addNeuron(np.mean(trainData[labels==i])+(np.random.rand(len(trainData[0]))-0.5)*0.01, i)
+        
+        for i in xrange(numEpochs):
+            idxs = range(len(trainData))
+            np.random.shuffle(idxs)
+            for j in idxs:
+                self.train(trainData[j], labels[j])
                 
 
 class TreeNode(object):

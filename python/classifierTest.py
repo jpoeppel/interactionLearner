@@ -79,10 +79,7 @@ for i in xrange(numSplits):
     print "Testerror for Forest: ", testErrorsForest[i]
     
     lvqModel = network.LVQNeuralNet(len(trainSet[0]))
-    for j in xrange(int(max(trainLabel))):        
-        lvqModel.addRandomNeurons(5, j)
-    for j in xrange(len(trainSet)):
-        lvqModel.train(trainSet[j], trainLabel[j])
+    lvqModel.trainOffline(trainSet, trainLabel, 5)
     
     predictionLVQ = [lvqModel.classify(x) for x in trainSet]
     trainErrorsLVQ[i] = np.mean(predictionLVQ != trainLabel)

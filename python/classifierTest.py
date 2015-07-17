@@ -12,6 +12,8 @@ from sklearn import svm
 from sklearn import tree
 from sklearn import ensemble
 
+from conceptLearner import network
+
 data = np.loadtxt("../data/actionVectors2_Clean.csv", skiprows=1)
 featureNames = np.array(["sid","oid","dist","closing","contact","relPosX", "relPosY", "relPosZ",
                          "relVlX", "relVlY", "relVlZ", "closingDivDist", "closing1", "closing2", 
@@ -23,16 +25,18 @@ mask = np.array([0,1,2,3,4,5,6,8,9,11,12,13,14,15]) # No relPosz, relVelZ
 mask = np.array([0,1,2,4,5,6,8,9,12,13])
 #mask = np.array(range(16))
 
-nth = 15
+nth = 4
 numSplits = 10
 
 trainErrorsSVM = np.zeros(numSplits)
 trainErrorsDT = np.zeros(numSplits)
 trainErrorsForest = np.zeros(numSplits)
+trainErrorsLVQ = np.zeros(numSplits)
 
 testErrorsSVM = np.zeros(numSplits)
 testErrorsDT = np.zeros(numSplits)
 testErrorsForest = np.zeros(numSplits)
+testErrorsLVQ = np.zeros(numSplits)
 
 for i in xrange(numSplits):
     np.random.shuffle(data)
@@ -73,12 +77,27 @@ for i in xrange(numSplits):
     predictionForest = forestModel.predict(testSet)
     testErrorsForest[i] = np.mean(predictionForest != testLabel)
     print "Testerror for Forest: ", testErrorsForest[i]
+    
+    lvqModel = network.LVQNeuralNet(len(trainSet[0]))
+    for j in xrange(int(max(trainLabel))):        
+        lvqModel.addRandomNeurons(5, j)
+    for j in xrange(len(trainSet)):
+        lvqModel.train(trainSet[j], trainLabel[j])
+    
+    predictionLVQ = [lvqModel.classify(x) for x in trainSet]
+    trainErrorsLVQ[i] = np.mean(predictionLVQ != trainLabel)
+    print "Trainerror for LVQ: ", trainErrorsLVQ[i]
+    predictionLVQ = [lvqModel.classify(x) for x in testSet]
+    testErrorsLVQ[i] = np.mean(predictionLVQ != testLabel)
+    print "Testerror for LVQ: ", testErrorsLVQ[i]
 
 
 print "Average trainError SVM: ", np.mean(trainErrorsSVM)
 print "Average trainError DT: ", np.mean(trainErrorsDT)
 print "Average trainError Forest: ", np.mean(trainErrorsForest)
+print "Average trainError LVQ: ", np.mean(trainErrorsLVQ)
 
 print "Average testError SVM: ", np.mean(testErrorsSVM)
 print "Average testError DT: ", np.mean(testErrorsDT)
 print "Average testError Forest: ", np.mean(testErrorsForest)
+print "Average testError LVQ: ", np.mean(testErrorsLVQ)

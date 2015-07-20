@@ -13,8 +13,13 @@ from sklearn import tree
 from sklearn import ensemble
 
 from conceptLearner import network
+from sklearn.externals.six import StringIO
+import pydot
 
-data = np.loadtxt("../data/actionVectors2_Clean.csv", skiprows=1)
+
+data = np.loadtxt("../data/actionVectors2_n", skiprows=1, delimiter=";")
+data = np.loadtxt("../data/actionVectors2_Clean2.csv", skiprows=1)
+data = np.loadtxt("../data/actionVectors3_Clean.csv", skiprows=1)
 featureNames = np.array(["sid","oid","dist","closing","contact","relPosX", "relPosY", "relPosZ",
                          "relVlX", "relVlY", "relVlZ", "closingDivDist", "closing1", "closing2", 
                          "closing1DivDist", "closing2DivDist"])
@@ -78,15 +83,15 @@ for i in xrange(numSplits):
     testErrorsForest[i] = np.mean(predictionForest != testLabel)
     print "Testerror for Forest: ", testErrorsForest[i]
     
-    lvqModel = network.LVQNeuralNet(len(trainSet[0]))
-    lvqModel.trainOffline(trainSet, trainLabel, 5)
-    
-    predictionLVQ = [lvqModel.classify(x) for x in trainSet]
-    trainErrorsLVQ[i] = np.mean(predictionLVQ != trainLabel)
-    print "Trainerror for LVQ: ", trainErrorsLVQ[i]
-    predictionLVQ = [lvqModel.classify(x) for x in testSet]
-    testErrorsLVQ[i] = np.mean(predictionLVQ != testLabel)
-    print "Testerror for LVQ: ", testErrorsLVQ[i]
+#    lvqModel = network.LVQNeuralNet(len(trainSet[0]))
+#    lvqModel.trainOffline(trainSet, trainLabel, 1)
+#    
+#    predictionLVQ = [lvqModel.classify(x) for x in trainSet]
+#    trainErrorsLVQ[i] = np.mean(predictionLVQ != trainLabel)
+#    print "Trainerror for LVQ: ", trainErrorsLVQ[i]
+#    predictionLVQ = [lvqModel.classify(x) for x in testSet]
+#    testErrorsLVQ[i] = np.mean(predictionLVQ != testLabel)
+#    print "Testerror for LVQ: ", testErrorsLVQ[i]
 
 
 print "Average trainError SVM: ", np.mean(trainErrorsSVM)
@@ -98,3 +103,9 @@ print "Average testError SVM: ", np.mean(testErrorsSVM)
 print "Average testError DT: ", np.mean(testErrorsDT)
 print "Average testError Forest: ", np.mean(testErrorsForest)
 print "Average testError LVQ: ", np.mean(testErrorsLVQ)
+
+dot_data = StringIO()
+tree.export_graphviz(dtModel, out_file=dot_data, feature_names=featureNames[mask])
+graph = pydot.graph_from_dot_data(dot_data.getvalue())
+if graph != None:
+    graph.write_pdf("../data/ActionTreeOffline.pdf")

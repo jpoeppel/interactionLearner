@@ -8,12 +8,31 @@
       <uri>model://sun</uri>
     </include>
     <model name='gripper'>
-      <pose>0.0 0.0 0.025 0 0 0</pose>
+      <pose>0.0 0.0 0.03 0 0 0</pose>
       <link name='finger'>
-       <inertial>
-          <mass>100</mass>
+        <inertial>
+          <mass>1</mass>
+          <inertia>
+            <ixx>2.5e-04</ixx>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyy>2.5e-04</iyy>
+            <iyz>0</iyz>
+            <izz>2.5e-04</izz>
+          </inertia>
         </inertial>
-        <collision name='finger_collision'>
+        <collision name='collision'>
+     <surface>
+      <friction>
+       <ode>
+        <mu>0.01</mu>
+        <mu2>0.01</mu2>
+        <fdir1>0.000000 0.000000 0.000000</fdir1>
+        <slip1>0.000000</slip1>
+        <slip2>0.000000</slip2>
+       </ode>
+      </friction>
+     </surface>
           <geometry>
             <sphere>
               <radius>0.025</radius>
@@ -36,31 +55,50 @@
         <gravity>0</gravity>
         <sensor name='gripperContact' type='contact'>
           <contact>
-            <collision>finger_collision</collision>
+            <collision>collision</collision>
           </contact>
-	  <update_rate>1.0</update_rate>
+        <update_rate>10.0</update_rate>
         </sensor>
       </link>
       <static>0</static>
     </model>
     <model name='blockA'>
-      <pose>-0.0 0.5 0 0 0 0</pose>
+      <pose>-0.0 0.5 0.05 0 0 0</pose>
       <link name='link'>
         <inertial>
-          <mass>100</mass>
+          <mass>1</mass>
+         <inertia>
+            <ixx>1.66667e-03</ixx>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyy>0.0216667</iyy>
+            <iyz>0</iyz>
+            <izz>0.0216667</izz>
+          </inertia>
         </inertial>
         <collision name='collision'>
           <geometry>
             <box>
-              <size>0.05 0.05 0.05</size>
+              <size>0.5 0.1 0.1</size>
             </box>
           </geometry>
+          <surface>
+              <friction>
+               <ode>
+                <mu>0.6</mu>
+                <mu2>0.5</mu2>
+                <fdir1>0.000000 0.000000 0.000000</fdir1>
+                <slip1>0.000000</slip1>
+                <slip2>0.000000</slip2>
+               </ode>
+              </friction>
+         </surface>
           <max_contacts>10</max_contacts>
         </collision>
         <visual name='visual'>
           <geometry>
             <box>
-              <size>0.05 0.05 0.05</size>
+              <size>0.5 0.1 0.1</size>
             </box>
           </geometry>
           <material>
@@ -70,6 +108,46 @@
             </script>
           </material>
         </visual>
+      </link>
+      <static>0</static>
+    </model>
+     <model name='gripperShadow'>
+      <pose>0.0 0.0 0.03 0 0 0</pose>
+      <link name='finger'>
+        <visual name='visual'>
+          <geometry>
+            <sphere>
+              <radius>0.025</radius>
+            </sphere>
+          </geometry>
+          <material>
+            <script>
+              <uri>file://media/materials/scripts/gazebo.material</uri>
+              <name>Gazebo/GreyTransparent</name>
+            </script>
+          </material>
+        </visual>
+        <gravity>0</gravity>
+      </link>
+      <static>0</static>
+    </model>
+        <model name='blockAShadow'>
+      <pose>-0.0 0.5 0.05 0 0 0</pose>
+      <link name='link'>
+        <visual name='visual'>
+          <geometry>
+            <box>
+              <size>0.5 0.1 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <script>
+              <uri>file://media/materials/scripts/gazebo.material</uri>
+              <name>Gazebo/BlueTransparent</name>
+            </script>
+          </material>
+        </visual>
+        <gravity>0</gravity>
       </link>
       <static>0</static>
     </model>

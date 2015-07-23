@@ -13,8 +13,8 @@ from operator import itemgetter
 EQU = 0
 CMP = 1
 
-alpha = 0.1
-beta = 0.01
+alpha = 1
+beta = 0.1
 
 numEpochs = 100
 
@@ -161,7 +161,7 @@ class LVQNeuralNet(object):
             weights = self.weights
         self.neurons.extend([LVQNeuron((np.random.rand(self.inDim) - 0.5)*2, label, weights) for x in xrange(k) ])
         
-    def train(self, vec, label, weights = None):
+    def train(self, vec, label, weights = None, factor = 1.0):
         if weights == None:
             weights = self.weights
         s = [(neuron, neuron.dist(vec, neuron.weights), neuron.label) for neuron in self.neurons]
@@ -195,8 +195,8 @@ class LVQNeuralNet(object):
             difsig = np.exp(u)/np.square(np.exp(u)+1)
 #            print "difsig: ", difsig
 #            print "dist2: ", dist2
-            w1.train(vec, label, alpha, 2*difsig/dist2, d1, d2, w1.weights)
-            w2.train(vec, label, alpha, 2*difsig/dist2, d1, d2, w2.weights)
+            w1.train(vec, label, alpha*factor, 2*difsig/dist2, d1, d2, w1.weights)
+            w2.train(vec, label, alpha*factor, 2*difsig/dist2, d1, d2, w2.weights)
 #            w1.weights += beta * difsig * (2 * d2/dist2 * np.square(vec-w1.vector) - 2*d1/dist2*np.square(vec-w2.vector))
 #            w1.weights[w1.weights<0] = 0
 #            s = np.sum(w1.weights)
@@ -228,7 +228,7 @@ class LVQNeuralNet(object):
             idxs = range(len(trainData))
             np.random.shuffle(idxs)
             for j in idxs:
-                self.train(trainData[j], labels[j])
+                self.train(trainData[j], labels[j], factor=10.0/(max(i,1)))
                 
 
 class TreeNode(object):

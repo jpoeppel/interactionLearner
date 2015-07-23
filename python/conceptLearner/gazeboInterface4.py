@@ -60,8 +60,8 @@ DIRECTIONGENERALISATION = False
 
 
 
-NUM_TRAIN_RUNS = 20
-NUM_TEST_RUNS = 40
+NUM_TRAIN_RUNS = 10
+NUM_TEST_RUNS = 20
 
 class GazeboInterface():
     """
@@ -478,33 +478,34 @@ class GazeboInterface():
                 if self.trainRun == NUM_TRAIN_RUNS:
                     self.pauseWorld()
                     
-#                    print "actions: ", self.worldModel.actions.values()
-#                    with open("../../data/actionVectors3", 'w') as f:
-#                        a = self.worldModel.actions.values()[0]
-#                        f.write("#"+"; ".join(model.InteractionState().features) + "; ActionID; " + "; ".join(model.ObjectState().actionItems) + "\n")
-#                        for a in self.worldModel.actions.values():      
-##                            f.write("================================\n")
-##                            f.write("Action for {}(id: {})\n".format(a.targets, a.id))
-##                            case, intStates = a.refCases[0]
-##                            f.write("sid; oid; dist; closing; contact; relPosX; relPosY; relPosZ; closingDivDist; Dif_linVelY; Dif_linVelX; Dif_linVelZ; Dif_posY; Dif_posZ; Dif_posX; Dif_ori; Dif_id; Dif_angVel; post_linVelX; post_linVelY; post_linVelZ; post_angVel \n")
-##                            f.write("; ".join(intStates[0].features[intStates[0].mask]) + "; " 
-##                                + "(dif); ".join(case.dif.keys()) + "(dif); " 
-##                                + "(post); ".join(case.postState.actionItems) + "(post)\n")
-##                            for w in a.weights:
-##                                f.write("{:.4f};".format(w))
-##                            f.write("\n")
-#                            for case, intStates in a.refCases:
-#                                for i in intStates:
-#                                    for x in i.vec:
-#                                        f.write("{:.4f};".format(x))
-#                                    f.write("{}; ".format(a.id))
-##                                for x in intStates[0].getVec():
-##                                    f.write("{:.4f};".format(x))
-##                                for v in case.dif.values():
-##                                    f.write("{:.4f};".format(v[0]))
-#                                for k in case.postState.actionItems:
-#                                    f.write("{:.4f};".format(case.postState[k][0]))
-#                                f.write("\n")
+                    print "actions: ", self.worldModel.actions.values()
+                    with open("../../data/actionVectorsTestNew", 'w') as f:
+                        a = self.worldModel.actions.values()[0]
+                        f.write("#"+"; ".join(model.InteractionState().features) + "; ActionID; " + "; ".join(model.ObjectState().actionItems) + "\n")
+                        for a in self.worldModel.actions.values():      
+#                            f.write("================================\n")
+#                            f.write("Action for {}(id: {})\n".format(a.targets, a.id))
+#                            case, intStates = a.refCases[0]
+#                            f.write("sid; oid; dist; closing; contact; relPosX; relPosY; relPosZ; closingDivDist; Dif_linVelY; Dif_linVelX; Dif_linVelZ; Dif_posY; Dif_posZ; Dif_posX; Dif_ori; Dif_id; Dif_angVel; post_linVelX; post_linVelY; post_linVelZ; post_angVel \n")
+#                            f.write("; ".join(intStates[0].features[intStates[0].mask]) + "; " 
+#                                + "(dif); ".join(case.dif.keys()) + "(dif); " 
+#                                + "(post); ".join(case.postState.actionItems) + "(post)\n")
+#                            for w in a.weights:
+#                                f.write("{:.4f};".format(w))
+#                            f.write("\n")
+                            for case, intStates in a.refCases:
+                                for i in intStates:
+                                    for x in i.vec:
+                                        f.write("{:.4f};".format(x))
+                                    f.write("{}; ".format(a.id))
+#                                for x in intStates[0].getVec():
+#                                    f.write("{:.4f};".format(x))
+#                                for v in case.dif.values():
+#                                    f.write("{:.4f};".format(v[0]))
+                                for k in case.postState.actionItems:
+                                    f.write("{:.4f};".format(case.postState[k][0]))
+                                
+                                f.write("\n")
 #                    dot_data = StringIO()
 #                    self.worldModel.getGraphViz(dot_data)
 #                    graph = pydot.graph_from_dot_data(dot_data.getvalue())

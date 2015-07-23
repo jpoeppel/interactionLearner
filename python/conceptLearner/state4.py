@@ -131,7 +131,8 @@ class WorldState(object):
                 tmp["linVelX"][0] = np.round(m.linVel.x, NUMDEC)
                 tmp["linVelY"][0] = np.round(m.linVel.y, NUMDEC)
                 tmp["linVelZ"][0] = 0.0 # np.round(m.linVel.z, NUMDEC)
-#                print "linVel of {}: {} ".format(m.name, tmp["linVel"])
+                print "linVelX of {}: {} ".format(m.name, tmp["linVelX"])
+                print "posX of {}: {} ".format(m.name, tmp["posX"])
 #                print "norm linVel: ", np.linalg.norm(tmp["linVel"])
                 if np.linalg.norm(tmp["linVel"]) < 0.01:
 #                    print "setting linVel to 0"
@@ -140,10 +141,10 @@ class WorldState(object):
                     tmp["linVelZ"][0] = 0.0
                 if m.name == "blockA":
                     tmp["angVel"][0] = np.round(m.angVel.z, NUMDEC)
-                if m.name == "blockA":
-                    print "angVel: ", tmp["angVel"]
-                    print "angVel.x: {:.4f}, angVel.y: {:.4f}".format(m.angVel.x, m.angVel.y)
-                    print "ori: ", tmp["ori"]
+#                if m.name == "blockA":
+#                    print "angVel: ", tmp["angVel"]
+#                    print "angVel.x: {:.4f}, angVel.y: {:.4f}".format(m.angVel.x, m.angVel.y)
+#                    print "ori: ", tmp["ori"]
 #                    print "pos: ", tmp["pos"]
                 self.objectStates[m.name] = tmp
                 
@@ -183,6 +184,7 @@ class WorldState(object):
 #                    intState["relPosY"][0] = np.round(os1["posY"]-os2["posY"], NUMDEC)
 #                    intState["relPosZ"][0] = np.round(os1["posZ"]-os2["posZ"], NUMDEC)
                     intState["relPos"][:3] = self.calcRelPosition(os1,os2)
+#                    print "Rel pos for object {}: {}".format(intState["sname"], intState["relPos"])
                     intState["relVl"][:3] = os2["linVel"][:3]-os1["linVel"][:3]
 #                    if os1["name"] == "blockA":                    
 #                        print "Closing for os1 {}: {}".format(os1["name"], intState["closing"])

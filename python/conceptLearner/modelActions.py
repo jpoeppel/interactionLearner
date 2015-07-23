@@ -33,8 +33,9 @@ from sklearn import tree
 THRESHOLD = 0.995
 
 NUM_PROTOTYPES = 3
-SINGLE_ACTION = True
+SINGLE_ACTION = False
 DUAL_ACTION = False
+
 
 class BaseCase(object):
     
@@ -90,6 +91,7 @@ class Action(object):
         self.effect = {}
         self.refCases = []
         self.vecs = []
+        self.changeSet = Set()
         self.unusedFeatures = []
         self.weights = np.ones(len(InteractionState().getVec()))
         self.weights /= sum(self.weights)
@@ -321,7 +323,7 @@ class ModelAction(object):
                 if self.tree != None:
                     l = int(self.tree.predict(intState.getVec())[0])
                 if l != None:
-#                    print "selected Action for {}: {} ".format(objectState["name"], self.actions[l].id)
+                    print "selected Action for {}: {} ".format(objectState["name"], self.actions[l].id)
                     self.actions[l].applyAction(res, worldState.getInteractionStates(res["name"]))
                 else:
                     print "No action found"
@@ -351,7 +353,8 @@ class ModelAction(object):
             if objectState["name"] == "gripper":
 #                print "action: ", action
                 newOS["linVel"][:3] = action["mvDir"]
-#            print "newOS after action: ", newOS
+            if objectState["name"] == "blockA": 
+                print "newOS after action: ", newOS
             newOS = self.predictObjectState(newOS)
 #            objectState = newOS
             resultWS.addObjectState(newOS)
@@ -446,9 +449,29 @@ class ModelAction(object):
     #        self.updateLVQ()
             self.updateTree()
             return newAction
+            
+    def checkForAction3(self, case, worldState):
+        #TODO: Cluster action in subsets of changing attributes just like it was done in the interactionModel!
+        dif = Set()
+        for k in case.postState.actionItems:
+            if np.linalg.norm(case.postState[k]) > 0.03:
+                dif.add(k)
+        for l,a in self.actions.items():
+            if a.changeSet == dif:
+                a.update(case, worldState.getInteractionStates(case.preState["name"]))
+                self.updateTree()
+                return a
+        newAction = Action(case.preState.actionItems)
+        newAction.update(case, worldState.getInteractionStates(case.preState["name"]))
+        newAction.id = len(self.actions)
+        newAction.changeSet = dif
+        self.actions[newAction.id] = newAction
+        self.updateTree()
+        return newAction
+    
         
     def updateTree(self):
-        self.tree = tree.DecisionTreeClassifier(criterion="gini", max_depth=4, class_weight='auto')
+        self.tree = tree.DecisionTreeClassifier(criterion="gini", class_weight='auto')
         c = 0
         for a in self.actions.values():
             c += len(a.vecs)
@@ -485,7 +508,7 @@ class ModelAction(object):
 #        print "update casePrestate: ", case.preState.vec
 #        print "prediction: ", predictedOS
 #        print "result: ", {k: resultingOS[k] for k in resultingOS.actionItems}
-        responsibleAction = self.checkForAction2(case, worldState)
+        responsibleAction = self.checkForAction3(case, worldState)
         if predictionRating < THRESHOLD:            
 #            responsibleAction = self.checkForAction2(case, worldState)
 #            print "Responsible action for {}: {}".format(objectState["name"], responsibleAction)

@@ -34,7 +34,7 @@ THRESHOLD = 0.995
 
 NUM_PROTOTYPES = 3
 SINGLE_ACTION = False
-DUAL_ACTION = False
+DUAL_ACTION = True
 
 
 class BaseCase(object):
@@ -452,15 +452,26 @@ class ModelAction(object):
             
     def checkForAction3(self, case, worldState):
         #TODO: Cluster action in subsets of changing attributes just like it was done in the interactionModel!
-        dif = Set()
-        for k in case.postState.actionItems:
-            if np.linalg.norm(case.postState[k]) > 0.03:
-                dif.add(k)
-        for l,a in self.actions.items():
-            if a.changeSet == dif:
-                a.update(case, worldState.getInteractionStates(case.preState["name"]))
-                self.updateTree()
-                return a
+        if SINGLE_ACTION:
+            self.actions[0].update(case, worldState.getInteractionStates(case.preState["name"]))
+            return self.actions[0]
+        elif DUAL_ACTION:
+            if case.preState["name"] == "gripper":
+                self.actions[0].update(case, worldState.getInteractionStates(case.preState["name"]))
+                return self.actions[0]
+            else:
+                self.actions[1].update(case, worldState.getInteractionStates(case.preState["name"]))
+                return self.actions[1]
+        else:
+            dif = Set()
+            for k in case.postState.actionItems:
+                if np.linalg.norm(case.postState[k]) > 0.03:
+                    dif.add(k)
+            for l,a in self.actions.items():
+                if a.changeSet == dif:
+                    a.update(case, worldState.getInteractionStates(case.preState["name"]))
+                    self.updateTree()
+                    return a
         newAction = Action(case.preState.actionItems)
         newAction.update(case, worldState.getInteractionStates(case.preState["name"]))
         newAction.id = len(self.actions)

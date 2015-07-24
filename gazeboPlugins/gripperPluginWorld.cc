@@ -100,10 +100,10 @@ namespace gazebo
         this->curDir = math::Vector3(0.0,0.0,0.0);
         this->gripper->SetLinearVel(math::Vector3(0.0,0.0,0.0));
       }
+      this->gripper->SetAngularVel(math::Vector3(0.0,0.0,0.0));
       if (this->curCmd == gazeboPlugins::msgs::GripperCommand::MOVE)
       {
         this->gripper->SetLinearVel(this->curDir);
-        this->gripper->SetAngularVel(math::Vector3(0.0,0.0,0.0));
         math::Pose p = this->gripper->GetWorldPose();
         this->gripper->SetWorldPose(math::Pose(math::Vector3(p.pos.x,p.pos.y,0.03), p.rot));
       }

@@ -48,7 +48,7 @@ class ObjectState(State):
                      "linVelZ": self.vec[7:8], "angVel": self.vec[8:9],
                      "pos": self.vec[1:4], "linVel": self.vec[5:8], "contact":None})
         self.mask = np.array(range(len(self.vec)))
-        self.relKeys = ["id", "posX", "posY", "posZ", "ori"]#, "linVelX", "linVelY", "linVelZ", "angVel"]
+        self.relKeys = ["id", "posX", "posY", "posZ", "ori", "linVelX", "linVelY", "linVelZ", "angVel"]
         self.actionItems = ["linVelX", "linVelY", "linVelZ", "angVel"]
         self.mask = np.array([1,2,3,4,5,6,7,8])
         
@@ -100,7 +100,7 @@ class InteractionState(State):
         if CLOSING_REFERAL:
             self.mask=[0,1,2,5,6,8,9,12,13]
         else:            
-            self.mask = [0,1,2,3,5,6,8,9]
+            self.mask = [0,1,2,3,4,5,6,8,9]
 #            self.mask = np.array([0,1,4,5,6,8,9,12,13,14,15])
 #        self.relKeys = ["sid", "oid", "dist", "closing", "contact", "relPosX", "relPosY", "relPosZ", "closingDivDist", "closing2"]
         
@@ -131,8 +131,8 @@ class WorldState(object):
                 tmp["linVelX"][0] = np.round(m.linVel.x, NUMDEC)
                 tmp["linVelY"][0] = np.round(m.linVel.y, NUMDEC)
                 tmp["linVelZ"][0] = 0.0 # np.round(m.linVel.z, NUMDEC)
-                print "linVelX of {}: {} ".format(m.name, tmp["linVelX"])
-                print "posX of {}: {} ".format(m.name, tmp["posX"])
+#                print "linVelX of {}: {} ".format(m.name, tmp["linVelX"])
+#                print "posX of {}: {} ".format(m.name, tmp["posX"])
 #                print "norm linVel: ", np.linalg.norm(tmp["linVel"])
                 if np.linalg.norm(tmp["linVel"]) < 0.01:
 #                    print "setting linVel to 0"

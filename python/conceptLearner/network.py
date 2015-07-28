@@ -23,7 +23,7 @@ class Node(object):
         self.name = name
         self.pos = pos
         self.neighbours = {}
-        self.wIn = wIn
+        
         if hasattr(action, "__len__"):
             self.action = action
             lA = len(action)
@@ -37,7 +37,13 @@ class Node(object):
         else:
             self.wOut = np.array([wOut])
             lO = 1
-        self.A = np.zeros((lO, len(wIn)+lA))
+        if hasattr(wIn, "__len__"):
+            self.wIn = wIn
+            lI = len(wIn)
+        else:
+            self.wIn = np.array([wIn])
+            lI = 1
+        self.A = np.zeros((lO, lI+lA))
     
     def addNeighbour(self,n):
         self.neighbours[n.name] = n
@@ -60,7 +66,7 @@ class Node(object):
         d = x.vecInA()-self.vecInA()
         norm = np.linalg.norm(d)
         if norm > 0.0001:
-            self.A += eta*np.outer(er,d/(np.linalg.norm(d)**2))
+            self.A += eta*np.outer(er,d/(norm**2))
 #        else:
 #            self.A += eta*np.outer(er,d/(0.0001**2))
         

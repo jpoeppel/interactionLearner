@@ -5,20 +5,21 @@ Created on Mon Apr 13 00:33:38 2015
 @author: jpoeppel
 """
 
-from network import Network
+from network import Network, Node
 import numpy as np
 import math
 from operator import itemgetter
 
-EMAX = 0.001
+EMAX = 0.1
 ETA = 0.1
+#For neighbours
 SIGMAE = 0.5
 
 WINNER = 0
 NEIGHBOURS = 1
 BESTTWO = 2
 LINEAR = 3
-PREDICTIONMODE = WINNER
+PREDICTIONMODE = LINEAR
 
 class ITM(Network):
     
@@ -66,6 +67,9 @@ class ITM(Network):
                 self.addNode(x)
 #                x.adapt(nearest, ETA)
 #                print "adding new node: ", x.wOut
+#                print "Dot: ", np.dot(nearest.vec()-x.vec(),second.vec()-x.vec())
+#                print "dist: ", np.linalg.norm(x.vec()-nearest.vec())
+#                print "x.vec: {}, nearest.vec: {}".format(x.vec(), nearest.vec())
                 self.addEdge(nearest.name, name)
             if np.linalg.norm(nearest.vec()-second.vec()) < 0.5*EMAX:
 #                print "removing node"
@@ -205,4 +209,27 @@ class ITM(Network):
 #            print "number of nodes: ", len(self.nodes)
             return 0.0
             
-  
+if __name__ == "__main__":
+    
+    X = np.arange(0, 2*math.pi, 0.01)
+    Y = np.sin(X)
+
+    trainData = X[::10]
+    trainLabel = Y[::10]    
+    itm = ITM()
+    
+    for x,y in zip(trainData, trainLabel):
+        n = Node(0, wIn=x, wOut=y)
+        itm.train(n)
+        
+    error = 0.0
+#    for x,y in zip(X,Y):
+#        pred = itm.predict(x)
+#        error += np.linalg.norm(y-pred)
+        
+    preds = np.array(map(itm.predict, X)).flatten()
+    error = np.linalg.norm(preds-Y)/len(X)
+
+        
+    print "avg error: ", error/len(X)
+    print "numNodes: {}, numTrainData: {}".format(len(itm.nodes), len(trainData))

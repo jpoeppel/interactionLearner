@@ -29,7 +29,8 @@ from config import DIFFERENCES, SINGLE_INTSTATE, INTERACTION_STATES
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
 
-import modelActions as model
+import modelActionFixed as model
+#import modelActions as model
 #import model6 as model
 
 from sklearn.externals.six import StringIO

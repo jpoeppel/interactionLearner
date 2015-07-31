@@ -12,8 +12,8 @@ from common import NUMDEC
 import math
 import copy
 
-WIDTH = {"blockA":0.25} #Width from the middle point
-HEIGHT = {"blockA":0.05} #Height from the middle point
+WIDTH = {"blockA":0.25, "gripper": 0.025} #Width from the middle point
+DEPTH = {"blockA":0.05, "gripper": 0.025} #Height from the middle point
 
 CLOSING_REFERAL = False
 
@@ -64,8 +64,8 @@ class ObjectState(State):
     def getKeyPoints(self):
         p1x = WIDTH[self["name"]]
         p2x = -p1x
-        p1y = HEIGHT[self["name"]]
-        p2y = p1y
+        p1y = DEPTH[self["name"]]
+        p2y = -p1y
         ang = self["ori"]
         c = math.cos(ang)
         s = math.sin(ang)
@@ -183,9 +183,9 @@ class WorldState(object):
 #                    intState["relPosX"][0] = np.round(os1["posX"]-os2["posX"], NUMDEC)
 #                    intState["relPosY"][0] = np.round(os1["posY"]-os2["posY"], NUMDEC)
 #                    intState["relPosZ"][0] = np.round(os1["posZ"]-os2["posZ"], NUMDEC)
-                    intState["relPos"][:3] = self.calcRelPosition(os1,os2)
+                    intState["relPos"][:3], intState["relVl"][:3] = self.calcRelPosVel(os1,os2)
 #                    print "Rel pos for object {}: {}".format(intState["sname"], intState["relPos"])
-                    intState["relVl"][:3] = os2["linVel"][:3]-os1["linVel"][:3]
+#                    intState["relVl"][:3] = os2["linVel"][:3]-os1["linVel"][:3]
 #                    if os1["name"] == "blockA":                    
 #                        print "Closing for os1 {}: {}".format(os1["name"], intState["closing"])
 #                        print "dist: ", intState["dist"]
@@ -212,6 +212,19 @@ class WorldState(object):
         self.parseContacts(gzWS.contacts)
 #        print "parsing"
         self.parseInteractions()
+
+    def calcRelPosVel(self, os1, os2):
+        euler = np.zeros(3)
+        euler[2] = os1["ori"][0]
+        trans = common.eulerPosToTransformation(euler, os1["pos"])
+        invTrans = common.invertTransMatrix(trans)
+        tmpPos = np.ones(4)
+        tmpPos[:3] = np.copy(os2["pos"])
+        newPos = np.dot(invTrans, tmpPos)[:3]
+        tmpVel = np.zeros(4)
+        tmpVel[:3] = np.copy(os2["linVel"])-np.copy(os1["linVel"])
+        tmpVel = np.dot(invTrans, tmpVel)[:3]
+        return np.round(newPos, NUMDEC), np.round(tmpVel, NUMDEC)
         
     def calcRelPosition(self, os1, os2):
         euler = np.zeros(3)
@@ -268,28 +281,28 @@ class WorldState(object):
         
         #Right
         x1x = WIDTH[blockN]
-        x1y = HEIGHT[blockN]
+        x1y = DEPTH[blockN]
         x2x = x1x
         x2y = -x1y
         d1, p1 = self.calcDist(p,mp,x1x,x1y,x2x,x2y,c,s) 
         
         #Top
         x1x = WIDTH[blockN]
-        x1y = HEIGHT[blockN]
+        x1y = DEPTH[blockN]
         x2x = -x1x
         x2y = x1y
         d2, p2 = self.calcDist(p,mp,x1x,x1y,x2x,x2y,c,s)
         
         #Left
         x1x = -WIDTH[blockN]
-        x1y = HEIGHT[blockN]
+        x1y = DEPTH[blockN]
         x2x = x1x
         x2y = -x1y
         d3, p3 = self.calcDist(p,mp,x1x,x1y,x2x,x2y,c,s)
         
         #Bottom
         x1x = WIDTH[blockN]
-        x1y = -HEIGHT[blockN]
+        x1y = -DEPTH[blockN]
         x2x = -x1x
         x2y = x1y
         d4, p4 = self.calcDist(p,mp,x1x,x1y,x2x,x2y,c,s)

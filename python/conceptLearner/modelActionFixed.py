@@ -252,11 +252,32 @@ class ModelAction(object):
         res = ObjectState.clone(objectState)
         intStates = worldState.getInteractionStates(res["name"])
         for intState in intStates:
+            print "object: ", objectState["name"]
             print "closing: ", intState["closing"]
             print "dist: ", intState["dist"]
             print "contact: ", intState["contact"]
+            print "closing1: ", intState["closing1"]
+            print "closing2: ", intState["closing2"]
+            print "relPos: ", intState["relPos"]
+            print "relVl: ", intState["relVl"]
+            o2 = worldState.getObjectState(intState["oname"])
+            p2,d2r,d2l = o2.getKeyPoints()
+            p2l = intState["relPos"] + d2l
+            p2r = intState["relPos"] + d2r
+            print "p2l: {}, p2r: {}".format(p2l,p2r)
+            dif = (d2r-d2l) / 2.0
+            print "dif: ", dif
             if intState["contact"]:
-                if intState["closing"] > 0: #TODO not sufficient!!!
+#                if intState["closing"] > 0: #TODO not sufficient!!!
+#                if intState["closing1"] > 0 or intState["closing2"] > 0:
+                newRelPos = intState["relPos"]+0.1*intState["relVl"]
+#                if np.linalg.norm(newRelPos- p2l) < np.linalg.norm(newRelPos-p2r):
+#                    closest = p2l
+#                else:
+#                    closest = p2r
+                print "newRelPos: ", newRelPos
+#                if abs(newRelPos[0]) > abs(closest[0]) or abs(newRelPos[1]) > abs(closest[1]):
+                if abs(newRelPos[0]) > abs(dif[0])+0.025 or abs(newRelPos[1]) > abs(dif[1])+0.025:
                     print "Applying loose contact action"
                     self.actions[2].applyAction(res, intStates)
                 else:
@@ -345,6 +366,7 @@ class ModelAction(object):
                 self.actions[1].update(case, worldState.getInteractionStates(case.preState["name"]))
             else:
                 print "updating loose contact"
+#                print "InteractionStates: ", worldState.getInteractionStates(case.preState["name"])
                 self.actions[2].update(case, worldState.getInteractionStates(case.preState["name"]))
         
     def updateState(self, predictedOS, worldState, action, resultingOS):

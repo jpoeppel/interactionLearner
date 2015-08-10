@@ -61,7 +61,7 @@ DIRECTIONGENERALISATION = False
 
 
 
-NUM_TRAIN_RUNS = 10
+NUM_TRAIN_RUNS = 20
 NUM_TEST_RUNS = 20
 
 class GazeboInterface():
@@ -503,8 +503,9 @@ class GazeboInterface():
 #                                    f.write("{:.4f};".format(x))
 #                                for v in case.dif.values():
 #                                    f.write("{:.4f};".format(v[0]))
-                                for k in case.postState.actionItems:
-                                    f.write("{:.4f};".format(case.postState[k][0]))
+                                f.write(";".join(["{:.4f}".format(case.postState[k][0]) for k in case.postState.actionItems]))
+#                                for k in case.postState.actionItems:
+#                                    f.write("{:.4f};".format(case.postState[k][0]))
                                 
                                 f.write("\n")
 #                    dot_data = StringIO()

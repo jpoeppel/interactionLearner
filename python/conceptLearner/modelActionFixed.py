@@ -240,7 +240,7 @@ class ModelAction(object):
         #Action0: No change
         #Action1: GetContact
         #Action2: LooseContact
-        for i in xrange(3):
+        for i in xrange(4):
             action = Action(ObjectState().relKeys)
             action.id = i
             self.actions[i] = action
@@ -252,43 +252,47 @@ class ModelAction(object):
         res = ObjectState.clone(objectState)
         intStates = worldState.getInteractionStates(res["name"])
         for intState in intStates:
-            print "object: ", objectState["name"]
+#            print "object: ", objectState["name"]
             print "closing: ", intState["closing"]
             print "dist: ", intState["dist"]
-            print "contact: ", intState["contact"]
-            print "closing1: ", intState["closing1"]
-            print "closing2: ", intState["closing2"]
-            print "relPos: ", intState["relPos"]
-            print "relVl: ", intState["relVl"]
+#            print "contact: ", intState["contact"]
+#            print "closing1: ", intState["closing1"]
+#            print "closing2: ", intState["closing2"]
+#            print "relPos: ", intState["relPos"]
+#            print "relVl: ", intState["relVl"]
             o2 = worldState.getObjectState(intState["oname"])
-            p2,d2r,d2l = o2.getKeyPoints()
-            p2l = intState["relPos"] + d2l
-            p2r = intState["relPos"] + d2r
-            print "p2l: {}, p2r: {}".format(p2l,p2r)
-            dif = (d2r-d2l) / 2.0
-            print "dif: ", dif
+            predO1 = self.predictObjectState(objectState)
+            predO2 = self.predictObjectState(o2)
+            predIntState = InteractionState.parseInteraction(predO1,predO2)
+            print "predIntState dist:" , predIntState["dist"]
+#            p2,d2r,d2l = o2.getKeyPoints()
+#            p2l = intState["relPos"] + d2l
+#            p2r = intState["relPos"] + d2r
+#            print "p2l: {}, p2r: {}".format(p2l,p2r)
+#            dif = (d2r-d2l) / 2.0
+#            print "dif: ", dif
             if intState["contact"]:
 #                if intState["closing"] > 0: #TODO not sufficient!!!
 #                if intState["closing1"] > 0 or intState["closing2"] > 0:
-                newRelPos = intState["relPos"]+0.1*intState["relVl"]
+#                newRelPos = intState["relPos"]+0.1*intState["relVl"]
 #                if np.linalg.norm(newRelPos- p2l) < np.linalg.norm(newRelPos-p2r):
 #                    closest = p2l
 #                else:
 #                    closest = p2r
-                print "newRelPos: ", newRelPos
+#                print "newRelPos: ", newRelPos
 #                if abs(newRelPos[0]) > abs(closest[0]) or abs(newRelPos[1]) > abs(closest[1]):
-                if abs(newRelPos[0]) > abs(dif[0])+0.025 or abs(newRelPos[1]) > abs(dif[1])+0.025:
+                if predIntState["dist"] > 0.1:
                     print "Applying loose contact action"
+                    self.actions[3].applyAction(res, intStates)
+                else:
+                    print "Apply no change with contact"
+                    self.actions[1].applyAction(res, intStates)
+            else:
+                if intState["closing"] <= -10*intState["dist"]:
+                    print "Apply get contact"
                     self.actions[2].applyAction(res, intStates)
                 else:
-                    print "Apply no change"
-                    self.actions[0].applyAction(res, intStates)
-            else:
-                if intState["closing"] < -10*intState["dist"]:
-                    print "Apply get contact"
-                    self.actions[1].applyAction(res, intStates)
-                else:
-                    print "Apply no change"
+                    print "Apply no change without contact"
                     self.actions[0].applyAction(res, intStates)
                     
         
@@ -316,8 +320,8 @@ class ModelAction(object):
         for objectState in worldState.objectStates.values():
 #            print "OS before action: ", objectState
             newOS = self.applyActions(objectState, worldState, action)# self.applyMostSuitedAction2(objectState, worldState, action)
-#            if objectState["name"] == "blockA": 
-#                print "newOS after action: ", newOS
+            if objectState["name"] == "blockA": 
+                print "newOS after action: ", newOS
             newOS = self.predictObjectState(newOS)
 #            objectState = newOS
             resultWS.addObjectState(newOS)
@@ -357,17 +361,20 @@ class ModelAction(object):
             self.lvq.train(v, l, w)
             
     def updateActions(self, case, worldState):
-        if case.preState["contact"] == case.postState["contact"]:
-            print "updating no Change"
+        if case.preState["contact"] == None and case.postState["contact"] == None:
+            print "updating no contact"
             self.actions[0].update(case, worldState.getInteractionStates(case.preState["name"]))
+        elif case.preState["contact"] and case.postState["contact"]:
+            print "updating contact"
+            self.actions[1].update(case, worldState.getInteractionStates(case.preState["name"]))
         else:
             if case.preState["contact"] == None:
                 print "updating get contact"
-                self.actions[1].update(case, worldState.getInteractionStates(case.preState["name"]))
+                self.actions[2].update(case, worldState.getInteractionStates(case.preState["name"]))
             else:
                 print "updating loose contact"
 #                print "InteractionStates: ", worldState.getInteractionStates(case.preState["name"])
-                self.actions[2].update(case, worldState.getInteractionStates(case.preState["name"]))
+                self.actions[3].update(case, worldState.getInteractionStates(case.preState["name"]))
         
     def updateState(self, predictedOS, worldState, action, resultingOS):
         
@@ -389,13 +396,13 @@ class ModelAction(object):
             predFound = False
             for pred in self.predictors:
                 if predictedOS["name"] in pred.targets:
-                    pred.updateFix(adaptedCase)
+                    pred.updateFix(case)
                     
                     predFound = True
             if not predFound:
                 pred = Predictor()
                 pred.targets.add(predictedOS["name"])
-                pred.updateFix(adaptedCase)
+                pred.updateFix(case)
 #                pred.update(case, action, responsibleAction, worldState)
                 self.predictors.append(pred)
             self.cases.append(case)

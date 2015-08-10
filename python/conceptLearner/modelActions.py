@@ -34,7 +34,7 @@ THRESHOLD = 0.995
 
 NUM_PROTOTYPES = 3
 SINGLE_ACTION = False
-DUAL_ACTION = True
+DUAL_ACTION = False
 
 
 class BaseCase(object):
@@ -102,11 +102,11 @@ class Action(object):
         for intState in intStates:
             for k,v in self.effect.items():
                 if isinstance(v, ITM):
-#                    state[k] += strength * v.predict(intState.getVec())
-                    state[k][:] = strength * v.predict(intState.getVec())
+                    state[k] += strength * v.predict(intState.getVec())
+#                    state[k][:] = strength * v.predict(intState.getVec())
                 else:
-#                    state[k] += strength * v
-                    state[k][:] = strength * v
+                    state[k] += strength * v
+#                    state[k][:] = strength * v
             
     def rate(self, objectState, intStates):
 #        print "rating action: {}, precons: {}".format(self.effect.keys(), self.preConditions)
@@ -159,8 +159,8 @@ class Action(object):
         for k,v in self.effect.items():
 #            if not k in self.effect:
 #                self.effect[k] = ITM()
-#            v.train(Node(0, wIn=intState.getVec(), wOut=case.dif[k]))
-            v.train(Node(0, wIn=intState.getVec(), wOut=case.postState[k]))
+            v.train(Node(0, wIn=intState.getVec(), wOut=case.dif[k]))
+#            v.train(Node(0, wIn=intState.getVec(), wOut=case.postState[k]))
                 
         self.refCases.append((case, intStates))
         
@@ -479,6 +479,12 @@ class ModelAction(object):
         self.actions[newAction.id] = newAction
         self.updateTree()
         return newAction
+        
+    def checkForAction4(self, case, worldState):
+        """
+            Checks for difference actions
+        """
+        raise NotImplementedError
     
         
     def updateTree(self):
@@ -519,7 +525,7 @@ class ModelAction(object):
 #        print "update casePrestate: ", case.preState.vec
 #        print "prediction: ", predictedOS
 #        print "result: ", {k: resultingOS[k] for k in resultingOS.actionItems}
-        responsibleAction = self.checkForAction3(case, worldState)
+        responsibleAction = self.checkForAction2(case, worldState)
         if predictionRating < THRESHOLD:            
 #            responsibleAction = self.checkForAction2(case, worldState)
 #            print "Responsible action for {}: {}".format(objectState["name"], responsibleAction)

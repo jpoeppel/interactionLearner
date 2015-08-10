@@ -96,13 +96,184 @@ class InteractionState(State):
         self.features = np.array(["sid","oid","dist","closing","contact","relPosX", "relPosY", "relPosZ", 
                                   "relVlX", "relVlY", "relVlZ", 
                                   "closingDivDist", "closing1", "closing2", "closing1DivDist", "closing2DivDist"])
-#        self.mask = np.array(range(len(self.vec)))
-        if CLOSING_REFERAL:
-            self.mask=[0,1,2,5,6,8,9,12,13]
-        else:            
-            self.mask = [0,1,2,3,4,5,6,8,9]
+        self.mask = np.array(range(len(self.vec)))
+#        if CLOSING_REFERAL:
+#            self.mask=[0,1,2,5,6,8,9,12,13]
+#        else:            
+#            self.mask = [0,1,2,3,4,5,6,8,9]
 #            self.mask = np.array([0,1,4,5,6,8,9,12,13,14,15])
 #        self.relKeys = ["sid", "oid", "dist", "closing", "contact", "relPosX", "relPosY", "relPosZ", "closingDivDist", "closing2"]
+        
+    @classmethod
+    def parseInteraction(cls, os1, os2):
+        intState = cls()
+        intState["name"] = os1["name"]+os2["name"]
+        intState["sname"] = os1["name"]
+        intState["oname"] = os2["name"]
+        intState["sid"][0] = os1["id"]
+        intState["oid"][0] = os2["id"]
+#                    if CLOSING_REFERAL:
+#                        intState["dist"][0], intState["closing1"][0], intState["closing2"][0] = self.computeDistanceClosing(os1,os2)
+#                    else:
+#                        intState["dist"][0], intState["closing"][0] = self.computeDistanceClosing(os1,os2)
+        intState["dist"][0], intState["closing"][0], intState["closing1"][0], intState["closing2"][0]= cls.computeDistanceClosing(os1,os2)
+        if intState["dist"] < 0.0:
+            intState["dist"] = 0.0
+        if os1["contact"] == os2["name"]:
+            intState["contact"][0] = 1
+#                    intState["relPosX"][0] = np.round(os1["posX"]-os2["posX"], NUMDEC)
+#                    intState["relPosY"][0] = np.round(os1["posY"]-os2["posY"], NUMDEC)
+#                    intState["relPosZ"][0] = np.round(os1["posZ"]-os2["posZ"], NUMDEC)
+        intState["relPos"][:3], intState["relVl"][:3] = cls.calcRelPosVel(os1,os2)
+#                    print "Rel pos for object {}: {}".format(intState["sname"], intState["relPos"])
+#                    intState["relVl"][:3] = os2["linVel"][:3]-os1["linVel"][:3]
+#                    if os1["name"] == "blockA":                    
+#                        print "Closing for os1 {}: {}".format(os1["name"], intState["closing"])
+#                        print "dist: ", intState["dist"]
+#                        print "relVl: ", intState["relVl"]
+#                        print "o1lv: ", os1["linVel"]
+#                        print "o2lv: ", os2["linVel"]
+#                    print "os1 name: ", os1["name"]
+#                    print "relPos: ", intState["relPos"]
+#                    print "relPosY: ", intState["relPosY"]
+        if intState["dist"] != 0:
+            intState["closingDivDist"][0] = intState["closing"]/intState["dist"]
+            intState["closing1DivDist"][0] = intState["closing1"]/intState["dist"]
+            intState["closing2DivDist"][0] = intState["closing2"]/intState["dist"]
+        else:
+            intState["closingDivDist"][0] = intState["closing"]/0.001
+            intState["closing1DivDist"][0] = intState["closing1"]/0.001
+            intState["closing2DivDist"][0] = intState["closing2"]/0.001
+#                    intState["closingDivDist"][0] = np.round(math.tanh(1+0.1*intState["closingDivDist"]), NUMDEC)
+        return intState
+        
+    @classmethod
+    def calcRelPosVel(cls, os1, os2):
+        euler = np.zeros(3)
+        euler[2] = os1["ori"][0]
+        trans = common.eulerPosToTransformation(euler, os1["pos"])
+        invTrans = common.invertTransMatrix(trans)
+        tmpPos = np.ones(4)
+        tmpPos[:3] = np.copy(os2["pos"])
+        newPos = np.dot(invTrans, tmpPos)[:3]
+        tmpVel = np.zeros(4)
+        tmpVel[:3] = np.copy(os2["linVel"])-np.copy(os1["linVel"])
+        tmpVel = np.dot(invTrans, tmpVel)[:3]
+        return np.round(newPos, NUMDEC), np.round(tmpVel, NUMDEC)
+        
+    @classmethod
+    def calcRelPosition(cls, os1, os2):
+        euler = np.zeros(3)
+        euler[2] = os1["ori"][0]
+        trans = common.eulerPosToTransformation(euler, os1["pos"])
+        invTrans = common.invertTransMatrix(trans)
+        tmpPos = np.ones(4)
+        tmpPos[:3] = np.copy(os2["pos"])
+        newPos = np.dot(invTrans, tmpPos)[:3]
+        return np.round(newPos, NUMDEC)
+        
+    @classmethod
+    def calcDist(cls, p, mp, x1x,x1y,x2x,x2y,c,s):
+        x1xn = x1x*c - x1y*s
+        x1yn = x1x*s + x1y*c
+        x2xn = x2x*c - x2y*s
+        x2yn = x2x*s + x2y*c
+        v = np.array([x1xn,x1yn]) + mp
+        w = np.array([x2xn,x2yn]) + mp
+#        print "x1xn: {}, x1yn: {}, x2xn: {}, x2yn:{}".format(x1xn,x1yn,x2xn,x2yn)
+#        print "x1x: {}, x1y: {}, x2x: {}, x2y: {}".format(x1x,x1y,x2x,x2y)
+#        print "mp: ", mp
+        l2 = np.dot(v-w, v-w)
+#        print "l2: ", l2
+        if l2 == 0.0:
+            return np.sqrt(np.dot(v-p, v-p)), v
+        t = np.dot(p-v, w-v) / l2
+        if t < 0.0:
+            return np.sqrt(np.dot(v-p,v-p)), v
+        elif t > 1.0:
+            return np.sqrt(np.dot(w-p,w-p)), w
+        projection = v + t * (w - v)
+        return np.sqrt(np.dot(p-projection, p-projection)), projection
+        
+    @classmethod
+    def computeDistanceClosing(cls, os1, os2):
+#        print "ComputeDistanceClosing: os1vel: {}, os2vel: {}".format(os1["linVel"], os2["linVel"])
+        if os1["name"] == "gripper":
+            p = os1["pos"][:2]
+            mp = np.copy(os2["pos"][:2])
+            ang = os2["ori"]
+            blockN = os2["name"]
+            vel = os1["linVel"]-os2["linVel"]
+        elif os2["name"] == "gripper":
+            p = os2["pos"][:2]
+            mp = np.copy(os1["pos"][:2])
+            ang = os1["ori"]
+            blockN = os1["name"]
+            vel = os2["linVel"]-os1["linVel"]
+        else:
+            raise NotImplementedError("Currently only distance between gripper and object is implemented.")
+        c = math.cos(ang)
+        s = math.sin(ang)
+        
+        #Right
+        x1x = WIDTH[blockN]
+        x1y = DEPTH[blockN]
+        x2x = x1x
+        x2y = -x1y
+        d1, p1 = cls.calcDist(p,mp,x1x,x1y,x2x,x2y,c,s) 
+        
+        #Top
+        x1x = WIDTH[blockN]
+        x1y = DEPTH[blockN]
+        x2x = -x1x
+        x2y = x1y
+        d2, p2 = cls.calcDist(p,mp,x1x,x1y,x2x,x2y,c,s)
+        
+        #Left
+        x1x = -WIDTH[blockN]
+        x1y = DEPTH[blockN]
+        x2x = x1x
+        x2y = -x1y
+        d3, p3 = cls.calcDist(p,mp,x1x,x1y,x2x,x2y,c,s)
+        
+        #Bottom
+        x1x = WIDTH[blockN]
+        x1y = -DEPTH[blockN]
+        x2x = -x1x
+        x2y = x1y
+        d4, p4 = cls.calcDist(p,mp,x1x,x1y,x2x,x2y,c,s)
+        
+        ds = np.array([d1,d2,d3,d4])
+        ps = [p1,p2,p3,p4]
+        di = np.argmin(ds)
+        
+        normal = np.zeros(3)
+        normal[:2] = (p-ps[di])
+        norm = np.linalg.norm(normal)
+        if norm > 0.0:
+            normal /= np.linalg.norm(normal)
+        
+        
+#        print "normal: ", normal
+#        print "vel: ", vel
+#        print "norm vel: ", np.linalg.norm(vel)
+#        if CLOSING_REFERAL:
+#            normal1 = np.array([math.cos(di*math.pi/2.0+ang), math.sin(di*math.pi/2.0+ang),0.0])
+#            if ds[di-1] < ds[(di+1) % len(ds)]:
+#                normal2 = np.array([math.cos((di-1)*math.pi/2.0+ang), math.sin((di-1)*math.pi/2.0+ang),0.0])
+#            else:
+#                normal2 = np.array([math.cos((di+1)*math.pi/2.0+ang), math.sin((di+1)*math.pi/2.0+ang),0.0])
+#            return np.round(ds[di]-0.025, NUMDEC), np.round(np.dot(normal1, vel), NUMDEC), np.round(np.dot(normal2, vel), NUMDEC)
+#        else:        
+#            return np.round(ds[di]-0.025, NUMDEC), np.round(np.dot(normal, vel), NUMDEC)
+        normal1 = np.array([math.cos(di*math.pi/2.0+ang), math.sin(di*math.pi/2.0+ang),0.0])
+        if ds[di-1] < ds[(di+1) % len(ds)]:
+            normal2 = np.array([math.cos((di-1)*math.pi/2.0+ang), math.sin((di-1)*math.pi/2.0+ang),0.0])
+        else:
+            normal2 = np.array([math.cos((di+1)*math.pi/2.0+ang), math.sin((di+1)*math.pi/2.0+ang),0.0])
+        return np.round(ds[di]-0.025, NUMDEC), np.round(np.dot(normal, vel), NUMDEC), np.round(np.dot(normal1, vel), NUMDEC), np.round(np.dot(normal2, vel), NUMDEC)
+        
+        
         
 class WorldState(object):
     
@@ -165,47 +336,11 @@ class WorldState(object):
         for n1, os1 in self.objectStates.items():
             for n2, os2 in self.objectStates.items():
                 if n1 != n2:
-                    intState = InteractionState()
-                    intState["name"] = n1+n2
-                    intState["sname"] = n1
-                    intState["oname"] = n2
-                    intState["sid"][0] = os1["id"]
-                    intState["oid"][0] = os2["id"]
-#                    if CLOSING_REFERAL:
-#                        intState["dist"][0], intState["closing1"][0], intState["closing2"][0] = self.computeDistanceClosing(os1,os2)
-#                    else:
-#                        intState["dist"][0], intState["closing"][0] = self.computeDistanceClosing(os1,os2)
-                    intState["dist"][0], intState["closing"][0], intState["closing1"][0], intState["closing2"][0]= self.computeDistanceClosing(os1,os2)
-                    if intState["dist"] < 0.0:
-                        intState["dist"] = 0.0
-                    if os1["contact"] == n2:
-                        intState["contact"][0] = 1
-#                    intState["relPosX"][0] = np.round(os1["posX"]-os2["posX"], NUMDEC)
-#                    intState["relPosY"][0] = np.round(os1["posY"]-os2["posY"], NUMDEC)
-#                    intState["relPosZ"][0] = np.round(os1["posZ"]-os2["posZ"], NUMDEC)
-                    intState["relPos"][:3], intState["relVl"][:3] = self.calcRelPosVel(os1,os2)
-#                    print "Rel pos for object {}: {}".format(intState["sname"], intState["relPos"])
-#                    intState["relVl"][:3] = os2["linVel"][:3]-os1["linVel"][:3]
-#                    if os1["name"] == "blockA":                    
-#                        print "Closing for os1 {}: {}".format(os1["name"], intState["closing"])
-#                        print "dist: ", intState["dist"]
-#                        print "relVl: ", intState["relVl"]
-#                        print "o1lv: ", os1["linVel"]
-#                        print "o2lv: ", os2["linVel"]
-#                    print "os1 name: ", os1["name"]
-#                    print "relPos: ", intState["relPos"]
-#                    print "relPosY: ", intState["relPosY"]
-                    if intState["dist"] != 0:
-                        intState["closingDivDist"][0] = intState["closing"]/intState["dist"]
-                        intState["closing1DivDist"][0] = intState["closing1"]/intState["dist"]
-                        intState["closing2DivDist"][0] = intState["closing2"]/intState["dist"]
-                    else:
-                        intState["closingDivDist"][0] = intState["closing"]/0.001
-                        intState["closing1DivDist"][0] = intState["closing1"]/0.001
-                        intState["closing2DivDist"][0] = intState["closing2"]/0.001
-#                    intState["closingDivDist"][0] = np.round(math.tanh(1+0.1*intState["closingDivDist"]), NUMDEC)
+                    intState = InteractionState.parseInteraction(os1,os2)
                     self.interactionStates[intState["name"]] = intState
-            
+                    
+                    
+   
             
     def parse(self, gzWS):
         self.parseModels(gzWS.model_v.models)
@@ -213,130 +348,11 @@ class WorldState(object):
 #        print "parsing"
         self.parseInteractions()
 
-    def calcRelPosVel(self, os1, os2):
-        euler = np.zeros(3)
-        euler[2] = os1["ori"][0]
-        trans = common.eulerPosToTransformation(euler, os1["pos"])
-        invTrans = common.invertTransMatrix(trans)
-        tmpPos = np.ones(4)
-        tmpPos[:3] = np.copy(os2["pos"])
-        newPos = np.dot(invTrans, tmpPos)[:3]
-        tmpVel = np.zeros(4)
-        tmpVel[:3] = np.copy(os2["linVel"])-np.copy(os1["linVel"])
-        tmpVel = np.dot(invTrans, tmpVel)[:3]
-        return np.round(newPos, NUMDEC), np.round(tmpVel, NUMDEC)
-        
-    def calcRelPosition(self, os1, os2):
-        euler = np.zeros(3)
-        euler[2] = os1["ori"][0]
-        trans = common.eulerPosToTransformation(euler, os1["pos"])
-        invTrans = common.invertTransMatrix(trans)
-        tmpPos = np.ones(4)
-        tmpPos[:3] = np.copy(os2["pos"])
-        newPos = np.dot(invTrans, tmpPos)[:3]
-        return np.round(newPos, NUMDEC)
+
         
         
         
-    def calcDist(self, p, mp, x1x,x1y,x2x,x2y,c,s):
-        x1xn = x1x*c - x1y*s
-        x1yn = x1x*s + x1y*c
-        x2xn = x2x*c - x2y*s
-        x2yn = x2x*s + x2y*c
-        v = np.array([x1xn,x1yn]) + mp
-        w = np.array([x2xn,x2yn]) + mp
-#        print "x1xn: {}, x1yn: {}, x2xn: {}, x2yn:{}".format(x1xn,x1yn,x2xn,x2yn)
-#        print "x1x: {}, x1y: {}, x2x: {}, x2y: {}".format(x1x,x1y,x2x,x2y)
-#        print "mp: ", mp
-        l2 = np.dot(v-w, v-w)
-#        print "l2: ", l2
-        if l2 == 0.0:
-            return np.sqrt(np.dot(v-p, v-p)), v
-        t = np.dot(p-v, w-v) / l2
-        if t < 0.0:
-            return np.sqrt(np.dot(v-p,v-p)), v
-        elif t > 1.0:
-            return np.sqrt(np.dot(w-p,w-p)), w
-        projection = v + t * (w - v)
-        return np.sqrt(np.dot(p-projection, p-projection)), projection
-        
-    def computeDistanceClosing(self, os1, os2):
-#        print "ComputeDistanceClosing: os1vel: {}, os2vel: {}".format(os1["linVel"], os2["linVel"])
-        if os1["name"] == "gripper":
-            p = os1["pos"][:2]
-            mp = np.copy(os2["pos"][:2])
-            ang = os2["ori"]
-            blockN = os2["name"]
-            vel = os1["linVel"]-os2["linVel"]
-        elif os2["name"] == "gripper":
-            p = os2["pos"][:2]
-            mp = np.copy(os1["pos"][:2])
-            ang = os1["ori"]
-            blockN = os1["name"]
-            vel = os2["linVel"]-os1["linVel"]
-        else:
-            raise NotImplementedError("Currently only distance between gripper and object is implemented.")
-        c = math.cos(ang)
-        s = math.sin(ang)
-        
-        #Right
-        x1x = WIDTH[blockN]
-        x1y = DEPTH[blockN]
-        x2x = x1x
-        x2y = -x1y
-        d1, p1 = self.calcDist(p,mp,x1x,x1y,x2x,x2y,c,s) 
-        
-        #Top
-        x1x = WIDTH[blockN]
-        x1y = DEPTH[blockN]
-        x2x = -x1x
-        x2y = x1y
-        d2, p2 = self.calcDist(p,mp,x1x,x1y,x2x,x2y,c,s)
-        
-        #Left
-        x1x = -WIDTH[blockN]
-        x1y = DEPTH[blockN]
-        x2x = x1x
-        x2y = -x1y
-        d3, p3 = self.calcDist(p,mp,x1x,x1y,x2x,x2y,c,s)
-        
-        #Bottom
-        x1x = WIDTH[blockN]
-        x1y = -DEPTH[blockN]
-        x2x = -x1x
-        x2y = x1y
-        d4, p4 = self.calcDist(p,mp,x1x,x1y,x2x,x2y,c,s)
-        
-        ds = np.array([d1,d2,d3,d4])
-        ps = [p1,p2,p3,p4]
-        di = np.argmin(ds)
-        
-        normal = np.zeros(3)
-        normal[:2] = (p-ps[di])
-        norm = np.linalg.norm(normal)
-        if norm > 0.0:
-            normal /= np.linalg.norm(normal)
-        
-        
-#        print "normal: ", normal
-#        print "vel: ", vel
-#        print "norm vel: ", np.linalg.norm(vel)
-#        if CLOSING_REFERAL:
-#            normal1 = np.array([math.cos(di*math.pi/2.0+ang), math.sin(di*math.pi/2.0+ang),0.0])
-#            if ds[di-1] < ds[(di+1) % len(ds)]:
-#                normal2 = np.array([math.cos((di-1)*math.pi/2.0+ang), math.sin((di-1)*math.pi/2.0+ang),0.0])
-#            else:
-#                normal2 = np.array([math.cos((di+1)*math.pi/2.0+ang), math.sin((di+1)*math.pi/2.0+ang),0.0])
-#            return np.round(ds[di]-0.025, NUMDEC), np.round(np.dot(normal1, vel), NUMDEC), np.round(np.dot(normal2, vel), NUMDEC)
-#        else:        
-#            return np.round(ds[di]-0.025, NUMDEC), np.round(np.dot(normal, vel), NUMDEC)
-        normal1 = np.array([math.cos(di*math.pi/2.0+ang), math.sin(di*math.pi/2.0+ang),0.0])
-        if ds[di-1] < ds[(di+1) % len(ds)]:
-            normal2 = np.array([math.cos((di-1)*math.pi/2.0+ang), math.sin((di-1)*math.pi/2.0+ang),0.0])
-        else:
-            normal2 = np.array([math.cos((di+1)*math.pi/2.0+ang), math.sin((di+1)*math.pi/2.0+ang),0.0])
-        return np.round(ds[di]-0.025, NUMDEC), np.round(np.dot(normal, vel), NUMDEC), np.round(np.dot(normal1, vel), NUMDEC), np.round(np.dot(normal2, vel), NUMDEC)
-        
+
     def getInteractionState(self, name):
         return self.interactionStates[name]
         

@@ -15,6 +15,10 @@ SIDE = {"NONE": 0, "DOWN": 1, "UP": 2}
 
 GRIPPERSTATES = {"OPEN":0, "CLOSED": 1}
 
+
+        
+    
+
 def quaternionToEuler(quat):
     """
         Function to compute the euler angles around the x,y,z axes of a rotation given by a quaternion
@@ -145,8 +149,67 @@ def invertTransMatrix(matrix):
 #    invTrans[:3,3] = -matrix[:3,:3].T*matrix[:3,3]
 #    invTrans[3,3] = 1.0
 #    return invTrans
+                      
+                      
+                     
+def dist(center, edge1, edge2, ang, ref):
+    ca = math.cos(ang)
+    sa = math.sin(ang)
+    r = np.array([[ca, -sa, 0.0],
+                 [sa, ca, 0.0],
+                 [0.0, 0.0, 1.0]])
+    edge1N = np.dot(r, edge1)
+    edge2N = np.dot(r,edge2)
+    v = edge1N+center
+    w = edge2N+center
+    
+    l2 = np.dot(v-w, v-w)
+    if l2 == 0.0:
+        return np.sqrt(np.dot(v-ref, v-ref)), v
+    t = np.dot(ref-v, w-v) / l2
+    if t < 0.0:
+        return np.sqrt(np.dot(v-ref,v-ref)), v
+    elif t > 1.0:
+        return np.sqrt(np.dot(w-ref,w-ref)), w
+    projection = v + t * (w - v)
+    return np.sqrt(np.dot(ref-projection, ref-projection)), projection
+    
+def relPos(p1, ang,  p2):
+    """
+        Calculates the position of p2 relativ to the relevance frame of p1
+    """
+    ca = math.cos(ang)
+    sa = math.sin(ang)
+    trans = np.array([[ca, -sa, 0.0, p1[0]],
+                 [sa, ca, 0.0, p1[1]],
+                 [0.0, 0.0, 1.0, p1[2],
+                 [0.0,0.0,0.0,1.0]]])
+    invTrans = invertTransMatrix(trans)
+    tmpPos = np.ones(4)
+    tmpPos[:3] = np.copy(p2)
+    newPos = np.dot(invTrans, tmpPos)[:3]
+    return np.round(newPos, NUMDEC)
+    
+def relPosVel(p1,v1, ang, p2,v2):
+    ca = math.cos(ang)
+    sa = math.sin(ang)
+    trans = np.array([[ca, -sa, 0.0, p1[0]],
+                 [sa, ca, 0.0, p1[1]],
+                 [0.0, 0.0, 1.0, p1[2]],
+                 [0.0,0.0,0.0,1.0]])
+    invTrans = invertTransMatrix(trans)
+    tmpPos = np.ones(4)
+    tmpPos[:3] = np.copy(p2)
+    newPos = np.dot(invTrans, tmpPos)[:3]
+    tmpVel = np.zeros(4)
+    tmpVel[:3] = v2-v1
+    newVel = np.dot(invTrans, tmpVel)[:3]
+    return np.round(newPos, NUMDEC), np.round(newVel, NUMDEC)
     
 if __name__=="__main__":
+
+    
+    
     testEuler = np.array([0.0,0.0,math.pi*0.5])
     worldOri = np.array([0.0,0.0,0.7071,0.7071])
     worldEuler = quaternionToEuler(worldOri)

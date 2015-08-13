@@ -50,7 +50,7 @@ MODE = PUSHTASKSIMULATION
 #MODE = MOVE_TO_TARGET
 
 
-NUM_TRAIN_RUNS = 20
+NUM_TRAIN_RUNS = 10
 NUM_TEST_RUNS = 20
 
 class GazeboInterface():
@@ -167,9 +167,11 @@ class GazeboInterface():
         Function to send the last prediction to gazebo. This will move the shadow model
         positions.
         """
+        names = {15:"blockA"}
         msg = pygazebo.msg.modelState_v_pb2.ModelState_V()
+        msg.models.extend([self.getModelState("gripperShadow", self.lastPrediction.actuator.vec[1:4], self.lastPrediction.actuator.vec[4])])
         for objectState in self.lastPrediction.objectStates.values():
-            tmp = self.getModelState(objectState["name"]+"Shadow", objectState["pos"], objectState["ori"])
+            tmp = self.getModelState(names[objectState.id]+"Shadow", objectState.vec[1:4], objectState.vec[4])
             msg.models.extend([tmp])
         self.posePublisher.publish(msg)
  
@@ -363,18 +365,18 @@ class GazeboInterface():
             if self.runStarted:
 #                self.lastAction = model.Action.getGripperAction(cmd = GAZEBOCMDS["MOVE"], direction=self.direction)
                 self.lastAction = self.direction
-#                if self.lastPrediction != None:
-#                    predictedWorldState = self.lastPrediction
+                if self.lastPrediction != None:
+                    predictedWorldState = self.lastPrediction
 #                    self.accDif += curDif
 #                    self.numSteps +=1
-#                else:
-#                    predictedWorldState = worldState
+                else:
+                    predictedWorldState = worldState
                     #Retransform
 #                    print "lastPrediction: {}, worldState: {} ".format(self.lastPrediction.interactionStates, worldState.interactionStates)
 #                self.lastPrediction = self.worldModel.predict(predictedWorldState, self.lastAction)
-                self.worldModel.predict(worldState, self.lastAction)
+                self.lastPrediction = self.worldModel.predict(predictedWorldState, self.lastAction)
 #                print "lastAction: ", self.lastAction
-#                self.sendPrediction()
+                self.sendPrediction()
                 self.sendCommand(self.lastAction)
             else:
                 self.testRun += 1
@@ -393,7 +395,7 @@ class GazeboInterface():
             The current world state
         """
         if self.lastState != None and resultState != None:
-            self.worldModel.update(self.lastState, self.lastAction, resultState)
+            self.worldModel.update(resultState, self.lastAction)
         
         self.lastState = worldState
 #        if self.stepCounter == 1:
@@ -403,8 +405,10 @@ class GazeboInterface():
 #        else:
 #            self.lastAction = model.Action(cmd=GAZEBOCMDS["NOTHING"])
 #        self.lastPrediction = self.worldModel.predict(worldState, self.lastAction)
-        self.worldModel.predict(worldState, self.lastAction)
-#        self.sendPrediction()
+        
+        self.lastPrediction = self.worldModel.predict(worldState, self.lastAction)
+        
+        self.sendPrediction()
         self.sendCommand(self.lastAction)
 
 

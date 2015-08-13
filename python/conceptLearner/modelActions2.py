@@ -21,6 +21,11 @@ from sklearn import svm
 from state4 import WorldState as ws4
 
 import common
+from topoMaps import ITM
+from network import Node
+import copy
+
+HARDCODED = True
 
 class Object(object):
     
@@ -46,7 +51,23 @@ class Object(object):
             if intS["oid"] == self.id:
                 return intS.vec
 #        return vec
+                
+    def getIntVec(self, other):
+        """
+            Returns the interaction state with the other
+        """
+        for intS in self.intStates:
+            if intS["oid"] == other.id:
+                return intS.vec
+
+    def predict(self, predictor, other, action):
+        resO = copy.deepcopy(self)
+        resO.vec[1:5] = predictor.predict(np.concatenate((self.getIntVec(other),action)))
+        return resO
         
+    def update(self, newO):
+        self.vec = np.copy(newO.vec)
+        self.intStates = newO.intStates
         
     def __repr__(self):
         return "{}".format(self.id)
@@ -55,7 +76,30 @@ class Actuator(Object):
     
     def __init__(self):
         Object.__init__(self)
+        self.predictor = ITM()
+        self.vec = np.zeros(9)
         pass
+    
+    def predict(self, action):
+        res = copy.deepcopy(self)
+        res.vec[5:8] = action #Set velocity
+        #Hardcorded version
+        if HARDCODED:
+            res.vec = np.copy(self.vec)
+            res.vec[5:8] = action
+            res.vec[1:4] += 0.1*action
+        else:
+            #Only predict position
+            res.vec[1:4] += self.predictor.predict(action)
+        return res
+            
+    def update(self, newAc, action):
+        if HARDCODED:
+            pass
+        else:
+            self.predictor.train(Node(0, wIn=action, wOut=newAc.vec[1:4]-self.vec[1:4]))
+        self.vec = np.copy(newAc.vec)
+        self.intStates = newAc.intStates
     
 class WorldState(object):
     
@@ -88,31 +132,36 @@ class Classifier(object):
         self.targets = []
         
     def train(self, o1vec, avec, label):
-#        self.inputs.append(np.concatenate((o1vec,avec)))
-#        self.targets.append(label)
-#        if max(self.targets) > 0:
-#            self.clas.fit(self.inputs, self.targets)
-        pass
+        if HARDCODED:
+            pass
+        else:
+            self.inputs.append(np.concatenate((o1vec,avec)))
+            self.targets.append(label)
+            if max(self.targets) > 0:
+                self.clas.fit(self.inputs, self.targets)
     
     def test(self, ovec, avec):
-        print "closing: {}, dist: {}".format(ovec[3], ovec[2])
-        if ovec[3] <= -10*ovec[2]:
-            return 1
+#        print "closing: {}, dist: {}".format(ovec[3], ovec[2])
+        if HARDCODED:
+            if ovec[3] <= -10*ovec[2]:
+                return 1
+            else:
+                if ovec[3] == 0 and np.linalg.norm(ovec[8:11]) < 0.01 and ovec[2] < 0.1: #Todo remove distance from this
+                    return 1    
+                else:
+                    return 0
         else:
-            if ovec[3] == 0 and np.linalg.norm(ovec[8:11]) < 0.01:
-                return 1    
+            if len(self.targets) > 0 and max(self.targets) > 0:
+                return self.clas.predict(np.concatenate((ovec,avec)))[0]
             else:
                 return 0
-#        if len(self.targets) > 0 and max(self.targets) > 0:
-#            return self.clas.predict(np.concatenate((ovec,avec)))[0]
-#        else:
-#            return 0
     
     
 class GateFunction(object):
     
     def __init__(self):
         self.classifier = Classifier()
+        
         pass
     
     def test(self, o1, o2, action):
@@ -120,38 +169,79 @@ class GateFunction(object):
         return self.classifier.test(vec,action)
         
     def checkChange(self, pre, post):
-        dif = np.abs(pre.vec - post.vec)
+        dif = post.vec-pre.vec
 #        print "dif: ", dif
-        if np.linalg.norm(dif[1:4]) > 0.015 or dif[4] > 0.02:
+        if np.linalg.norm(dif[1:4]) > 0.015 or abs(dif[4]) > 0.02:
 #            print "Change"
-            return True
+            return True, dif[1:5] #only consider pos and ori here
 #        print "No change"
-        return False
+        return False, dif[1:5] #only consider pos and ori here
         
         
     def update(self, o1Pre, o1Post, o2, action):
         #TODO Causal determination, make hypothesis and test these!
         vec = o2.getRelativeVec(o1Pre)
-        if self.checkChange(o1Pre, o1Post):
+        hasChanged, dif = self.checkChange(o1Pre, o1Post)
+        if hasChanged:
             self.classifier.train(vec,action, 1)
+            return True, dif
         else:
             self.classifier.train(vec,action, 0)
+            return False, dif
+            
+class Predictor(object):
+    
+    def __init__(self):
+        self.predictors = {}
+    
+    def predict(self, o1, o2, action):
+        if o1.id in self.predictors:
+            return o1.predict(self.predictors[o1.id], o2, action)
+        else:
+            return o1
+    
+    def update(self, intState, action, dif):
+        if not intState[0] in self.predictors:
+            #TODO check for close ones that can be used
+            self.predictors[intState[0]] = ITM()
+        self.predictors[intState[0]].train(Node(0, wIn = intState, action=action, wOut=dif))
 
 
 class ModelAction(object):
     
     def __init__(self):
         self.gate = GateFunction()
-        self.actuator = Actuator()
-        self.predictors = None
+        self.actuator = None
+        self.predictor = Predictor()
+        self.curObjects = {}
         
     def predict(self, ws, action):
+        newWS = WorldState()
+        newWS.actuator = ws.actuator.predict(action)
         for o in ws.objectStates.values():
-            print "Testresult for {}: {}".format(o,self.gate.test(o, ws.actuator, action))
+            if self.gate.test(o, ws.actuator, action):
+                print "predicted change"
+                newO = self.predictor.predict(o, ws.actuator, action)
+                newWS.objectStates[o.id] = newO
+            else:
+                print "predicted no change"
+                newWS.objectStates[o.id] = o
+        return newWS
         
-    def update(self, oldWS, action, newWS):
-        for o in oldWS.objectStates.values():
+    def update(self, curWS, action):
+        
+        for o in curWS.objectStates.values():
             #TODO extent to more objects
-            self.gate.update(o, newWS.objectStates[o.id], oldWS.actuator, action)
-    
+            if o.id in self.curObjects:
+                hasChanged, dif = self.gate.update(self.curObjects[o.id], o, self.actuator, action)
+                if hasChanged:
+                    self.predictor.update(o.getRelativeVec(self.actuator), action, dif)
+                self.curObjects[o.id].update(curWS.objectStates[o.id])
+            else:
+                self.curObjects[o.id] = o
+                
+        if self.actuator == None:
+            self.actuator = curWS.actuator
+        self.actuator.update(curWS.actuator, action)
+            
     

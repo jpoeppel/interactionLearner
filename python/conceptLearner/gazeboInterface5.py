@@ -288,7 +288,7 @@ class GazeboInterface():
         gripperOs = worldState.actuator
         tPos = gripperOs.vec[1:4]
         
-        if np.linalg.norm(tPos) > 1.0 or self.stepCounter > 50:
+        if np.linalg.norm(tPos) > 1.0 or self.stepCounter > 150:
             return True
         return False
         
@@ -370,6 +370,7 @@ class GazeboInterface():
 #                    self.accDif += curDif
 #                    self.numSteps +=1
                 else:
+                    print "lastPrediction None"
                     predictedWorldState = worldState
                     #Retransform
 #                    print "lastPrediction: {}, worldState: {} ".format(self.lastPrediction.interactionStates, worldState.interactionStates)

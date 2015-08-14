@@ -10,8 +10,8 @@ import numpy as np
 import math
 from operator import itemgetter
 
-EMAX = 0.1
-ETA = 0.1
+EMAX = 0.001
+ETA = 0.0
 #For neighbours
 SIGMAE = 0.5
 
@@ -19,7 +19,7 @@ WINNER = 0
 NEIGHBOURS = 1
 BESTTWO = 2
 LINEAR = 3
-PREDICTIONMODE = LINEAR
+PREDICTIONMODE = WINNER
 
 class ITM(Network):
     
@@ -64,6 +64,7 @@ class ITM(Network):
                 if n != second and np.dot(nearest.vec()-second.vec(), n.vec()-second.vec()) < 0:
                     self.removeEdge(nearest.name, n.name)
             if np.dot(nearest.vec()-x.vec(),second.vec()-x.vec()) > 0 and np.linalg.norm(x.vec()-nearest.vec()) > EMAX:
+#            if np.dot(nearest.wOut-x.wOut, second.wOut-x.wOut) > 0 and np.linalg.norm(x.wOut-nearest.wOut) > EMAX:
                 self.addNode(x)
 #                x.adapt(nearest, ETA)
 #                print "adding new node: ", x.wOut

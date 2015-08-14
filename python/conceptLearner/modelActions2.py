@@ -52,6 +52,20 @@ class Object(object):
                 return intS.vec
 #        return vec
                 
+    def getRelVec(self, other):
+        """
+            Computes the relative (interaction) vector of the other object with respect
+            to the own reference frame.
+        """
+        vec = np.zeros(10)
+        vec[0] = self.id
+        vec[1] = other.id
+        vec[2], vec[3] = common.computeDistanceClosing(self.id, self.vec[1:4],self.vec[5:8], 
+                        self.vec[4], other.id, other.vec[1:4], other.vec[5:8], other.vec[4])
+        vec[4:7], vec[7:10] = common.relPosVel(self.vec[1:4], self.vec[5:8], self.vec[4], other.vec[1:4], other.vec[5:8])
+     #   vec[10] = other.vec[8]-self.vec[8]
+        return vec
+                
     def getIntVec(self, other):
         """
             Returns the interaction state with the other
@@ -60,9 +74,15 @@ class Object(object):
             if intS["oid"] == other.id:
                 return intS.vec
 
-    def predict(self, predictor, other, action):
+    def predict(self, predictor, other):
         resO = copy.deepcopy(self)
-        resO.vec[1:5] = predictor.predict(np.concatenate((self.getIntVec(other),action)))
+        print "object before: ", resO.vec[1:4]
+#        print "relVec: ", self.getRelVec(other)
+        pred = predictor.predict(self.getRelVec(other))
+#        print "prediction for o: {}: {}".format(self.id, pred)
+        resO.vec += pred
+        resO.vec = np.round(resO.vec, common.NUMDEC)
+        print "resulting object: ", resO.vec[1:4]
         return resO
         
     def update(self, newO):
@@ -87,10 +107,11 @@ class Actuator(Object):
         if HARDCODED:
             res.vec = np.copy(self.vec)
             res.vec[5:8] = action
-            res.vec[1:4] += 0.1*action
+            res.vec[1:4] += 0.01*action
         else:
             #Only predict position
             res.vec[1:4] += self.predictor.predict(action)
+        res.vec = np.round(res.vec, common.NUMDEC)
         return res
             
     def update(self, newAc, action):
@@ -143,7 +164,7 @@ class Classifier(object):
     def test(self, ovec, avec):
 #        print "closing: {}, dist: {}".format(ovec[3], ovec[2])
         if HARDCODED:
-            if ovec[3] <= -10*ovec[2]:
+            if ovec[3] <= -100*ovec[2]:
                 return 1
             else:
                 if ovec[3] == 0 and np.linalg.norm(ovec[8:11]) < 0.01 and ovec[2] < 0.1: #Todo remove distance from this
@@ -165,17 +186,17 @@ class GateFunction(object):
         pass
     
     def test(self, o1, o2, action):
-        vec = o2.getRelativeVec(o1)
+        vec = o1.getRelVec(o2)
         return self.classifier.test(vec,action)
         
     def checkChange(self, pre, post):
         dif = post.vec-pre.vec
-#        print "dif: ", dif
-        if np.linalg.norm(dif[1:4]) > 0.015 or abs(dif[4]) > 0.02:
+        print "dif: ", dif[1:4]
+        if np.linalg.norm(dif[1:4]) > 0.0 or abs(dif[4]) > 0.0:
 #            print "Change"
-            return True, dif[1:5] #only consider pos and ori here
+            return True, dif
 #        print "No change"
-        return False, dif[1:5] #only consider pos and ori here
+        return False, dif
         
         
     def update(self, o1Pre, o1Post, o2, action):
@@ -196,7 +217,7 @@ class Predictor(object):
     
     def predict(self, o1, o2, action):
         if o1.id in self.predictors:
-            return o1.predict(self.predictors[o1.id], o2, action)
+            return o1.predict(self.predictors[o1.id], o2)
         else:
             return o1
     
@@ -204,7 +225,8 @@ class Predictor(object):
         if not intState[0] in self.predictors:
             #TODO check for close ones that can be used
             self.predictors[intState[0]] = ITM()
-        self.predictors[intState[0]].train(Node(0, wIn = intState, action=action, wOut=dif))
+        print "updating with dif: ", dif
+        self.predictors[intState[0]].train(Node(0, wIn = intState, wOut=dif))
 
 
 class ModelAction(object):
@@ -216,6 +238,8 @@ class ModelAction(object):
         self.curObjects = {}
         
     def predict(self, ws, action):
+#        if self.actuator == None:
+#            self.actuator = ws.actuator
         newWS = WorldState()
         newWS.actuator = ws.actuator.predict(action)
         for o in ws.objectStates.values():
@@ -225,6 +249,7 @@ class ModelAction(object):
                 newWS.objectStates[o.id] = newO
             else:
                 print "predicted no change"
+                o.vec[5:] = 0.0
                 newWS.objectStates[o.id] = o
         return newWS
         
@@ -235,7 +260,7 @@ class ModelAction(object):
             if o.id in self.curObjects:
                 hasChanged, dif = self.gate.update(self.curObjects[o.id], o, self.actuator, action)
                 if hasChanged:
-                    self.predictor.update(o.getRelativeVec(self.actuator), action, dif)
+                    self.predictor.update(o.getRelVec(self.actuator), action, dif)
                 self.curObjects[o.id].update(curWS.objectStates[o.id])
             else:
                 self.curObjects[o.id] = o

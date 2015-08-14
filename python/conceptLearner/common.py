@@ -9,7 +9,9 @@ Created on Thu Apr  9 11:31:07 2015
 import numpy as np
 import math
 
-NUMDEC = 2
+from operator import itemgetter
+
+NUMDEC = 3
 GAZEBOCMDS = { "NOTHING": 0,"MOVE": 1, "GRAB": 2, "RELEASE": 3}
 SIDE = {"NONE": 0, "DOWN": 1, "UP": 2}
 
@@ -153,13 +155,17 @@ def invertTransMatrix(matrix):
                       
                      
 def dist(center, edge1, edge2, ang, ref):
+    if len(edge1) == 2 and len(ref) == 3:
+        edge1 = np.concatenate((edge1,[0]))
+    if len(edge2) == 2 and len(ref) == 3:
+        edge2 = np.concatenate((edge2,[0]))    
     ca = math.cos(ang)
     sa = math.sin(ang)
     r = np.array([[ca, -sa, 0.0],
                  [sa, ca, 0.0],
                  [0.0, 0.0, 1.0]])
     edge1N = np.dot(r, edge1)
-    edge2N = np.dot(r,edge2)
+    edge2N = np.dot(r, edge2)
     v = edge1N+center
     w = edge2N+center
     
@@ -206,8 +212,37 @@ def relPosVel(p1,v1, ang, p2,v2):
     newVel = np.dot(invTrans, tmpVel)[:3]
     return np.round(newPos, NUMDEC), np.round(newVel, NUMDEC)
     
-if __name__=="__main__":
+edges  = {15: [(-0.25,0.05),(-0.25,-0.05),(0.25,-0.05),(0.25,0.05)], 8: [(0.0,0.0)]}
+segments = {15: [(edges[15][0], edges[15][1]),(edges[15][1],edges[15][2]),(edges[15][2],edges[15][3]),(edges[15][3],edges[15][0])], 8:[]}
+#    
 
+def computeDistanceClosing(id1, p1, v1, ang1, id2, p2, v2, ang2):
+    if id1 == 8:
+        ref = p1
+        ref[2] = p2[2]
+        vel = v1-v2
+        ang = ang2
+        center = p2
+        segId = id2
+    elif id1 == 15:
+        ref = p2
+        ref[2] = p1[2]
+        vel = v2-v1
+        ang = ang1
+        center = p1
+        segId = id1
+    else:
+        raise NotImplementedError("Currently only distance between gripper and object is implemented. (id1: {})".format(int(id1)))
+    dpList = [dist(center, e1, e2, ang, ref) for e1,e2 in segments[segId]]
+    sortedL = sorted(dpList, key = itemgetter(0))
+#    print "sorted list: ", sortedL
+    normal = (ref-sortedL[0][1])
+    norm = np.linalg.norm(normal)
+    if norm > 0.0:
+        normal /= np.linalg.norm(normal)
+    return np.round(sortedL[0][0]-0.025, NUMDEC), np.round(np.dot(normal, vel), NUMDEC)
+    
+if __name__=="__main__":
     
     
     testEuler = np.array([0.0,0.0,math.pi*0.5])

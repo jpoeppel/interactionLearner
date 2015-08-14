@@ -34,7 +34,7 @@ THRESHOLD = 0.995
 
 NUM_PROTOTYPES = 3
 SINGLE_ACTION = False
-DUAL_ACTION = False
+DUAL_ACTION = True
 
 
 class BaseCase(object):

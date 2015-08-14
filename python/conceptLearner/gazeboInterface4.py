@@ -29,8 +29,8 @@ from config import DIFFERENCES, SINGLE_INTSTATE, INTERACTION_STATES
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
 
-import modelActionFixed as model
-#import modelActions as model
+#import modelActionFixed as model
+import modelActions as model
 #import model6 as model
 
 from sklearn.externals.six import StringIO
@@ -61,7 +61,7 @@ DIRECTIONGENERALISATION = False
 
 
 
-NUM_TRAIN_RUNS = 20
+NUM_TRAIN_RUNS = 10
 NUM_TEST_RUNS = 20
 
 class GazeboInterface():
@@ -74,7 +74,9 @@ class GazeboInterface():
         self.active = True
         self.lastState = None
         self.worldModel = model.ModelAction()
+#        self.worldModel = model.ModelCBR()
         self.lastAction = model.GripperAction()
+#        self.lastAction = model.Action()
         self.lastPrediction = None
         self.ignore = True
         self.target = None
@@ -297,7 +299,7 @@ class GazeboInterface():
         gripperOs = worldState.getObjectState("gripper")
         tPos = gripperOs["pos"]
         
-        if np.linalg.norm(tPos) > 1.0 or self.stepCounter > 50:
+        if np.linalg.norm(tPos) > 1.0 or self.stepCounter > 500:
             return True
         return False
         

@@ -7,6 +7,7 @@ Created on Mon Apr 13 00:33:38 2015
 
 from network import Network, Node
 import numpy as np
+from numpy import dot as npdot
 import math
 from operator import itemgetter
 
@@ -45,7 +46,7 @@ class ITM(Network):
 #                    secNode = n
                     
 #            ds = sorted([(np.linalg.norm(n.vec()-x), n) for n in self.nodes.values()], key=itemgetter(0))
-            ds = sorted([(np.dot(n.vec()-x,n.vec()-x), n) for n in self.nodes.values()], key=itemgetter(0))
+            ds = sorted([(npdot(n.vec()-x,n.vec()-x), n) for n in self.nodes.values()], key=itemgetter(0))
             return ds[0][1], ds[1][1]
             
     def train(self, x):
@@ -61,9 +62,9 @@ class ITM(Network):
             nearest.adapt(x, ETA)
             self.addEdge(nearest.name, second.name)
             for n in nearest.neighbours.values():
-                if n != second and np.dot(nearest.vec()-second.vec(), n.vec()-second.vec()) < 0:
+                if n != second and npdot(nearest.vec()-second.vec(), n.vec()-second.vec()) < 0:
                     self.removeEdge(nearest.name, n.name)
-            if np.dot(nearest.vec()-x.vec(),second.vec()-x.vec()) > 0 and np.linalg.norm(x.vec()-nearest.vec()) > EMAX:
+            if npdot(nearest.vec()-x.vec(),second.vec()-x.vec()) > 0 and np.linalg.norm(x.vec()-nearest.vec()) > EMAX:
 #            if np.dot(nearest.wOut-x.wOut, second.wOut-x.wOut) > 0 and np.linalg.norm(x.wOut-nearest.wOut) > EMAX:
                 self.addNode(x)
 #                x.adapt(nearest, ETA)
@@ -165,19 +166,22 @@ class ITM(Network):
                 
     def predict(self, wIn):
         
-        minDist = float('inf')
-        secDist = float('inf')
+#        minDist = float('inf')
+#        secDist = float('inf')
         minNode = None
         secNode = None
         
-        for n in self.nodes.values():
-            d = np.linalg.norm(n.vecInA()-wIn)
-            if d < minDist:
-                minDist = d
-                minNode = n
-            elif d < secDist:
-                secDist = d
-                secNode = n
+#        for n in self.nodes.values():
+#            d = np.linalg.norm(n.vecInA()-wIn)
+#            if d < minDist:
+#                minDist = d
+#                minNode = n
+#            elif d < secDist:
+#                secDist = d
+#                secNode = n
+        ds = sorted([(npdot(n.vecInA()-wIn,n.vecInA()-wIn), n) for n in self.nodes.values()], key=itemgetter(0))
+        minNode = ds[0][1]
+        
         if minNode != None:
             if PREDICTIONMODE == WINNER:
 #                print "minNode win: ", minNode.vecInA()
@@ -196,6 +200,7 @@ class ITM(Network):
                     
                 return res/norm
             elif PREDICTIONMODE == BESTTWO:
+                secNode = ds[1][1]
                 if secNode != None:
                     norm = math.exp(-np.linalg.norm(wIn-minNode.vecInA())**2/(SIGMAE**2))
                     res = norm*minNode.wOut

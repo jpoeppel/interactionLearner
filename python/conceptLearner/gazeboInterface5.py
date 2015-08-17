@@ -10,22 +10,22 @@ Testinterface for modelActions2
 import pygazebo
 import trollius
 from trollius import From
-from pygazebo.msg import model_pb2
-from pygazebo.msg import model_v_pb2
+#from pygazebo.msg import model_pb2
+#from pygazebo.msg import model_v_pb2
 from pygazebo.msg import modelState_pb2
 from pygazebo.msg import modelState_v_pb2
 from pygazebo.msg import gripperCommand_pb2
 from pygazebo.msg import worldState_pb2
-from pygazebo.msg import world_reset_pb2
+#from pygazebo.msg import world_reset_pb2
 from pygazebo.msg import world_control_pb2
 import logging
 import numpy as np
-import math
+#import math
 import copy
 from common import GAZEBOCMDS
-import math
+#import math
 import common
-from config import DIFFERENCES, SINGLE_INTSTATE, INTERACTION_STATES
+#from config import DIFFERENCES, SINGLE_INTSTATE, INTERACTION_STATES
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
@@ -33,8 +33,8 @@ logger.setLevel(logging.ERROR)
 import modelActions2 as model
 #import model6 as model
 
-from sklearn.externals.six import StringIO
-import pydot
+#from sklearn.externals.six import StringIO
+#import pydot
 
 
 logging.basicConfig()
@@ -50,7 +50,7 @@ MODE = PUSHTASKSIMULATION
 #MODE = MOVE_TO_TARGET
 
 
-NUM_TRAIN_RUNS = 10
+NUM_TRAIN_RUNS = 5
 NUM_TEST_RUNS = 20
 
 class GazeboInterface():
@@ -359,6 +359,8 @@ class GazeboInterface():
 #                self.finalPrediction = self.lastPrediction
                 if self.trainRun == NUM_TRAIN_RUNS:
                     self.pauseWorld()
+                    import sys
+                    sys.exit()
                     
         elif self.testRun < NUM_TEST_RUNS:
             print "Test run #: ", self.testRun

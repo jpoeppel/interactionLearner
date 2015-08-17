@@ -19,6 +19,7 @@ beta = 0.1
 numEpochs = 100
 
 class Node(object):
+    __slots__=('name','pos','neighbours','action','wOut','wIn','A')
     def __init__(self, name, pos=np.array([]), wIn=np.array([]), action = np.array([]), wOut = np.array([]), A = np.array([])):
         self.name = name
         self.pos = pos
@@ -52,6 +53,8 @@ class Node(object):
         del self.neighbours[name]
     
     def adapt(self, x, eta):
+        if eta == 0.0:
+            return
         dwIn = eta*(x.wIn - self.wIn)
         self.wIn += dwIn
         da = eta*(x.action - self.action)
@@ -481,4 +484,7 @@ class Tree(object):
         else:
             return None
         
+if __name__=="__main__":
+    n = Node(0)
+    print dir(n)
     

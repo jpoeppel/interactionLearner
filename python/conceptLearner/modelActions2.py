@@ -15,7 +15,7 @@ objects that are changed to have a potential influence on other objects.
 """
 
 import numpy as np
-from sklearn import neighbors
+#from sklearn import neighbors
 from sklearn import svm
 
 from state4 import WorldState as ws4
@@ -34,23 +34,6 @@ class Object(object):
         self.vec = np.array([])
         self.intStates = None
         
-    def getRelativeVec(self, other):
-        """ Computes a feature vector for the interaction relative to other.
-            vector: [refId(other), otherId(self), dist, 
-                     relPosx, relPosy, relPosz,
-                     relVelx, relVely, relVelz, 
-                     relAng]
-        """
-#        vec = np.zeros(10)
-#        vec[0] = other.id
-#        vec[1] = self.id
-#        vec[2] = 0.0 #TODO Dist
-#        vec[3:6], vec[6:9] = common.relPosVel(other.vec[1:4], other.vec[5:8], other.vec[4], self.vec[1:4],self.vec[5:8])
-#        vec[9] = self.vec[8]-other.vec[8]
-        for intS in other.intStates:
-            if intS["oid"] == self.id:
-                return intS.vec
-#        return vec
                 
     def getRelVec(self, other):
         """
@@ -191,7 +174,7 @@ class GateFunction(object):
         
     def checkChange(self, pre, post):
         dif = post.vec-pre.vec
-        print "dif: ", dif[1:4]
+#        print "dif: ", dif[1:4]
         if np.linalg.norm(dif[1:4]) > 0.0 or abs(dif[4]) > 0.0:
 #            print "Change"
             return True, dif
@@ -200,8 +183,18 @@ class GateFunction(object):
         
         
     def update(self, o1Pre, o1Post, o2, action):
+        """
+        Parameters
+        ----------
+        o1Pre: Object
+        o1Post: Object
+        o2: Object
+        action: np.ndarray
+        """
         #TODO Causal determination, make hypothesis and test these!
-        vec = o2.getRelativeVec(o1Pre)
+#        vec = o2.getRelativeVec(o1Pre)
+        
+        vec = o1Pre.getRelVec(o2)
         hasChanged, dif = self.checkChange(o1Pre, o1Post)
         if hasChanged:
             self.classifier.train(vec,action, 1)
@@ -225,7 +218,10 @@ class Predictor(object):
         if not intState[0] in self.predictors:
             #TODO check for close ones that can be used
             self.predictors[intState[0]] = ITM()
-        print "updating with dif: ", dif
+#        print "updating with dif: ", dif[3]
+        if dif[3] != 0:
+            print "dif in height: ", dif
+            raise AttributeError
         self.predictors[intState[0]].train(Node(0, wIn = intState, wOut=dif))
 
 
@@ -244,11 +240,11 @@ class ModelAction(object):
         newWS.actuator = ws.actuator.predict(action)
         for o in ws.objectStates.values():
             if self.gate.test(o, ws.actuator, action):
-                print "predicted change"
+#                print "predicted change"
                 newO = self.predictor.predict(o, ws.actuator, action)
                 newWS.objectStates[o.id] = newO
             else:
-                print "predicted no change"
+#                print "predicted no change"
                 o.vec[5:] = 0.0
                 newWS.objectStates[o.id] = o
         return newWS

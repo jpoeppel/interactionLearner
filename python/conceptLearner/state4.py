@@ -296,7 +296,7 @@ class WorldState(object):
                 tmp["id"][0] = m.id
                 tmp["posX"][0] = np.round(m.pose.position.x, NUMDEC)
                 tmp["posY"][0] = np.round(m.pose.position.y, NUMDEC)
-                tmp["posZ"][0] = np.round(m.pose.position.z, NUMDEC)
+                tmp["posZ"][0] = np.round(m.pose.position.z, 2)
                 tmp["ori"][0] = np.round(common.quaternionToEuler(np.array([m.pose.orientation.x,m.pose.orientation.y,
                                             m.pose.orientation.z,m.pose.orientation.w])), NUMDEC)[2]
                 tmp["linVelX"][0] = np.round(m.linVel.x, NUMDEC)

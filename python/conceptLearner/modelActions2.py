@@ -153,6 +153,7 @@ class Classifier(object):
                 if ovec[3] == 0 and np.linalg.norm(ovec[8:11]) < 0.01 and ovec[2] < 0.1: #Todo remove distance from this
                     return 1    
                 else:
+                    print "no Change: closing: {}, dist: {}, relVel: {}".format(ovec[3], ovec[2], ovec[8:11])
                     return 0
         else:
             if len(self.targets) > 0 and max(self.targets) > 0:
@@ -182,19 +183,21 @@ class GateFunction(object):
         return False, dif
         
         
-    def update(self, o1Pre, o1Post, o2, action):
+    def update(self, o1Pre, o1Post, o2Pre, action):
         """
+        TODO Consider removing action here, since o2Pre has already experienced
+        the results of action.
         Parameters
         ----------
         o1Pre: Object
         o1Post: Object
-        o2: Object
+        o2Pre: Object
         action: np.ndarray
         """
         #TODO Causal determination, make hypothesis and test these!
 #        vec = o2.getRelativeVec(o1Pre)
         
-        vec = o1Pre.getRelVec(o2)
+        vec = o1Pre.getRelVec(o2Pre)
         hasChanged, dif = self.checkChange(o1Pre, o1Post)
         if hasChanged:
             self.classifier.train(vec,action, 1)
@@ -213,14 +216,18 @@ class Predictor(object):
             return o1.predict(self.predictors[o1.id], o2)
         else:
             return o1
+            
+    def getAction(self, targetId, dif):
+        if targetId in self.predictors:
+            return self.predictors[targetId].getAction(dif)
     
     def update(self, intState, action, dif):
         if not intState[0] in self.predictors:
             #TODO check for close ones that can be used
             self.predictors[intState[0]] = ITM()
 #        print "updating with dif: ", dif[3]
-        if dif[3] != 0:
-            print "dif in height: ", dif
+        if max(dif[1:4]) >0.1 or min(dif[1:4]) < -0.1:
+            print "dif to big: ", dif
             raise AttributeError
         self.predictors[intState[0]].train(Node(0, wIn = intState, wOut=dif))
 
@@ -232,6 +239,42 @@ class ModelAction(object):
         self.actuator = None
         self.predictor = Predictor()
         self.curObjects = {}
+        self.target = None
+        
+        
+    def setTarget(self, target):
+        """
+            Sets a target that is to be reached.
+            Target is an object (maybe partially described)
+            Parameters
+            ----------
+            target : Object
+        """
+        self.target = target
+        
+    def getAction(self):
+        """
+            Returns an action, that is to be performed, trying to get closer to the
+            target if one is set.
+            
+            Returns: np.ndarray
+                Action vector for the actuator
+        """
+        if self.target is None:
+            return np.array([0.0,0.0,0.0])
+        else:
+            if self.isTargetReached():
+                return np.array([0.0,0.0,0.0])
+            else:
+                # Determine Actuator position that allows action in good direction
+                action, pre, out = self.predictor.getAction(target.id, target.vec-self.curObjects[target.id].vec)
+                # Bring actuator into position so that it influences targetobject
+                # Select action to move target object towards target
+                # Work in open loop: Compare result of previous action with expected result
+                pass
+            
+        pass
+        
         
     def predict(self, ws, action):
 #        if self.actuator == None:
@@ -239,15 +282,27 @@ class ModelAction(object):
         newWS = WorldState()
         newWS.actuator = ws.actuator.predict(action)
         for o in ws.objectStates.values():
-            if self.gate.test(o, ws.actuator, action):
+            if self.gate.test(o, newWS.actuator, action): #TODO Check of newWS.actuator is correct here and if action can be removed!
 #                print "predicted change"
-                newO = self.predictor.predict(o, ws.actuator, action)
+                newO = self.predictor.predict(o, newWS.actuator, action)
                 newWS.objectStates[o.id] = newO
             else:
 #                print "predicted no change"
                 o.vec[5:] = 0.0
                 newWS.objectStates[o.id] = o
+            print "old object: {}, new object: {}".format(o.vec[1:4], newWS.objectStates[o.id].vec[1:4])
         return newWS
+        
+    def resetObjects(self, curWS):
+        for o in curWS.objectStates.values():
+            if o.id in self.curObjects:
+                self.curObjects[o.id].update(o)
+            else:
+                self.curObjects[o.id] = o
+                
+        if self.actuator == None:
+            self.actuator = curWS.actuator
+        self.actuator.update(curWS.actuator, np.array([0.0,0.0,0.0]))
         
     def update(self, curWS, action):
         

@@ -179,8 +179,9 @@ class ITM(Network):
 #            elif d < secDist:
 #                secDist = d
 #                secNode = n
-        ds = sorted([(npdot(n.vecInA()-wIn,n.vecInA()-wIn), n) for n in self.nodes.values()], key=itemgetter(0))
-        minNode = ds[0][1]
+        if len(self.nodes) > 0:
+            ds = sorted([(npdot(n.vecInA()-wIn,n.vecInA()-wIn), n) for n in self.nodes.values()], key=itemgetter(0))
+            minNode = ds[0][1]
         
         if minNode != None:
             if PREDICTIONMODE == WINNER:
@@ -200,14 +201,19 @@ class ITM(Network):
                     
                 return res/norm
             elif PREDICTIONMODE == BESTTWO:
-                secNode = ds[1][1]
-                if secNode != None:
+                
+                
+                if len(self.nodes) > 1:
+                    secNode = ds[1][1]
                     norm = math.exp(-np.linalg.norm(wIn-minNode.vecInA())**2/(SIGMAE**2))
                     res = norm*minNode.wOut
                     wc = math.exp(-np.linalg.norm(wIn-secNode.vecInA())**2/(SIGMAE**2))
                     res += wc*secNode.wOut
                     norm += wc
-                    return res/norm
+                    if norm != 0:
+                        return res/norm
+                    else:
+                        return res
                 else:
                     return minNode.wOut
         else:

@@ -212,11 +212,12 @@ def relPosVel(p1,v1, ang, p2,v2):
     newVel = np.dot(invTrans, tmpVel)[:3]
     return np.round(newPos, NUMDEC), np.round(newVel, NUMDEC)
     
-edges  = {15: [(-0.25,0.05),(-0.25,-0.05),(0.25,-0.05),(0.25,0.05)], 8: [(0.0,0.0)]}
-segments = {15: [(edges[15][0], edges[15][1]),(edges[15][1],edges[15][2]),(edges[15][2],edges[15][3]),(edges[15][3],edges[15][0])], 8:[]}
+
 #    
 
 def computeDistanceClosing(id1, p1, v1, ang1, id2, p2, v2, ang2):
+    edges  = {15: [(-0.25,0.05),(-0.25,-0.05),(0.25,-0.05),(0.25,0.05)], 8: [(0.0,0.0)]}
+    segments = {15: [(edges[15][0], edges[15][1]),(edges[15][1],edges[15][2]),(edges[15][2],edges[15][3]),(edges[15][3],edges[15][0])], 8:[]}    
     if id1 == 8:
         ref = p1
         ref[2] = p2[2]

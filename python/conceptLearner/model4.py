@@ -50,9 +50,9 @@ THRESHOLD = 0.01
 BLOCK_BIAS = 0.4
 
 MAXCASESCORE = 14-6
-MAXSTATESCORE = 12-5
+MAXSTATESCORE = 12-6
 #PREDICTIONTHRESHOLD = 0.5
-PREDICTIONTHRESHOLD = MAXSTATESCORE - 0.1
+PREDICTIONTHRESHOLD = MAXSTATESCORE - 0.001
 TARGETTHRESHOLD = MAXCASESCORE - 0.05
 
 NUM_SAMPLES = 10
@@ -91,7 +91,7 @@ class BaseCase(object):
         """
         r = Set()
         for k in self.dif.keys():
-            if np.linalg.norm(self.dif[k]) > 0.01:
+            if np.linalg.norm(self.dif[k]) > 0.001:
                 r.add(k)
         return r
         
@@ -100,7 +100,7 @@ class BaseCase(object):
         #TODO make more efficient by storing these values
         r = []
         for k in self.dif.keys():
-            if np.linalg.norm(self.dif[k]) <= 0.01:
+            if np.linalg.norm(self.dif[k]) <= 0.001:
                 r.append((k,self.preState[k]))
         return r
     

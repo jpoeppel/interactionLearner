@@ -73,10 +73,10 @@ class GazeboInterface():
          
         self.active = True
         self.lastState = None
-        self.worldModel = model.ModelAction()
-#        self.worldModel = model.ModelCBR()
-        self.lastAction = model.GripperAction()
-#        self.lastAction = model.Action()
+#        self.worldModel = model.ModelAction()
+        self.worldModel = model.ModelCBR()
+#        self.lastAction = model.GripperAction()
+        self.lastAction = model.Action()
         self.lastPrediction = None
         self.ignore = True
         self.target = None

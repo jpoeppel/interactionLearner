@@ -43,6 +43,7 @@ class AbstractCase(model4.AbstractCase):
         self.addRef(case)
     
     def predict(self, state, action):
+        print "self.weights: ", self.weights
         return self.weights
     
     def updateWeights(self, prediction, result):
@@ -146,10 +147,12 @@ class ModelCBR(object):
             weightDic = bestCase.predict(state, action)
             for k in weightDic:
                 prediction = self.predictors[k].predict(np.concatenate((state.toVec(),action.toVec())))
+                print "k: {}, pred: {}".format(k, prediction)
                 if prediction != None:
                     resultState[k] = state[k] +  prediction #* weightDic[k] 
                 else:
                     resultState[k] = state[k] + bestCase.refCases[0].predict(state, action, k)
+
 
         if resultState["sname"] == "gripper":
             print "Predicted gripper state: ", resultState

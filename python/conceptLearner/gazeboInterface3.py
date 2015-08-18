@@ -62,7 +62,7 @@ DIRECTIONGENERALISATION = False
 
 
 
-NUM_TRAIN_RUNS = 20
+NUM_TRAIN_RUNS = 3
 NUM_TEST_RUNS = 50
 
 class GazeboInterface():
@@ -469,7 +469,7 @@ class GazeboInterface():
         tmpPos = np.matrix(np.concatenate((gripperInt["spos"],[1])))
         tpos = np.array((worldState.transM*tmpPos.T)[:3]).flatten()   
         
-        if np.linalg.norm(tpos) > 1.0 or self.stepCounter > 50:
+        if np.linalg.norm(tpos) > 1.0 or self.stepCounter > 150:
             return True
         return False
         

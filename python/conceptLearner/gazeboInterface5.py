@@ -50,7 +50,7 @@ MODE = PUSHTASKSIMULATION
 #MODE = MOVE_TO_TARGET
 
 
-NUM_TRAIN_RUNS = 5
+NUM_TRAIN_RUNS = 15
 NUM_TEST_RUNS = 20
 
 class GazeboInterface():
@@ -359,8 +359,8 @@ class GazeboInterface():
 #                self.finalPrediction = self.lastPrediction
                 if self.trainRun == NUM_TRAIN_RUNS:
                     self.pauseWorld()
-                    import sys
-                    sys.exit()
+#                    import sys
+#                    sys.exit()
                     
         elif self.testRun < NUM_TEST_RUNS:
             print "Test run #: ", self.testRun
@@ -374,6 +374,7 @@ class GazeboInterface():
                 else:
                     print "lastPrediction None"
                     predictedWorldState = worldState
+                    self.worldModel.resetObjects(worldState)
                     #Retransform
 #                    print "lastPrediction: {}, worldState: {} ".format(self.lastPrediction.interactionStates, worldState.interactionStates)
 #                self.lastPrediction = self.worldModel.predict(predictedWorldState, self.lastAction)
@@ -399,6 +400,8 @@ class GazeboInterface():
         """
         if self.lastState != None and resultState != None:
             self.worldModel.update(resultState, self.lastAction)
+        else:
+            self.worldModel.resetObjects(worldState)
         
         self.lastState = worldState
 #        if self.stepCounter == 1:

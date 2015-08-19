@@ -50,7 +50,7 @@ MODE = PUSHTASKSIMULATION
 #MODE = MOVE_TO_TARGET
 
 
-NUM_TRAIN_RUNS = 15
+NUM_TRAIN_RUNS = 10
 NUM_TEST_RUNS = 20
 
 class GazeboInterface():
@@ -401,6 +401,7 @@ class GazeboInterface():
         if self.lastState != None and resultState != None:
             self.worldModel.update(resultState, self.lastAction)
         else:
+            print "reset objects"
             self.worldModel.resetObjects(worldState)
         
         self.lastState = worldState
@@ -431,6 +432,12 @@ class GazeboInterface():
             
     def moveToTarget(self, worldState, resultState=None):
         raise NotImplementedError
+        if self.target is None:
+            self.target = self.getTarget()
+            self.worldModel.setTarget(self.target)
+        self.worldModel.update(worldState, self.lastAction)
+        self.lastAction = self.worldModel.getAction()
+        self.sendCommand(self.lastAction)
     
     def stop(self):
         """

@@ -40,13 +40,13 @@ class Object(object):
             Computes the relative (interaction) vector of the other object with respect
             to the own reference frame.
         """
-        vec = np.zeros(10)
+        vec = np.zeros(11)
         vec[0] = self.id
         vec[1] = other.id
         vec[2], vec[3] = common.computeDistanceClosing(self.id, self.vec[1:4],self.vec[5:8], 
                         self.vec[4], other.id, other.vec[1:4], other.vec[5:8], other.vec[4])
         vec[4:7], vec[7:10] = common.relPosVel(self.vec[1:4], self.vec[5:8], self.vec[4], other.vec[1:4], other.vec[5:8])
-     #   vec[10] = other.vec[8]-self.vec[8]
+        vec[10] = np.dot(np.linalg.norm(vec[4:7]), np.linalg.norm(vec[7:10]))
         return vec
                 
     def getIntVec(self, other):
@@ -59,13 +59,13 @@ class Object(object):
 
     def predict(self, predictor, other):
         resO = copy.deepcopy(self)
-        print "object before: ", resO.vec[1:4]
+#        print "object before: ", resO.vec[1:4]
 #        print "relVec: ", self.getRelVec(other)
         pred = predictor.predict(self.getRelVec(other))
 #        print "prediction for o: {}: {}".format(self.id, pred)
         resO.vec += pred
         resO.vec = np.round(resO.vec, common.NUMDEC)
-        print "resulting object: ", resO.vec[1:4]
+#        print "resulting object: ", resO.vec[1:4]
         return resO
         
     def update(self, newO):
@@ -150,10 +150,10 @@ class Classifier(object):
             if ovec[3] <= -100*ovec[2]:
                 return 1
             else:
-                if ovec[3] == 0 and np.linalg.norm(ovec[8:11]) < 0.01 and ovec[2] < 0.1: #Todo remove distance from this
+                if ovec[3] == 0 and np.linalg.norm(ovec[7:10]) < 0.01 and ovec[2] < 0.1: #Todo remove distance from this
                     return 1    
                 else:
-                    print "no Change: closing: {}, dist: {}, relVel: {}".format(ovec[3], ovec[2], ovec[8:11])
+#                    print "no Change: closing: {}, dist: {}, relVel: {}".format(ovec[3], ovec[2], ovec[7:10])
                     return 0
         else:
             if len(self.targets) > 0 and max(self.targets) > 0:
@@ -175,6 +175,8 @@ class GateFunction(object):
         
     def checkChange(self, pre, post):
         dif = post.vec-pre.vec
+        #TODO convert dif to local coordinate frame! 
+        #Since ITM input vector is relative to object, the output should be relative as well
 #        print "dif: ", dif[1:4]
         if np.linalg.norm(dif[1:4]) > 0.0 or abs(dif[4]) > 0.0:
 #            print "Change"
@@ -229,6 +231,9 @@ class Predictor(object):
         if max(dif[1:4]) >0.1 or min(dif[1:4]) < -0.1:
             print "dif to big: ", dif
             raise AttributeError
+#        if np.linalg.norm(dif[1:5]) < 0.002:
+#            print "dif to small", dif
+#            raise AttributeError
         self.predictors[intState[0]].train(Node(0, wIn = intState, wOut=dif))
 
 
@@ -290,7 +295,7 @@ class ModelAction(object):
 #                print "predicted no change"
                 o.vec[5:] = 0.0
                 newWS.objectStates[o.id] = o
-            print "old object: {}, new object: {}".format(o.vec[1:4], newWS.objectStates[o.id].vec[1:4])
+#            print "old object: {}, new object: {}".format(o.vec[1:4], newWS.objectStates[o.id].vec[1:4])
         return newWS
         
     def resetObjects(self, curWS):

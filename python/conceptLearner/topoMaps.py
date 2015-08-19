@@ -22,6 +22,9 @@ BESTTWO = 2
 LINEAR = 3
 PREDICTIONMODE = WINNER
 
+#mask = np.array([4,5,6,7,8,9])
+mask = range(11)
+
 class ITM(Network):
     
     def __init__(self):
@@ -32,21 +35,7 @@ class ITM(Network):
         if len(self.nodes)< 2:
             return None, None
         else:
-#            minDist = float('inf')
-#            secDist = float('inf')
-#            minNode = None
-#            secNode = None
-#            for n in self.nodes.values():
-#                d = np.linalg.norm(n.vec()-x)
-#                if d < minDist:
-#                    minDist = d
-#                    minNode = n
-#                elif d < secDist:
-#                    secDist = d
-#                    secNode = n
-                    
-#            ds = sorted([(np.linalg.norm(n.vec()-x), n) for n in self.nodes.values()], key=itemgetter(0))
-            ds = sorted([(npdot(n.vec()-x,n.vec()-x), n) for n in self.nodes.values()], key=itemgetter(0))
+            ds = sorted([(npdot(n.vec()[mask]-x[mask],n.vec()[mask]-x[mask]), n) for n in self.nodes.values()], key=itemgetter(0))
             return ds[0][1], ds[1][1]
             
     def train(self, x):
@@ -55,6 +44,7 @@ class ITM(Network):
         ==========
         x : Node
         """
+#        print "training: ", x.wOut
         name = self.idCounter
         x.name = name
         nearest, second = self.getWinners(x.vec())
@@ -64,11 +54,14 @@ class ITM(Network):
             for n in nearest.neighbours.values():
                 if n != second and npdot(nearest.vec()-second.vec(), n.vec()-second.vec()) < 0:
                     self.removeEdge(nearest.name, n.name)
+            print "talis: ", npdot(nearest.vec()-x.vec(),second.vec()-x.vec())
+            print "dist: ", np.linalg.norm(x.vec()-nearest.vec())
+            print "talisOut: ",  np.dot(nearest.wOut-x.wOut, second.wOut-x.wOut)
             if npdot(nearest.vec()-x.vec(),second.vec()-x.vec()) > 0 and np.linalg.norm(x.vec()-nearest.vec()) > EMAX:
 #            if np.dot(nearest.wOut-x.wOut, second.wOut-x.wOut) > 0 and np.linalg.norm(x.wOut-nearest.wOut) > EMAX:
                 self.addNode(x)
 #                x.adapt(nearest, ETA)
-#                print "adding new node: ", x.wOut
+                print "adding new node: ", x.wOut
 #                print "Dot: ", np.dot(nearest.vec()-x.vec(),second.vec()-x.vec())
 #                print "dist: ", np.linalg.norm(x.vec()-nearest.vec())
 #                print "x.vec: {}, nearest.vec: {}".format(x.vec(), nearest.vec())
@@ -78,7 +71,7 @@ class ITM(Network):
                 self.removeNode(second)
         else:
             self.addNode(x)
-#            print "adding node because there are not enough"
+            print "adding node because there are not enough"
             
     def getAction(self, wOut):
         if not hasattr(wOut, "__len__"):
@@ -165,7 +158,7 @@ class ITM(Network):
                 return minNode.action #TODO make real linear
                 
     def predict(self, wIn):
-        
+        print "num Nodes: ", len(self.nodes)
 #        minDist = float('inf')
 #        secDist = float('inf')
         minNode = None
@@ -180,7 +173,7 @@ class ITM(Network):
 #                secDist = d
 #                secNode = n
         if len(self.nodes) > 0:
-            ds = sorted([(npdot(n.vecInA()-wIn,n.vecInA()-wIn), n) for n in self.nodes.values()], key=itemgetter(0))
+            ds = sorted([(npdot(n.vecInA()[mask]-wIn[mask],n.vecInA()[mask]-wIn[mask]), n) for n in self.nodes.values()], key=itemgetter(0))
             minNode = ds[0][1]
         
         if minNode != None:

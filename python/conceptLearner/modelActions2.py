@@ -25,7 +25,8 @@ from topoMaps import ITM
 from network import Node
 import copy
 
-HARDCODED = True
+HARDCODEDGATE = True
+HARDCODEDACTUATOR = True
 
 class Object(object):
     
@@ -33,6 +34,9 @@ class Object(object):
         self.id = 0
         self.vec = np.array([])
         self.intStates = None
+        self.lastVec = np.array([])
+        self.predVec= np.array([])
+        
         
                 
     def getRelVec(self, other):
@@ -46,6 +50,10 @@ class Object(object):
         vec[2], vec[3] = common.computeDistanceClosing(self.id, self.vec[1:4],self.vec[5:8], 
                         self.vec[4], other.id, other.vec[1:4], other.vec[5:8], other.vec[4])
         vec[4:7], vec[7:10] = common.relPosVel(self.vec[1:4], self.vec[5:8], self.vec[4], other.vec[1:4], other.vec[5:8])
+#        vec[2],vec[3] = common.computeDistanceClosing(self.id, self.vec[1:4],self.vec[1:4]-self.lastVec[1:4], 
+#                        self.vec[4], other.id, other.vec[1:4], other.vec[1:4]-other.lastVec[1:4], other.vec[4])
+#        vec[4:7], vec[7:10] = common.relPosVel(self.vec[1:4], self.vec[1:4]-self.lastVec[1:4], 
+#                                            self.vec[4], other.vec[1:4], other.vec[1:4]-other.lastVec[1:4])
         vec[10] = np.dot(np.linalg.norm(vec[4:7]), np.linalg.norm(vec[7:10]))
         return vec
                 
@@ -63,12 +71,14 @@ class Object(object):
 #        print "relVec: ", self.getRelVec(other)
         pred = predictor.predict(self.getRelVec(other))
 #        print "prediction for o: {}: {}".format(self.id, pred)
-        resO.vec += pred
-        resO.vec = np.round(resO.vec, common.NUMDEC)
+        self.predVec = self.vec + pred
+        resO.vec 
+        resO.vec = np.round(self.predVec, common.NUMDEC)
 #        print "resulting object: ", resO.vec[1:4]
         return resO
         
     def update(self, newO):
+        self.lastVec = self.vec
         self.vec = np.copy(newO.vec)
         self.intStates = newO.intStates
         
@@ -84,24 +94,34 @@ class Actuator(Object):
         pass
     
     def predict(self, action):
-        res = copy.deepcopy(self)
-        res.vec[5:8] = action #Set velocity
+#        res = copy.deepcopy(self)
+        res = Actuator()
+        res.id = self.id
+        self.predVec = np.copy(self.vec)
+#        res.vec[5:8] = action #Set velocity
+        self.predVec[5:8] = action
         #Hardcorded version
-        if HARDCODED:
-            res.vec = np.copy(self.vec)
-            res.vec[5:8] = action
-            res.vec[1:4] += 0.01*action
+        if HARDCODEDACTUATOR:
+#            res.vec[1:4] += 0.01*action
+            self.predVec[1:4] += 0.01*action
         else:
             #Only predict position
-            res.vec[1:4] += self.predictor.predict(action)
-        res.vec = np.round(res.vec, common.NUMDEC)
+            p = self.predictor.predict(action)
+            print "prediction actuator: ", p
+            self.predVec[1:4] += p
+#            res.vec[1:4] += p
+        res.lastVec = np.copy(self.vec)
+        res.vec = np.round(self.predVec, common.NUMDEC)
         return res
             
     def update(self, newAc, action):
-        if HARDCODED:
+        self.lastVec = self.vec
+#        self.predictor = newAc.predictor
+        if HARDCODEDACTUATOR:
             pass
         else:
-            self.predictor.train(Node(0, wIn=action, wOut=newAc.vec[1:4]-self.vec[1:4]))
+            pdif = newAc.vec[1:4]-self.vec[1:4]
+            self.predictor.train(Node(0, wIn=action, wOut=pdif))
         self.vec = np.copy(newAc.vec)
         self.intStates = newAc.intStates
     
@@ -117,12 +137,14 @@ class WorldState(object):
         for oN, o in ws.objectStates.items():
             if oN == "gripper":
                 self.actuator.id = o["id"][0]
-                self.actuator.vec = np.copy(o.vec)
+                self.actuator.vec = np.copy(o.vec[:8])
+                self.actuator.lastVec = np.copy(self.actuator.vec)
                 self.actuator.intStates = ws.getInteractionStates("gripper")
             else:
                 newO = Object()
                 newO.id = o["id"][0]
-                newO.vec = np.copy(o.vec)
+                newO.vec = np.copy(o.vec[:8])
+                newO.lastVec = np.copy(newO.vec)
                 newO.intStates = ws.getInteractionStates(oN)
                 self.objectStates[newO.id] = newO
                 
@@ -136,7 +158,7 @@ class Classifier(object):
         self.targets = []
         
     def train(self, o1vec, avec, label):
-        if HARDCODED:
+        if HARDCODEDGATE:
             pass
         else:
             self.inputs.append(np.concatenate((o1vec,avec)))
@@ -146,14 +168,16 @@ class Classifier(object):
     
     def test(self, ovec, avec):
 #        print "closing: {}, dist: {}".format(ovec[3], ovec[2])
-        if HARDCODED:
+        if HARDCODEDGATE:
             if ovec[3] <= -100*ovec[2]:
+                print "Change: closing: {}, dist: {}, relVel: {}".format(ovec[3], ovec[2], ovec[7:10])
                 return 1
             else:
-                if ovec[3] == 0 and np.linalg.norm(ovec[7:10]) < 0.01 and ovec[2] < 0.1: #Todo remove distance from this
+                if ovec[3] == 0 and np.linalg.norm(ovec[7:10]) < 0.01 and ovec[2] < 0.05: #Todo remove distance from this
+                    print "Change: closing: {}, dist: {}, relVel: {}".format(ovec[3], ovec[2], ovec[7:10])
                     return 1    
                 else:
-#                    print "no Change: closing: {}, dist: {}, relVel: {}".format(ovec[3], ovec[2], ovec[7:10])
+                    print "no Change: closing: {}, dist: {}, relVel: {}".format(ovec[3], ovec[2], ovec[7:10])
                     return 0
         else:
             if len(self.targets) > 0 and max(self.targets) > 0:
@@ -285,8 +309,9 @@ class ModelAction(object):
 #        if self.actuator == None:
 #            self.actuator = ws.actuator
         newWS = WorldState()
-        newWS.actuator = ws.actuator.predict(action)
+        newWS.actuator = self.actuator.predict(action)
         for o in ws.objectStates.values():
+            print "object lastvec: ", len(o.lastVec)
             if self.gate.test(o, newWS.actuator, action): #TODO Check of newWS.actuator is correct here and if action can be removed!
 #                print "predicted change"
                 newO = self.predictor.predict(o, newWS.actuator, action)

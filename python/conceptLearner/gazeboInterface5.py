@@ -369,6 +369,7 @@ class GazeboInterface():
                 self.lastAction = self.direction
                 if self.lastPrediction != None:
                     predictedWorldState = self.lastPrediction
+                    self.worldModel.actuator.vec = self.lastPrediction.actuator.vec
 #                    self.accDif += curDif
 #                    self.numSteps +=1
                 else:
@@ -378,6 +379,7 @@ class GazeboInterface():
                     #Retransform
 #                    print "lastPrediction: {}, worldState: {} ".format(self.lastPrediction.interactionStates, worldState.interactionStates)
 #                self.lastPrediction = self.worldModel.predict(predictedWorldState, self.lastAction)
+                
                 self.lastPrediction = self.worldModel.predict(predictedWorldState, self.lastAction)
 #                print "lastAction: ", self.lastAction
                 self.sendPrediction()

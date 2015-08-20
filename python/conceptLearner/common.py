@@ -155,19 +155,21 @@ def invertTransMatrix(matrix):
                       
                      
 def dist(center, edge1, edge2, ang, ref):
-    if len(edge1) == 2 and len(ref) == 3:
-        edge1 = np.concatenate((edge1,[0]))
-    if len(edge2) == 2 and len(ref) == 3:
-        edge2 = np.concatenate((edge2,[0]))    
+#    if len(edge1) == 2 and len(ref) == 3:
+#        edge1 = np.concatenate((edge1,[0]))
+#    if len(edge2) == 2 and len(ref) == 3:
+#        edge2 = np.concatenate((edge2,[0]))    
     ca = math.cos(ang)
     sa = math.sin(ang)
-    r = np.array([[ca, -sa, 0.0],
-                 [sa, ca, 0.0],
-                 [0.0, 0.0, 1.0]])
+#    r = np.array([[ca, -sa, 0.0],
+#                 [sa, ca, 0.0],
+#                 [0.0, 0.0, 1.0]])
+    r = np.array([[ca, -sa], 
+                  [sa, ca]])
     edge1N = np.dot(r, edge1)
     edge2N = np.dot(r, edge2)
-    v = edge1N+center
-    w = edge2N+center
+    v = (edge1N+center)
+    w = (edge2N+center)
     
     l2 = np.dot(v-w, v-w)
     if l2 == 0.0:
@@ -219,18 +221,18 @@ def computeDistanceClosing(id1, p1, v1, ang1, id2, p2, v2, ang2):
     edges  = {15: [(-0.25,0.05),(-0.25,-0.05),(0.25,-0.05),(0.25,0.05)], 8: [(0.0,0.0)]}
     segments = {15: [(edges[15][0], edges[15][1]),(edges[15][1],edges[15][2]),(edges[15][2],edges[15][3]),(edges[15][3],edges[15][0])], 8:[]}    
     if id1 == 8:
-        ref = p1
-        ref[2] = p2[2]
-        vel = v1-v2
+        ref = p1[:2]
+#        ref[2] = p2[2]
+        vel = (v1-v2)[:2]
         ang = ang2
-        center = p2
+        center = p2[:2]
         segId = id2
     elif id1 == 15:
-        ref = p2
-        ref[2] = p1[2]
-        vel = v2-v1
+        ref = p2[:2]
+#        ref[2] = p1[2]
+        vel = (v2-v1)[:2]
         ang = ang1
-        center = p1
+        center = p1[:2]
         segId = id1
     else:
         raise NotImplementedError("Currently only distance between gripper and object is implemented. (id1: {})".format(int(id1)))

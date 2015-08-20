@@ -17,14 +17,14 @@
       <pose>0.0 0.0 0.03 0 0 0</pose>
       <link name='finger'>
         <inertial>
-          <mass>1</mass>
+          <mass>10</mass>
           <inertia>
-            <ixx>2.5e-05</ixx>
+            <ixx>2.5e-04</ixx>
             <ixy>0</ixy>
             <ixz>0</ixz>
-            <iyy>2.5e-05</iyy>
+            <iyy>2.5e-04</iyy>
             <iyz>0</iyz>
-            <izz>2.5e-05</izz>
+            <izz>2.5e-04</izz>
           </inertia>
         </inertial>
         <collision name='collision'>

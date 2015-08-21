@@ -56,6 +56,9 @@ class Object(object):
 #                                            self.vec[4], other.vec[1:4], other.vec[1:4]-other.lastVec[1:4])
         vec[10] = np.dot(np.linalg.norm(vec[4:7]), np.linalg.norm(vec[7:10]))
         return vec
+        
+    def getGlobalPosVel(self, localPos, localVel):
+        return common.globalPosVel(self.vec[1:4], self.vec[4], localPos, localVel)
                 
     def getIntVec(self, other):
         """
@@ -71,7 +74,7 @@ class Object(object):
 #        print "relVec: ", self.getRelVec(other)
         pred = predictor.predict(self.getRelVec(other))
 #        print "prediction for o: {}: {}".format(self.id, pred)
-        self.predVec = self.vec + pred
+        self.predVec = self.vec + pred*1.5 #interestingly enough, *1.5 improves prediction accuracy quite a lot
         resO.vec 
         resO.vec = np.round(self.predVec, common.NUMDEC)
 #        print "resulting object: ", resO.vec[1:4]
@@ -246,15 +249,18 @@ class Predictor(object):
     def getAction(self, targetId, dif):
         if targetId in self.predictors:
             return self.predictors[targetId].getAction(dif)
+        else:
+            print "Target not found"
+            return None, None, None
     
     def update(self, intState, action, dif):
         if not intState[0] in self.predictors:
             #TODO check for close ones that can be used
             self.predictors[intState[0]] = ITM()
 #        print "updating with dif: ", dif[3]
-        if max(dif[1:4]) >0.1 or min(dif[1:4]) < -0.1:
-            print "dif to big: ", dif
-            raise AttributeError
+#        if max(dif[1:4]) >0.1 or min(dif[1:4]) < -0.1:
+#            print "dif to big: ", dif
+#            raise AttributeError
 #        if np.linalg.norm(dif[1:5]) < 0.002:
 #            print "dif to small", dif
 #            raise AttributeError
@@ -281,6 +287,45 @@ class ModelAction(object):
         """
         self.target = target
         
+    def circleObject(self, objectID):
+        """
+            Function to circle around the object with the given id with the actuator, 
+            if in scope.
+            
+            Parameters
+            ----------
+            objectID : int
+            
+            returns: np.ndarray
+                Action vector for the actuator for the next step
+        """
+        
+        circleO = self.curObjects[objectID]
+        relVec = circleO.getRelVec(self.actuator)
+        dist = relVec[2]
+#        relPos = relVec[4:7]
+        relPos = self.actuator.vec[1:4] - circleO.vec[1:4]
+        if dist < 0.03:
+            return 0.5*relPos/np.linalg.norm(relPos)
+        elif dist > 0.05:
+            return -0.5*relPos/np.linalg.norm(relPos)
+        else:
+            tangent = np.array([-relPos[1], relPos[0], 0.0])
+            return 0.5*tangent/np.linalg.norm(tangent)
+        
+        return np.array([0.0,0.0,0.0])
+        
+    def isTargetReached(self):
+        targetO = self.curObjects[self.target.id]
+        difVec = targetO.vec-self.target.vec
+        norm = np.linalg.norm(difVec)
+        print "dif norm: ", norm
+        if norm < 0.1:
+            return True
+        return False
+        
+        
+        
     def getAction(self):
         """
             Returns an action, that is to be performed, trying to get closer to the
@@ -293,12 +338,46 @@ class ModelAction(object):
             return np.array([0.0,0.0,0.0])
         else:
             if self.isTargetReached():
+                print "target reached"
                 return np.array([0.0,0.0,0.0])
             else:
+                targetO = self.curObjects[self.target.id]
+                # Determine difference vector, the object should follow
+                difVec = self.target.vec-targetO.vec
                 # Determine Actuator position that allows action in good direction
-                action, pre, out = self.predictor.getAction(target.id, target.vec-self.curObjects[target.id].vec)
-                # Bring actuator into position so that it influences targetobject
-                # Select action to move target object towards target
+                action, pre, out = self.predictor.getAction(self.target.id, difVec)
+                if pre != None:                    
+                    #TODO: Check if pre, action and out have anything to do with desired result
+                    # Convert relative preconditions to global actuator target position
+                    relTargetPos = pre[4:7]
+                    relTargetVel = pre[7:10]
+                    pos, vel = targetO.getGlobalPosVel(relTargetPos, relTargetVel)
+                    relVec = targetO.getRelVec(self.actuator)
+                    relPos = relVec[4:7]
+                    difPos = pos-self.actuator.vec[1:4]
+#                    if np.any(relPos*relTargetPos < 0):
+#                         # Bring actuator into position so that it influences targetobject
+#                        print "try circlying"
+#                        return self.circleObject(self.target.id)
+#                    el
+                    if np.linalg.norm(difPos) > 0.01:
+                        print "doing difpos"
+                        return 0.5*difPos/np.linalg.norm(difPos)
+                    else:
+                        print "using vel"
+                        return 0.5*vel/np.linalg.norm(vel)
+                else:
+                    relPos = targetO.vec[1:4]- self.actuator.vec[1:4]
+                    ang = np.random.uniform(-np.pi/2.0,np.pi/2.0)
+                    ca = np.cos(ang)
+                    sa = np.sin(ang)
+                    rot = np.array([[ca, -sa, 0.0],
+                                    [sa, ca, 0.0],
+                                    [0.0,0.0,1.0]])
+                    vec = np.dot(rot,relPos)
+                    return 0.5 * vec/np.linalg.norm(vec)
+                    
+                #TODO!
                 # Work in open loop: Compare result of previous action with expected result
                 pass
             

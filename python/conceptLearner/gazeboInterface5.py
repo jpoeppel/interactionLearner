@@ -47,10 +47,10 @@ PUSHTASKSIMULATION = 2
 MOVE_TO_TARGET = 3
 MODE = PUSHTASKSIMULATION
 #MODE = FREE_EXPLORATION
-#MODE = MOVE_TO_TARGET
+MODE = MOVE_TO_TARGET
 
 
-NUM_TRAIN_RUNS = 10
+NUM_TRAIN_RUNS = 2
 NUM_TEST_RUNS = 20
 
 class GazeboInterface():
@@ -269,7 +269,7 @@ class GazeboInterface():
             elif MODE == PUSHTASKSIMULATION:
                 self.pushTaskSimulation(newWS)
             elif MODE == MOVE_TO_TARGET:
-                self.getTarget()
+                self.setTarget()
                 self.moveToTarget(newWS)
             else:
                 raise AttributeError("Unknown MODE: ", MODE)
@@ -306,8 +306,8 @@ class GazeboInterface():
             posX = -0.25
         elif self.trainRun == 1:
             posX = 0.25
-        elif self.trainRun == 2:
-            posX = 0
+#        elif self.trainRun == 2:
+#            posX = 0
             
         self.sendPose("gripper", np.array([posX,0.0,0.03]), 0.0)
         self.stepCounter = 0
@@ -433,13 +433,26 @@ class GazeboInterface():
         
             
     def moveToTarget(self, worldState, resultState=None):
-        raise NotImplementedError
-        if self.target is None:
-            self.target = self.getTarget()
-            self.worldModel.setTarget(self.target)
+#        raise NotImplementedError
+#        if self.target is None:
+#            self.target = self.getTarget()
+#            self.worldModel.setTarget(self.target)
+#        self.worldModel.update(worldState, self.lastAction)
+#        self.lastAction = self.worldModel.getAction()
+#        self.sendCommand(self.lastAction)
         self.worldModel.update(worldState, self.lastAction)
+#        self.lastAction = self.worldModel.circleObject(15)
         self.lastAction = self.worldModel.getAction()
+        print "recieved action: ", self.lastAction
         self.sendCommand(self.lastAction)
+        self.lastPrediction = self.worldModel.predict(worldState, self.lastAction)
+        self.sendPrediction()
+
+    def setTarget(self):
+        target = model.Object()
+        target.id = 15
+        target.vec = np.array([15, 0.0, 0.8, 0.05, 0.0, 0.0,0.0,0.0])
+        self.worldModel.setTarget(target)
     
     def stop(self):
         """

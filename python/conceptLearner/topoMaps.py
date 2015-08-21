@@ -14,7 +14,7 @@ from operator import itemgetter
 EMAX = 0.001
 ETA = 0.0
 #For neighbours
-SIGMAE = 0.5
+SIGMAE = 0.05
 
 WINNER = 0
 NEIGHBOURS = 1
@@ -98,6 +98,8 @@ class ITM(Network):
                 raise NotImplementedError()
             elif PREDICTIONMODE == LINEAR:
                 return minNode.action, minNode.wIn, minNode.wOut
+            elif PREDICTIONMODE == BESTTWO:
+                return minNode.action, minNode.wIn, minNode.wOut #TODO correct later
             else:
                 raise AttributeError("Unsupported Predictionmode used: ", PREDICTIONMODE)
         else:

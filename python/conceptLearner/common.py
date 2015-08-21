@@ -214,6 +214,21 @@ def relPosVel(p1,v1, ang, p2,v2):
     newVel = np.dot(invTrans, tmpVel)[:3]
     return np.round(newPos, NUMDEC), np.round(newVel, NUMDEC)
     
+def globalPosVel(p1, ang, relPos, relVel):
+    ca = math.cos(ang)
+    sa = math.sin(ang)
+    trans = np.array([[ca, -sa, 0.0, p1[0]],
+                 [sa, ca, 0.0, p1[1]],
+                 [0.0, 0.0, 1.0, p1[2]],
+                 [0.0,0.0,0.0,1.0]])
+    tmpPos = np.ones(4)
+    tmpPos[:3] = np.copy(relPos)
+    newPos = np.dot(trans, tmpPos)[:3]
+    tmpVel = np.zeros(4)
+    tmpVel[:3] = relVel
+    newVel = np.dot(trans, tmpVel)[:3]
+    return np.round(newPos, NUMDEC), np.round(newVel, NUMDEC)
+    
 
 #    
 

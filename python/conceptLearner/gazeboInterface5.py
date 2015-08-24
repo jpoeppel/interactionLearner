@@ -50,7 +50,7 @@ MODE = PUSHTASKSIMULATION
 MODE = MOVE_TO_TARGET
 
 
-NUM_TRAIN_RUNS = 2
+NUM_TRAIN_RUNS = 8
 NUM_TEST_RUNS = 20
 
 class GazeboInterface():
@@ -269,7 +269,7 @@ class GazeboInterface():
             elif MODE == PUSHTASKSIMULATION:
                 self.pushTaskSimulation(newWS)
             elif MODE == MOVE_TO_TARGET:
-                self.setTarget()
+#                self.setTarget()
                 self.moveToTarget(newWS)
             else:
                 raise AttributeError("Unknown MODE: ", MODE)
@@ -306,8 +306,8 @@ class GazeboInterface():
             posX = -0.25
         elif self.trainRun == 1:
             posX = 0.25
-#        elif self.trainRun == 2:
-#            posX = 0
+        elif self.trainRun == 2:
+            posX = 0
             
         self.sendPose("gripper", np.array([posX,0.0,0.03]), 0.0)
         self.stepCounter = 0
@@ -424,15 +424,45 @@ class GazeboInterface():
     def randomExploration(self, worldState, resultState):
         raise NotImplementedError
         
-    def startRunTarget(self, randomRange=0.5):
+    def startRunTarget(self, run):
+        startPositions = {0:np.array([0.24,0.0,0.03]), 1: np.array([0.3, 0.25,0.03]),
+                          2: np.array([0.24, 0.5, 0.03]), 3: np.array([0.0,0.5,0.03]), 
+                          4: np.array([-0.24,0.5,0.03]), 5: np.array([-0.3,0.25,0.03]), 
+                          6: np.array([-0.24,0.0,0.03]), 7: np.array([0.0,0.0,0.03]), 8: np.array([0.0,0.0,0.03])}
+        directions = {0: np.array([0.0,0.5,0.0]), 1: np.array([-0.5, 0.0,0.0]),
+                      2: np.array([0.0, -0.5, 0.0]), 3: np.array([0.0,-0.5,0.0]), 4: np.array([0.0,-0.5,0.0]),
+                      5: np.array([0.5,0.0,0.0]), 6: np.array([0.0,0.5,0.0]), 7:np.array([0.0,0.5,0.0]), 8:np.array([0.0,0.5,0.0]) }
         self.runStarted = True
-        posX = ((np.random.rand()-0.5)*randomRange) #* 0.5
-        self.sendPose("gripper", np.array([posX,0.0,0.03]), np.array([0.0,0.0,0.0,0.0]))
-        self.sendPose("blockA", np.array([0.0,0.075,0.05]), np.array([0.0,0.0,0.0,0.0]))
+        self.sendPose("gripper", startPositions[run], 0.0)
         self.stepCounter = 0
+        self.direction = directions[run]
         
-            
     def moveToTarget(self, worldState, resultState=None):
+        self.stepCounter += 1
+        if self.runStarted:
+            if self.trainRun < NUM_TRAIN_RUNS and self.runEnded(worldState):
+                self.resetWorld()
+                self.runStarted = False
+        else:
+            self.startRunTarget(self.trainRun)
+            return
+            
+        if self.trainRun < NUM_TRAIN_RUNS:
+            if self.runStarted:
+                self.updateModel(worldState, resultState, self.direction)
+            else:
+                self.trainRun += 1
+                if self.trainRun == NUM_TRAIN_RUNS:
+                    self.setTarget()
+                    self.pauseWorld()
+        elif self.testRun < NUM_TEST_RUNS:
+            self.worldModel.update(worldState, self.lastAction)
+            self.lastAction = self.worldModel.getAction()
+            self.sendCommand(self.lastAction)
+            self.lastPrediction = self.worldModel.predict(worldState, self.lastAction)
+            self.sendPrediction()
+            
+    def moveToTarget2(self, worldState, resultState=None):
 #        raise NotImplementedError
 #        if self.target is None:
 #            self.target = self.getTarget()
@@ -459,10 +489,9 @@ class GazeboInterface():
         Function to stop the loop.
         """
         self.active = False
+
     
 if __name__ == "__main__":
-
-
     loop = trollius.get_event_loop()
     gi = GazeboInterface()
     loop.run_until_complete(gi.loop())

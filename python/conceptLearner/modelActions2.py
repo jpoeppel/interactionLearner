@@ -43,6 +43,8 @@ class Object(object):
         """
             Computes the relative (interaction) vector of the other object with respect
             to the own reference frame.
+            TODO consider adding the actual velocity of the other object (relative to self's reference
+            frame) in order to be able to deal with the zero relVelocity cases.
         """
         vec = np.zeros(11)
         vec[0] = self.id
@@ -234,11 +236,63 @@ class GateFunction(object):
         else:
             self.classifier.train(vec,action, 0)
             return False, dif
+
+class MetaNode(object):
+
+    def __init__(self):
+        self.weights = 0.0
+        self.preSum = None
+        pass
+
+    def train(self, pre, dif):
+        try:
+            self.preSum += dif*pre
+            self.weights += dif
+        except TypeError:
+            self.preSum = dif*pre
+            self.weights = dif
+        
+    def getPreconditions(self):
+        return self.preSum/self.weights
+            
+class MetaNetwork(object):
+    
+    def __init__(self):
+        self.nodes = {}
+        pass
+    
+    def train(self, pre, difs):
+        for i in xrange(len(difs)):
+            if difs[i] != 0:
+                index = i*np.sign(difs[i])
+                if not index in self.nodes:
+                    self.nodes[index] = MetaNode()
+                self.nodes[index].train(pre,difs[i])
+                
+    def getPreconditions(self, targetDifs):
+        res = np.zeros(11)
+        norm = 0.0
+        for i in xrange(len(targetDifs)):
+          if targetDifs[i] != 0:
+              index = i*np.sign(targetDifs[i])
+              if not index in self.nodes:
+                  print "index i {} for targetDif {}, not known".format(index, targetDifs[i])
+                  print "nodes: ", self.nodes.keys()
+                  print "targetDifs: ", targetDifs
+              else:
+                  res += self.nodes[index].getPreconditions()
+                  norm += 1.0
+        if norm > 0:    
+            return res/norm
+        else:
+            return res
+        
             
 class Predictor(object):
     
     def __init__(self):
         self.predictors = {}
+        self.inverseModel = {}
     
     def predict(self, o1, o2, action):
         if o1.id in self.predictors:
@@ -252,11 +306,19 @@ class Predictor(object):
         else:
             print "Target not found"
             return None, None, None
+            
+    def getAction2(self,targetId, dif):
+        if targetId in self.inverseModel:
+            return self.inverseModel[targetId].getPreconditions(dif)
+        else:
+            print "target not found"
+            return None
     
     def update(self, intState, action, dif):
         if not intState[0] in self.predictors:
             #TODO check for close ones that can be used
             self.predictors[intState[0]] = ITM()
+            self.inverseModel[intState[0]] = MetaNetwork()
 #        print "updating with dif: ", dif[3]
 #        if max(dif[1:4]) >0.1 or min(dif[1:4]) < -0.1:
 #            print "dif to big: ", dif
@@ -265,6 +327,7 @@ class Predictor(object):
 #            print "dif to small", dif
 #            raise AttributeError
         self.predictors[intState[0]].train(Node(0, wIn = intState, wOut=dif))
+        self.inverseModel[intState[0]].train(intState, dif)
 
 
 class ModelAction(object):
@@ -324,6 +387,15 @@ class ModelAction(object):
             return True
         return False
         
+    def explore(self):
+        """
+            Returns an action in order to increase the knowledge of the model.
+            
+            Returns: np.ndarray
+                Action vector for the actuator
+        """
+        
+        pass
         
         
     def getAction(self):
@@ -344,42 +416,53 @@ class ModelAction(object):
                 targetO = self.curObjects[self.target.id]
                 # Determine difference vector, the object should follow
                 difVec = self.target.vec-targetO.vec
-                # Determine Actuator position that allows action in good direction
-                action, pre, out = self.predictor.getAction(self.target.id, difVec)
-                if pre != None:                    
-                    #TODO: Check if pre, action and out have anything to do with desired result
-                    # Convert relative preconditions to global actuator target position
-                    relTargetPos = pre[4:7]
-                    relTargetVel = pre[7:10]
-                    pos, vel = targetO.getGlobalPosVel(relTargetPos, relTargetVel)
-                    relVec = targetO.getRelVec(self.actuator)
-                    relPos = relVec[4:7]
-                    difPos = pos-self.actuator.vec[1:4]
-#                    if np.any(relPos*relTargetPos < 0):
-#                         # Bring actuator into position so that it influences targetobject
-#                        print "try circlying"
-#                        return self.circleObject(self.target.id)
-#                    el
-                    if np.linalg.norm(difPos) > 0.01:
-                        print "doing difpos"
-                        return 0.5*difPos/np.linalg.norm(difPos)
-                    else:
-                        print "using vel"
-                        return 0.5*vel/np.linalg.norm(vel)
+                pre = self.predictor.getAction2(self.target.id, difVec)
+                relTargetPos = pre[4:7]
+                relTargetVel = pre[7:10]
+                pos, vel = targetO.getGlobalPosVel(relTargetPos, relTargetVel)
+                difPos = pos-self.actuator.vec[1:4]
+                if np.linalg.norm(difPos) > 0.01:
+                    print "doing difpos"
+                    return 0.5*difPos/np.linalg.norm(difPos)
                 else:
-                    relPos = targetO.vec[1:4]- self.actuator.vec[1:4]
-                    ang = np.random.uniform(-np.pi/2.0,np.pi/2.0)
-                    ca = np.cos(ang)
-                    sa = np.sin(ang)
-                    rot = np.array([[ca, -sa, 0.0],
-                                    [sa, ca, 0.0],
-                                    [0.0,0.0,1.0]])
-                    vec = np.dot(rot,relPos)
-                    return 0.5 * vec/np.linalg.norm(vec)
-                    
-                #TODO!
-                # Work in open loop: Compare result of previous action with expected result
-                pass
+                    print "using vel"
+                    return 0.5*vel/np.linalg.norm(vel)
+#                # Determine Actuator position that allows action in good direction
+#                action, pre, out = self.predictor.getAction(self.target.id, difVec)
+#                if pre != None:                    
+#                    #TODO: Check if pre, action and out have anything to do with desired result
+#                    # Convert relative preconditions to global actuator target position
+#                    relTargetPos = pre[4:7]
+#                    relTargetVel = pre[7:10]
+#                    pos, vel = targetO.getGlobalPosVel(relTargetPos, relTargetVel)
+#                    relVec = targetO.getRelVec(self.actuator)
+#                    relPos = relVec[4:7]
+#                    difPos = pos-self.actuator.vec[1:4]
+##                    if np.any(relPos*relTargetPos < 0):
+##                         # Bring actuator into position so that it influences targetobject
+##                        print "try circlying"
+##                        return self.circleObject(self.target.id)
+##                    el
+#                    if np.linalg.norm(difPos) > 0.01:
+#                        print "doing difpos"
+#                        return 0.5*difPos/np.linalg.norm(difPos)
+#                    else:
+#                        print "using vel"
+#                        return 0.5*vel/np.linalg.norm(vel)
+#                else:
+#                    relPos = targetO.vec[1:4]- self.actuator.vec[1:4]
+#                    ang = np.random.uniform(-np.pi/2.0,np.pi/2.0)
+#                    ca = np.cos(ang)
+#                    sa = np.sin(ang)
+#                    rot = np.array([[ca, -sa, 0.0],
+#                                    [sa, ca, 0.0],
+#                                    [0.0,0.0,1.0]])
+#                    vec = np.dot(rot,relPos)
+#                    return 0.5 * vec/np.linalg.norm(vec)
+#                    
+#                #TODO!
+#                # Work in open loop: Compare result of previous action with expected result
+#                pass
             
         pass
         
@@ -390,7 +473,7 @@ class ModelAction(object):
         newWS = WorldState()
         newWS.actuator = self.actuator.predict(action)
         for o in ws.objectStates.values():
-            print "object lastvec: ", len(o.lastVec)
+            print "len object lastvec: ", len(o.lastVec)
             if self.gate.test(o, newWS.actuator, action): #TODO Check of newWS.actuator is correct here and if action can be removed!
 #                print "predicted change"
                 newO = self.predictor.predict(o, newWS.actuator, action)

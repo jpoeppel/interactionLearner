@@ -46,22 +46,30 @@ class Object(object):
             TODO consider adding the actual velocity of the other object (relative to self's reference
             frame) in order to be able to deal with the zero relVelocity cases.
         """
-        vec = np.zeros(11)
+        vec = np.zeros(14)
         vec[0] = self.id
         vec[1] = other.id
         vec[2], vec[3] = common.computeDistanceClosing(self.id, self.vec[1:4],self.vec[5:8], 
                         self.vec[4], other.id, other.vec[1:4], other.vec[5:8], other.vec[4])
-        vec[4:7], vec[7:10] = common.relPosVel(self.vec[1:4], self.vec[5:8], self.vec[4], other.vec[1:4], other.vec[5:8])
+        vec[4:7], vec[7:10], vec[11:14] = common.relPosVel(self.vec[1:4], self.vec[5:8], self.vec[4], other.vec[1:4], other.vec[5:8])
 #        vec[2],vec[3] = common.computeDistanceClosing(self.id, self.vec[1:4],self.vec[1:4]-self.lastVec[1:4], 
 #                        self.vec[4], other.id, other.vec[1:4], other.vec[1:4]-other.lastVec[1:4], other.vec[4])
 #        vec[4:7], vec[7:10] = common.relPosVel(self.vec[1:4], self.vec[1:4]-self.lastVec[1:4], 
 #                                            self.vec[4], other.vec[1:4], other.vec[1:4]-other.lastVec[1:4])
         vec[10] = np.dot(np.linalg.norm(vec[4:7]), np.linalg.norm(vec[7:10]))
-        return vec
+        return vec#[:11]
         
     def getGlobalPosVel(self, localPos, localVel):
         return common.globalPosVel(self.vec[1:4], self.vec[4], localPos, localVel)
                 
+                
+    def getLocalChangeVec(self, post):
+        res = np.copy(post.vec)
+        res -= self.vec
+        res[1:4], res[5:8] = common.relPosVelChange(self.vec[4], res[1:4], res[5:8])
+        return res
+        
+        
     def getIntVec(self, other):
         """
             Returns the interaction state with the other
@@ -75,6 +83,7 @@ class Object(object):
 #        print "object before: ", resO.vec[1:4]
 #        print "relVec: ", self.getRelVec(other)
         pred = predictor.predict(self.getRelVec(other))
+        pred[1:4], pred[5:8] = common.globalPosVelChange(self.vec[4], pred[1:4], pred[5:8])
 #        print "prediction for o: {}: {}".format(self.id, pred)
         self.predVec = self.vec + pred*1.5 #interestingly enough, *1.5 improves prediction accuracy quite a lot
         resO.vec 
@@ -203,7 +212,8 @@ class GateFunction(object):
         return self.classifier.test(vec,action)
         
     def checkChange(self, pre, post):
-        dif = post.vec-pre.vec
+#        dif = post.vec-pre.vec
+        dif = pre.getLocalChangeVec(post)
         #TODO convert dif to local coordinate frame! 
         #Since ITM input vector is relative to object, the output should be relative as well
 #        print "dif: ", dif[1:4]
@@ -216,8 +226,6 @@ class GateFunction(object):
         
     def update(self, o1Pre, o1Post, o2Pre, action):
         """
-        TODO Consider removing action here, since o2Pre has already experienced
-        the results of action.
         Parameters
         ----------
         o1Pre: Object
@@ -245,6 +253,14 @@ class MetaNode(object):
         pass
 
     def train(self, pre, dif):
+        """
+        Parameters
+        ----------
+        pre : np.ndarray
+            Vector of preconditions
+        dif : float
+            Absolut difference value of the feature
+        """
         try:
             self.preSum += dif*pre
             self.weights += dif
@@ -263,25 +279,25 @@ class MetaNetwork(object):
     
     def train(self, pre, difs):
         for i in xrange(len(difs)):
-            if difs[i] != 0:
+            if abs(difs[i]) > 0.003:
                 index = i*np.sign(difs[i])
                 if not index in self.nodes:
                     self.nodes[index] = MetaNode()
-                self.nodes[index].train(pre,difs[i])
+                self.nodes[index].train(pre,abs(difs[i]))
                 
     def getPreconditions(self, targetDifs):
-        res = np.zeros(11)
+        res = np.zeros(14)
         norm = 0.0
         for i in xrange(len(targetDifs)):
-          if targetDifs[i] != 0:
+          if abs(targetDifs[i]) > 0.001:
               index = i*np.sign(targetDifs[i])
               if not index in self.nodes:
                   print "index i {} for targetDif {}, not known".format(index, targetDifs[i])
                   print "nodes: ", self.nodes.keys()
                   print "targetDifs: ", targetDifs
               else:
-                  res += self.nodes[index].getPreconditions()
-                  norm += 1.0
+                  res += abs(targetDifs[i])*self.nodes[index].getPreconditions()
+                  norm += abs(targetDifs[i])
         if norm > 0:    
             return res/norm
         else:
@@ -380,10 +396,12 @@ class ModelAction(object):
         
     def isTargetReached(self):
         targetO = self.curObjects[self.target.id]
-        difVec = targetO.vec-self.target.vec
+        difVec = targetO.vec[:4]-self.target.vec[:4]
+#        print "target vec: ", self.target.vec
+#        print "object vec: ", targetO.vec
         norm = np.linalg.norm(difVec)
         print "dif norm: ", norm
-        if norm < 0.1:
+        if norm < 0.05:
             return True
         return False
         
@@ -415,18 +433,34 @@ class ModelAction(object):
             else:
                 targetO = self.curObjects[self.target.id]
                 # Determine difference vector, the object should follow
-                difVec = self.target.vec-targetO.vec
-                pre = self.predictor.getAction2(self.target.id, difVec)
+                print "global dif vec: ", self.target.vec-targetO.vec
+                difVec = targetO.getLocalChangeVec(self.target)
+                print "difVec: ", difVec[:4]
+                pre = self.predictor.getAction2(self.target.id, difVec[:4])
                 relTargetPos = pre[4:7]
-                relTargetVel = pre[7:10]
+                print "rel target pos: ", relTargetPos
+                relTargetVel = pre[11:14]
+                
                 pos, vel = targetO.getGlobalPosVel(relTargetPos, relTargetVel)
+                print "target pos: ", pos
                 difPos = pos-self.actuator.vec[1:4]
-                if np.linalg.norm(difPos) > 0.01:
-                    print "doing difpos"
-                    return 0.5*difPos/np.linalg.norm(difPos)
-                else:
-                    print "using vel"
-                    return 0.5*vel/np.linalg.norm(vel)
+                print "difpos norm: ", np.linalg.norm(difPos)
+                relVec = targetO.getRelVec(self.actuator)
+                relPos = relVec[4:7]
+                print "relPos actuator: ", relPos
+#                print "relPos*relTargetPos: ", relPos*relTargetPos
+                if np.any(relPos*relTargetPos < 0):# and min(relPos*relTargetPos) < -0.005:
+                     # Bring actuator into position so that it influences targetobject
+                    print "try circlying"
+                    return self.circleObject(self.target.id)
+                elif np.linalg.norm(difPos) > 0.08:
+                    action = 0.3*difPos/np.linalg.norm(difPos)
+                    if not self.gate.test(targetO, self.actuator, action):
+                        print "doing difpos"
+                        return action
+#                else:
+                print "using vel"
+                return 0.3*vel/np.linalg.norm(vel)
 #                # Determine Actuator position that allows action in good direction
 #                action, pre, out = self.predictor.getAction(self.target.id, difVec)
 #                if pre != None:                    

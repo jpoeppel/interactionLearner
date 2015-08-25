@@ -186,9 +186,7 @@ class GazeboInterface():
             Name of the model
         pos : np.array() Size 3
             The position of the model
-        ori : np.array() Size 4
-            The quaternion for the orientation of the model
-            
+
         Returns
         -------
         modelState_pb2.ModelState
@@ -438,6 +436,7 @@ class GazeboInterface():
         self.direction = directions[run]
         
     def moveToTarget(self, worldState, resultState=None):
+        resultState=copy.deepcopy(worldState)
         self.stepCounter += 1
         if self.runStarted:
             if self.trainRun < NUM_TRAIN_RUNS and self.runEnded(worldState):
@@ -456,7 +455,10 @@ class GazeboInterface():
                     self.setTarget()
                     self.pauseWorld()
         elif self.testRun < NUM_TEST_RUNS:
-            self.worldModel.update(worldState, self.lastAction)
+            if self.lastPrediction != None and resultState != None:
+                self.worldModel.update(worldState, self.lastAction)
+            else:
+                self.worldModel.resetObjects(worldState)
             self.lastAction = self.worldModel.getAction()
             self.sendCommand(self.lastAction)
             self.lastPrediction = self.worldModel.predict(worldState, self.lastAction)
@@ -481,7 +483,7 @@ class GazeboInterface():
     def setTarget(self):
         target = model.Object()
         target.id = 15
-        target.vec = np.array([15, 0.0, 0.8, 0.05, 0.0, 0.0,0.0,0.0])
+        target.vec = np.array([15, -0.5, -0.2, 0.05, 0.0, 0.0,0.0,0.0])
         self.worldModel.setTarget(target)
     
     def stop(self):

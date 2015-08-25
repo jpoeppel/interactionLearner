@@ -56,7 +56,7 @@ class ITM(Network):
             for n in nearest.neighbours.values():
                 if n != second and npdot(nearest.vec()-second.vec(), n.vec()-second.vec()) < 0:
                     self.removeEdge(nearest.name, n.name)
-            np.set_printoptions(precision=3,suppress=True)
+#            np.set_printoptions(precision=3,suppress=True)
 #            print "talis: ", npdot(nearest.vec()-x.vec(),second.vec()-x.vec())
 #            print "dist: ", np.linalg.norm(x.vec()-nearest.vec())
 #            print "talisOut: ",  np.dot(nearest.wOut-x.wOut, second.wOut-x.wOut)

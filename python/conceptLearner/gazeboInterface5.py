@@ -483,7 +483,7 @@ class GazeboInterface():
     def setTarget(self):
         target = model.Object()
         target.id = 15
-        target.vec = np.array([15, -0.5, -0.2, 0.05, 0.0, 0.0,0.0,0.0])
+        target.vec = np.array([15, -0.5, 0.4, 0.05, 0.5, 0.0,0.0,0.0])
         self.worldModel.setTarget(target)
     
     def stop(self):

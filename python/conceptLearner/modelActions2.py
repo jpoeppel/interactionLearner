@@ -25,6 +25,8 @@ from topoMaps import ITM
 from network import Node
 import copy
 
+GREEDY_TARGET = False
+
 HARDCODEDGATE = True
 HARDCODEDACTUATOR = True
 
@@ -90,6 +92,8 @@ class Object(object):
         resO.vec = np.round(self.predVec, common.NUMDEC)
 #        print "resulting object: ", resO.vec[1:4]
         return resO
+        
+        
         
     def update(self, newO):
         self.lastVec = self.vec
@@ -184,14 +188,14 @@ class Classifier(object):
 #        print "closing: {}, dist: {}".format(ovec[3], ovec[2])
         if HARDCODEDGATE:
             if ovec[3] <= -100*ovec[2]:
-                print "Change: closing: {}, dist: {}, relVel: {}".format(ovec[3], ovec[2], ovec[7:10])
+#                print "Change: closing: {}, dist: {}, relVel: {}".format(ovec[3], ovec[2], ovec[7:10])
                 return 1
             else:
                 if ovec[3] == 0 and np.linalg.norm(ovec[7:10]) < 0.01 and ovec[2] < 0.05: #Todo remove distance from this
-                    print "Change: closing: {}, dist: {}, relVel: {}".format(ovec[3], ovec[2], ovec[7:10])
+#                    print "Change: closing: {}, dist: {}, relVel: {}".format(ovec[3], ovec[2], ovec[7:10])
                     return 1    
                 else:
-                    print "no Change: closing: {}, dist: {}, relVel: {}".format(ovec[3], ovec[2], ovec[7:10])
+#                    print "no Change: closing: {}, dist: {}, relVel: {}".format(ovec[3], ovec[2], ovec[7:10])
                     return 0
         else:
             if len(self.targets) > 0 and max(self.targets) > 0:
@@ -250,6 +254,12 @@ class MetaNode(object):
     def __init__(self):
         self.weights = 0.0
         self.preSum = None
+        self.absMask = None
+        self.negWeights = 0.0
+        self.posWeights = 0.0
+        self.zeroPass = None
+        self.posSum = None
+        self.negSum = None
         pass
 
     def train(self, pre, dif):
@@ -261,15 +271,43 @@ class MetaNode(object):
         dif : float
             Absolut difference value of the feature
         """
-        try:
-            self.preSum += dif*pre
-            self.weights += dif
-        except TypeError:
-            self.preSum = dif*pre
-            self.weights = dif
+#        try:
+#            self.preSum += dif*pre
+#            self.weights += dif
+#        except TypeError:
+#            self.preSum = dif*pre
+#            self.weights = dif
+        #Compare incoming pres and find the things they have in common/are relevant for a given dif
+        lPre = len(pre)
+        if self.zeroPass == None:
+            self.zeroPass = [False]*lPre
+            self.posSum = np.zeros(lPre)
+            self.negSum = np.zeros(lPre)
+            self.posWeights = np.zeros(lPre)
+            self.negWeights = np.zeros(lPre)
+        for i in xrange(lPre):
+            if not self.zeroPass[i]:
+                if abs(pre[i]) < 0.01:
+                    self.zeroPass[i] = True
+            if pre[i] < 0:
+                self.negSum[i] += dif*pre[i]
+                self.negWeights[i] += dif
+            else:
+                self.posSum[i] += dif*pre[i]
+                self.posWeights[i] += dif
+                    
         
     def getPreconditions(self):
-        return self.preSum/self.weights
+        res = np.zeros(len(self.zeroPass))
+        for i in xrange(len(self.zeroPass)):
+            if self.zeroPass[i]:
+                res[i] = (self.posSum[i]+self.negSum[i])/(self.posWeights[i]+self.negWeights[i])
+            else:
+                if self.posWeights[i] > self.negWeights[i]:
+                    res[i] = self.posSum[i]/self.posWeights[i]
+                else:
+                    res[i] = self.negSum[i]/self.negWeights[i]
+        return res
             
 class MetaNetwork(object):
     
@@ -278,30 +316,74 @@ class MetaNetwork(object):
         pass
     
     def train(self, pre, difs):
+#        Nice idea of creating meta nodes from change combinations, but that does not solve the
+#        problem with the averages
+#        actualChanges = []
+#        index = ""
+#        for i in xrange(len(difs)):
+#            if abs(difs[i]) > 0.001:
+#                actualChanges.append(difs[i])
+#                index += str(i*np.sign(difs[i]))
+#        if index != "":
+#            if not index in self.nodes:
+#                self.nodes[index] = MetaNode()
+#            for d in actualChanges:
+#                self.nodes[index].train(pre,abs(d))
         for i in xrange(len(difs)):
             if abs(difs[i]) > 0.003:
                 index = i*np.sign(difs[i])
                 if not index in self.nodes:
                     self.nodes[index] = MetaNode()
                 self.nodes[index].train(pre,abs(difs[i]))
+            
                 
     def getPreconditions(self, targetDifs):
         res = np.zeros(14)
         norm = 0.0
-        for i in xrange(len(targetDifs)):
-          if abs(targetDifs[i]) > 0.001:
-              index = i*np.sign(targetDifs[i])
-              if not index in self.nodes:
-                  print "index i {} for targetDif {}, not known".format(index, targetDifs[i])
-                  print "nodes: ", self.nodes.keys()
-                  print "targetDifs: ", targetDifs
-              else:
-                  res += abs(targetDifs[i])*self.nodes[index].getPreconditions()
-                  norm += abs(targetDifs[i])
-        if norm > 0:    
-            return res/norm
+        
+#        Nice idea of creating meta nodes from change combinations, but that does not solve the
+#        problem with the averages
+#        index = ""
+#        for i in xrange(len(targetDifs)):
+#            if abs(targetDifs[i]) > 0.001:
+#                index += str(i*np.sign(targetDifs[i]))
+#        print "index to find: ", index
+#        if index != "":
+#            if not index in self.nodes:
+#                print "unknown index: {}, trying greedy".format(index)
+#                maxDif = np.argmax(abs(targetDifs))
+#                index = str(maxDif*np.sign(targetDifs[maxDif]))
+#                print "maxindex: ", index
+#                if not index in self.nodes:
+#                    print "searching ones that start with maxindex"
+#                    index = filter(index), self.nodes.keys())[0]
+#            return self.nodes[index].getPreconditions()
+#        else:
+#            raise NotImplementedError("No difference requires no action")
+        if GREEDY_TARGET:
+            maxDif = np.argmax(abs(targetDifs))
+            index = maxDif*np.sign(targetDifs[maxDif])
+            if not index in self.nodes:
+                print "index i {} for targetDif {}, not known".format(index, targetDifs[i])
+                print "nodes: ", self.nodes.keys()
+                print "targetDifs: ", targetDifs
+            else:
+                return self.nodes[index].getPreconditions()
         else:
-            return res
+            for i in xrange(len(targetDifs)):
+              if abs(targetDifs[i]) > 0.001:
+                  index = i*np.sign(targetDifs[i])
+                  if not index in self.nodes:
+                      print "index i {} for targetDif {}, not known".format(index, targetDifs[i])
+                      print "nodes: ", self.nodes.keys()
+                      print "targetDifs: ", targetDifs
+                  else:
+                      res += abs(targetDifs[i])*self.nodes[index].getPreconditions()
+                      norm += abs(targetDifs[i])
+            if norm > 0:    
+                return res/norm
+            else:
+                return res
         
             
 class Predictor(object):
@@ -396,12 +478,12 @@ class ModelAction(object):
         
     def isTargetReached(self):
         targetO = self.curObjects[self.target.id]
-        difVec = targetO.vec[:4]-self.target.vec[:4]
+        difVec = targetO.vec[:5]-self.target.vec[:5]
 #        print "target vec: ", self.target.vec
 #        print "object vec: ", targetO.vec
         norm = np.linalg.norm(difVec)
-        print "dif norm: ", norm
-        if norm < 0.05:
+#        print "dif norm: ", norm
+        if norm < 0.01:
             return True
         return False
         
@@ -435,8 +517,8 @@ class ModelAction(object):
                 # Determine difference vector, the object should follow
                 print "global dif vec: ", self.target.vec-targetO.vec
                 difVec = targetO.getLocalChangeVec(self.target)
-                print "difVec: ", difVec[:4]
-                pre = self.predictor.getAction2(self.target.id, difVec[:4])
+                print "difVec: ", difVec[:5]
+                pre = self.predictor.getAction2(self.target.id, difVec[:5])
                 relTargetPos = pre[4:7]
                 print "rel target pos: ", relTargetPos
                 relTargetVel = pre[11:14]
@@ -448,52 +530,27 @@ class ModelAction(object):
                 relVec = targetO.getRelVec(self.actuator)
                 relPos = relVec[4:7]
                 print "relPos actuator: ", relPos
-#                print "relPos*relTargetPos: ", relPos*relTargetPos
-                if np.any(relPos*relTargetPos < 0):# and min(relPos*relTargetPos) < -0.005:
+                print "relPos*relTargetPos: ", relPos*relTargetPos
+                wrongSides = relPos*relTargetPos < 0
+                if np.any(wrongSides):
+                    if max(abs(relTargetPos[wrongSides]-relPos[wrongSides])) > 0.05:
                      # Bring actuator into position so that it influences targetobject
-                    print "try circlying"
-                    return self.circleObject(self.target.id)
-                elif np.linalg.norm(difPos) > 0.08:
+                        print "try circlying"
+                        return self.circleObject(self.target.id)
+                        
+                if np.linalg.norm(difPos) > 0.01:
                     action = 0.3*difPos/np.linalg.norm(difPos)
                     if not self.gate.test(targetO, self.actuator, action):
                         print "doing difpos"
                         return action
+                    else:
+                        print "circlying since can't do difpos"
+                        return self.circleObject(self.target.id)
 #                else:
                 print "using vel"
                 return 0.3*vel/np.linalg.norm(vel)
 #                # Determine Actuator position that allows action in good direction
-#                action, pre, out = self.predictor.getAction(self.target.id, difVec)
-#                if pre != None:                    
-#                    #TODO: Check if pre, action and out have anything to do with desired result
-#                    # Convert relative preconditions to global actuator target position
-#                    relTargetPos = pre[4:7]
-#                    relTargetVel = pre[7:10]
-#                    pos, vel = targetO.getGlobalPosVel(relTargetPos, relTargetVel)
-#                    relVec = targetO.getRelVec(self.actuator)
-#                    relPos = relVec[4:7]
-#                    difPos = pos-self.actuator.vec[1:4]
-##                    if np.any(relPos*relTargetPos < 0):
-##                         # Bring actuator into position so that it influences targetobject
-##                        print "try circlying"
-##                        return self.circleObject(self.target.id)
-##                    el
-#                    if np.linalg.norm(difPos) > 0.01:
-#                        print "doing difpos"
-#                        return 0.5*difPos/np.linalg.norm(difPos)
-#                    else:
-#                        print "using vel"
-#                        return 0.5*vel/np.linalg.norm(vel)
-#                else:
-#                    relPos = targetO.vec[1:4]- self.actuator.vec[1:4]
-#                    ang = np.random.uniform(-np.pi/2.0,np.pi/2.0)
-#                    ca = np.cos(ang)
-#                    sa = np.sin(ang)
-#                    rot = np.array([[ca, -sa, 0.0],
-#                                    [sa, ca, 0.0],
-#                                    [0.0,0.0,1.0]])
-#                    vec = np.dot(rot,relPos)
-#                    return 0.5 * vec/np.linalg.norm(vec)
-#                    
+
 #                #TODO!
 #                # Work in open loop: Compare result of previous action with expected result
 #                pass
@@ -507,7 +564,6 @@ class ModelAction(object):
         newWS = WorldState()
         newWS.actuator = self.actuator.predict(action)
         for o in ws.objectStates.values():
-            print "len object lastvec: ", len(o.lastVec)
             if self.gate.test(o, newWS.actuator, action): #TODO Check of newWS.actuator is correct here and if action can be removed!
 #                print "predicted change"
                 newO = self.predictor.predict(o, newWS.actuator, action)

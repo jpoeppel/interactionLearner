@@ -56,7 +56,7 @@ class ITM(Network):
             for n in nearest.neighbours.values():
                 if n != second and npdot(nearest.vec()-second.vec(), n.vec()-second.vec()) < 0:
                     self.removeEdge(nearest.name, n.name)
-#            np.set_printoptions(precision=3,suppress=True)
+            np.set_printoptions(precision=3,suppress=True)
 #            print "talis: ", npdot(nearest.vec()-x.vec(),second.vec()-x.vec())
 #            print "dist: ", np.linalg.norm(x.vec()-nearest.vec())
 #            print "talisOut: ",  np.dot(nearest.wOut-x.wOut, second.wOut-x.wOut)
@@ -67,7 +67,7 @@ class ITM(Network):
 #            if np.dot(nearest.wOut-x.wOut, second.wOut-x.wOut) > 0 and np.linalg.norm(x.wOut-nearest.wOut) > EMAX:
                 self.addNode(x)
 #                x.adapt(nearest, ETA)
-                print "adding new node: ", x.wOut
+#                print "adding new node: ", x.wOut
 #                print "Dot: ", np.dot(nearest.vec()-x.vec(),second.vec()-x.vec())
 #                print "dist: ", np.linalg.norm(x.vec()-nearest.vec())
 #                print "x.vec: {}, nearest.vec: {}".format(x.vec(), nearest.vec())
@@ -166,7 +166,7 @@ class ITM(Network):
                 return minNode.action #TODO make real linear
                 
     def predict(self, wIn):
-        print "num Nodes predict: ", len(self.nodes)
+#        print "num Nodes predict: ", len(self.nodes)
 #        for n in self.nodes.values():
 #            print "Nodes predict: ", n.wOut
 #        minDist = float('inf')

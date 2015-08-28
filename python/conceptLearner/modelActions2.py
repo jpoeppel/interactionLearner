@@ -25,7 +25,7 @@ from topoMaps import ITM
 from network import Node
 import copy
 
-GREEDY_TARGET = False
+GREEDY_TARGET = True
 
 HARDCODEDGATE = True
 HARDCODEDACTUATOR = True
@@ -260,6 +260,7 @@ class MetaNode(object):
         self.zeroPass = None
         self.posSum = None
         self.negSum = None
+        self.prev = None
         pass
 
     def train(self, pre, dif):
@@ -285,6 +286,7 @@ class MetaNode(object):
             self.negSum = np.zeros(lPre)
             self.posWeights = np.zeros(lPre)
             self.negWeights = np.zeros(lPre)
+            self.prev = np.zeros(lPre)
         for i in xrange(lPre):
             if not self.zeroPass[i]:
                 if abs(pre[i]) < 0.01:
@@ -295,16 +297,25 @@ class MetaNode(object):
             else:
                 self.posSum[i] += dif*pre[i]
                 self.posWeights[i] += dif
+            if self.posWeights[i] == self.negWeights[i]:
+                self.prev[i] = np.sign(pre[i])
                     
         
     def getPreconditions(self):
         res = np.zeros(len(self.zeroPass))
+        print "node zeroPass: ", self.zeroPass
         for i in xrange(len(self.zeroPass)):
             if self.zeroPass[i]:
                 res[i] = (self.posSum[i]+self.negSum[i])/(self.posWeights[i]+self.negWeights[i])
             else:
+                print "index: {}, pos weights: {}, neg weights: {}".format(i, self.posWeights[i], self.negWeights[i])
                 if self.posWeights[i] > self.negWeights[i]:
                     res[i] = self.posSum[i]/self.posWeights[i]
+                elif self.posWeights[i] == self.negWeights[i]:
+                    if self.prev[i] < 0:
+                        res[i] = self.negSum[i]/self.negWeights[i]
+                    else:
+                        res[i] = self.posSum[i]/self.posWeights[i]
                 else:
                     res[i] = self.negSum[i]/self.negWeights[i]
         return res
@@ -313,6 +324,7 @@ class MetaNetwork(object):
     
     def __init__(self):
         self.nodes = {}
+        self.curIndex = None
         pass
     
     def train(self, pre, difs):
@@ -361,14 +373,24 @@ class MetaNetwork(object):
 #        else:
 #            raise NotImplementedError("No difference requires no action")
         if GREEDY_TARGET:
+            if self.curIndex != None:
+                if np.sign(self.curIndex) == np.sign(targetDifs[abs(self.curIndex)]) and abs(targetDifs[abs(self.curIndex)]) > 0.02:
+                    print "working on curIndex: ", self.curIndex
+                    return self.nodes[self.curIndex].getPreconditions()
+                else:
+                    self.curIndex = None
+                    
             maxDif = np.argmax(abs(targetDifs))
             index = maxDif*np.sign(targetDifs[maxDif])
+            print "maxindex: ", index
             if not index in self.nodes:
                 print "index i {} for targetDif {}, not known".format(index, targetDifs[i])
                 print "nodes: ", self.nodes.keys()
                 print "targetDifs: ", targetDifs
             else:
+                self.curIndex = index
                 return self.nodes[index].getPreconditions()
+
         else:
             for i in xrange(len(targetDifs)):
               if abs(targetDifs[i]) > 0.001:
@@ -482,7 +504,7 @@ class ModelAction(object):
 #        print "target vec: ", self.target.vec
 #        print "object vec: ", targetO.vec
         norm = np.linalg.norm(difVec)
-#        print "dif norm: ", norm
+        print "dif norm: ", norm
         if norm < 0.01:
             return True
         return False
@@ -538,16 +560,17 @@ class ModelAction(object):
                         print "try circlying"
                         return self.circleObject(self.target.id)
                         
-                if np.linalg.norm(difPos) > 0.01:
+                if np.linalg.norm(difPos) > 0.02:
                     action = 0.3*difPos/np.linalg.norm(difPos)
-                    if not self.gate.test(targetO, self.actuator, action):
+                    tmpAc = self.actuator.predict(action)
+                    if not self.gate.test(targetO, tmpAc, action):
                         print "doing difpos"
                         return action
                     else:
                         print "circlying since can't do difpos"
                         return self.circleObject(self.target.id)
 #                else:
-                print "using vel"
+                print "using vel: ", vel
                 return 0.3*vel/np.linalg.norm(vel)
 #                # Determine Actuator position that allows action in good direction
 

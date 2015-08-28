@@ -461,8 +461,9 @@ class GazeboInterface():
                 self.worldModel.resetObjects(worldState)
             self.lastAction = self.worldModel.getAction()
             self.sendCommand(self.lastAction)
-            self.lastPrediction = self.worldModel.predict(worldState, self.lastAction)
-            self.sendPrediction()
+#            self.lastPrediction = self.worldModel.predict(worldState, self.lastAction)
+#            self.sendPrediction()
+            self.sendPose("blockAShadow", np.array([0.5,-0.2,0.05]), -1.8)
             
     def moveToTarget2(self, worldState, resultState=None):
 #        raise NotImplementedError
@@ -477,13 +478,14 @@ class GazeboInterface():
         self.lastAction = self.worldModel.getAction()
         print "recieved action: ", self.lastAction
         self.sendCommand(self.lastAction)
-        self.lastPrediction = self.worldModel.predict(worldState, self.lastAction)
-        self.sendPrediction()
+#        self.lastPrediction = self.worldModel.predict(worldState, self.lastAction)
+#        self.sendPrediction()
+        
 
     def setTarget(self):
         target = model.Object()
         target.id = 15
-        target.vec = np.array([15, -0.5, 0.4, 0.05, 0.5, 0.0,0.0,0.0])
+        target.vec = np.array([15, 0.5, -0.2, 0.05, -1.8, 0.0,0.0,0.0])
         self.worldModel.setTarget(target)
     
     def stop(self):

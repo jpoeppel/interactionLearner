@@ -328,19 +328,6 @@ class MetaNetwork(object):
         pass
     
     def train(self, pre, difs):
-#        Nice idea of creating meta nodes from change combinations, but that does not solve the
-#        problem with the averages
-#        actualChanges = []
-#        index = ""
-#        for i in xrange(len(difs)):
-#            if abs(difs[i]) > 0.001:
-#                actualChanges.append(difs[i])
-#                index += str(i*np.sign(difs[i]))
-#        if index != "":
-#            if not index in self.nodes:
-#                self.nodes[index] = MetaNode()
-#            for d in actualChanges:
-#                self.nodes[index].train(pre,abs(d))
         for i in xrange(len(difs)):
             if abs(difs[i]) > 0.003:
                 index = i*np.sign(difs[i])
@@ -352,26 +339,6 @@ class MetaNetwork(object):
     def getPreconditions(self, targetDifs):
         res = np.zeros(14)
         norm = 0.0
-        
-#        Nice idea of creating meta nodes from change combinations, but that does not solve the
-#        problem with the averages
-#        index = ""
-#        for i in xrange(len(targetDifs)):
-#            if abs(targetDifs[i]) > 0.001:
-#                index += str(i*np.sign(targetDifs[i]))
-#        print "index to find: ", index
-#        if index != "":
-#            if not index in self.nodes:
-#                print "unknown index: {}, trying greedy".format(index)
-#                maxDif = np.argmax(abs(targetDifs))
-#                index = str(maxDif*np.sign(targetDifs[maxDif]))
-#                print "maxindex: ", index
-#                if not index in self.nodes:
-#                    print "searching ones that start with maxindex"
-#                    index = filter(index), self.nodes.keys())[0]
-#            return self.nodes[index].getPreconditions()
-#        else:
-#            raise NotImplementedError("No difference requires no action")
         if GREEDY_TARGET:
             if self.curIndex != None:
                 if np.sign(self.curIndex) == np.sign(targetDifs[abs(self.curIndex)]) and abs(targetDifs[abs(self.curIndex)]) > 0.02:
@@ -439,13 +406,6 @@ class Predictor(object):
             #TODO check for close ones that can be used
             self.predictors[intState[0]] = ITM()
             self.inverseModel[intState[0]] = MetaNetwork()
-#        print "updating with dif: ", dif[3]
-#        if max(dif[1:4]) >0.1 or min(dif[1:4]) < -0.1:
-#            print "dif to big: ", dif
-#            raise AttributeError
-#        if np.linalg.norm(dif[1:5]) < 0.002:
-#            print "dif to small", dif
-#            raise AttributeError
         self.predictors[intState[0]].train(Node(0, wIn = intState, wOut=dif))
         self.inverseModel[intState[0]].train(intState, dif)
 
@@ -501,8 +461,6 @@ class ModelAction(object):
     def isTargetReached(self):
         targetO = self.curObjects[self.target.id]
         difVec = targetO.vec[:5]-self.target.vec[:5]
-#        print "target vec: ", self.target.vec
-#        print "object vec: ", targetO.vec
         norm = np.linalg.norm(difVec)
         print "dif norm: ", norm
         if norm < 0.01:
@@ -582,8 +540,6 @@ class ModelAction(object):
         
         
     def predict(self, ws, action):
-#        if self.actuator == None:
-#            self.actuator = ws.actuator
         newWS = WorldState()
         newWS.actuator = self.actuator.predict(action)
         for o in ws.objectStates.values():
@@ -595,7 +551,6 @@ class ModelAction(object):
 #                print "predicted no change"
                 o.vec[5:] = 0.0
                 newWS.objectStates[o.id] = o
-#            print "old object: {}, new object: {}".format(o.vec[1:4], newWS.objectStates[o.id].vec[1:4])
         return newWS
         
     def resetObjects(self, curWS):

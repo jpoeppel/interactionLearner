@@ -446,7 +446,6 @@ class ModelAction(object):
         circleO = self.curObjects[objectID]
         relVec = circleO.getRelVec(self.actuator)
         dist = relVec[2]
-#        relPos = relVec[4:7]
         relPos = self.actuator.vec[1:4] - circleO.vec[1:4]
         if dist < 0.03:
             return 0.5*relPos/np.linalg.norm(relPos)

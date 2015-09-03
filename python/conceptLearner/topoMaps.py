@@ -125,6 +125,8 @@ class ITM(Network):
                 raise NotImplementedError()
             elif PREDICTIONMODE == LINEAR:
                 return minNode.action, minNode.wIn, minNode.wOut
+            elif PREDICTIONMODE == BESTTWO:
+                return minNode.action, minNode.wIn, minNode.wOut #TODO make properly
             else:
                 raise AttributeError("Unsupported Predictionmode used: ", PREDICTIONMODE)
         else:

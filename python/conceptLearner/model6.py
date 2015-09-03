@@ -6,6 +6,8 @@ Try to implement a top-down model...
 """
 
 from model4 import State, ObjectState, InteractionState, WorldState, BaseCase, Action
+#from model4 import State, BaseCase, Action
+
 from model4 import THRESHOLD, MAXCASESCORE, MAXSTATESCORE, PREDICTIONTHRESHOLD, TARGETTHRESHOLD
 from common import GAZEBOCMDS as GZCMD
 import model4
@@ -43,7 +45,7 @@ class AbstractCase(model4.AbstractCase):
         self.addRef(case)
     
     def predict(self, state, action):
-        print "self.weights: ", self.weights
+#        print "self.weights: ", self.weights
         return self.weights
     
     def updateWeights(self, prediction, result):
@@ -56,8 +58,8 @@ class AbstractCase(model4.AbstractCase):
 
     def addRef(self, ref):
         
-        if ref in self.refCases:
-            raise TypeError("ref already in refCases")
+#        if ref in self.refCases:
+#            raise TypeError("ref already in refCases")
 #        
 #        for k,v in ref.getListOfConstants() + ref.action.relevantItems():
         for k,v in ref.preState.relevantItems() + ref.action.relevantItems():
@@ -105,7 +107,7 @@ class ModelCBR(object):
 #        print "getBestCase with state: {} \n action: {}".format(state, action)
         bestCase = None
         if self.aCClassifier != None:
-            x = [np.concatenate((state.toSelVec(),action.toSelVec()))]
+            x = [np.concatenate((state.getVec(),action.getVec()))]
 #            print "X before scaling: ", x
             if self.scaler != None:
                 x = self.scaler.transform(x)
@@ -131,7 +133,7 @@ class ModelCBR(object):
                 
         
         if isinstance(bestCase, AbstractCase):
-#            print "selected AC: ", bestCase.variables
+            print "selected AC: ", bestCase.variables
             if bestCase.variables == []:
                 self.numZeroCase += 1
 
@@ -146,7 +148,7 @@ class ModelCBR(object):
         if bestCase != None:
             weightDic = bestCase.predict(state, action)
             for k in weightDic:
-                prediction = self.predictors[k].predict(np.concatenate((state.toVec(),action.toVec())))
+                prediction = self.predictors[k].predict(np.concatenate((state.getVec(),action.getVec())))
                 print "k: {}, pred: {}".format(k, prediction)
                 if prediction != None:
                     resultState[k] = state[k] +  prediction #* weightDic[k] 
@@ -154,8 +156,8 @@ class ModelCBR(object):
                     resultState[k] = state[k] + bestCase.refCases[0].predict(state, action, k)
 
 
-        if resultState["sname"] == "gripper":
-            print "Predicted gripper state: ", resultState
+#        if resultState["sname"] == "gripper":
+#            print "Predicted gripper state: ", resultState
         return resultState, bestCase
     
     def predict(self, worldState, action):
@@ -182,7 +184,7 @@ class ModelCBR(object):
         for k in attribSet:
             if not self.predictors.has_key(k):
                 self.predictors[k] = ITM()
-            if similarities[k](result[k], prediction[k]) < 0.95:
+            if similarities[k](result[k], prediction[k]) < 0.999:
                 self.predictors[k].train(self.toNode(state,action,result, k))
                 
         abstractCase = None
@@ -208,9 +210,9 @@ class ModelCBR(object):
                     constChanged = False
                     #TODO improve scoring
                     try:
-                        print "ADDING REF"
+#                        print "ADDING REF"
                         constChanged = abstractCase.addRef(newCase)
-                        print "adding new ref to AC: {}, new constants: {}".format(abstractCase.variables, abstractCase.constants)
+#                        print "adding new ref to AC: {}, new constants: {}".format(abstractCase.variables, abstractCase.constants)
                     except TypeError:
                         print "Case already present."
                     else:
@@ -246,11 +248,11 @@ class ModelCBR(object):
     def retrainACClassifier(self):
         print "Retraining!"
         if len(self.abstractCases) > 1:
-            nFeature = np.size(np.concatenate((self.cases[0].preState.toSelVec(),self.cases[0].action.toSelVec())))
+            nFeature = np.size(np.concatenate((self.cases[0].preState.getVec(),self.cases[0].action.getVec())))
             X = np.zeros((len(self.cases),nFeature))
             Y = np.zeros(len(self.cases))
             for i in range(len(self.cases)):
-                X[i,:] = np.concatenate((self.cases[i].preState.toSelVec(),self.cases[i].action.toSelVec()))
+                X[i,:] = np.concatenate((self.cases[i].preState.getVec(),self.cases[i].action.getVec()))
                 Y[i] = self.cases[i].abstCase.id
 #            self.scaler = preprocessing.StandardScaler(with_mean = False, with_std=True).fit(X)
 #            self.scaler = preprocessing.MinMaxScaler().fit(X)
@@ -266,7 +268,7 @@ class ModelCBR(object):
 
             
     def toNode(self, state, action, result, attrib):
-        node = Node(0, wIn=state.toVec(), action=action.toVec(),
+        node = Node(0, wIn=state.getVec(), action=action.getVec(),
                     wOut=result[attrib]-state[attrib])
         return node
             

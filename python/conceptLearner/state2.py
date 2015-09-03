@@ -17,7 +17,7 @@ import copy
 from operator import methodcaller, itemgetter
 import itertools
 
-from config import DIFFERENCES, INTERACTION_STATES
+from config import DIFFERENCES, INTERACTION_STATES, SINGLE_INTSTATE
 
 class State(dict):
     """
@@ -81,7 +81,7 @@ class State(dict):
             r.append((k,self[k]))
         return r
         
-    def toVec(self, const = {}):
+    def getVec(self, const = {}):
         r = np.array([])
 #        keyOrder = []
         for k in self.relKeys:
@@ -187,7 +187,7 @@ class ObjectState(State):
     def __init__(self):
         
         self.update({"id": -1, "name": "", "type": -1, "pos": np.zeros(3), 
-                         "euler": np.zeros(3), "linVel": np.zeros(3), 
+                         "ori": np.zeros(3), "linVel": np.zeros(3), 
                          "angVel": np.zeros(3), "contact": None})
         State.__init__(self)
         self.relKeys = self.keys()   
@@ -196,16 +196,15 @@ class ObjectState(State):
         self.relSelKeys = self.keys()
         self.actionItems = ["linVel", "angVel"]
                           
-    def transform(self, matrix, euler):
-#        print "calling transform for: ", self["name"]
+    def transform(self, matrix, ori):
         tmpPos = np.matrix(np.concatenate((self["pos"],[1])))
 #        print "tmpPos: {}, matrix: {}".format(tmpPos, matrix)
         self["pos"] = np.round(np.array((matrix*tmpPos.T)[:3]).flatten(), NUMDEC)
 #        print "original pos: {}, result pos: {}".format(tmpPos, self["pos"])
         if self["name"] == "gripper":
-            self["euler"] = np.array([0.0,0.0,0.0])
+            self["ori"] = np.array([0.0,0.0,0.0])
         else:
-            self["euler"] += euler
+            self["ori"] += ori
             
 
 #        print "original ori: {}, resulting ori: {}".format(q2, self["orientation"])
@@ -217,7 +216,7 @@ class ObjectState(State):
     def fromInteractionState(self, intState):
         self.update({"id": intState["sid"], "name":intState["sname"], 
                      "pos":np.copy(intState["spos"]), 
-                     "euler":np.copy(intState["seuler"]), 
+                     "ori":np.copy(intState["sori"]), 
                      "linVel":np.copy(intState["slinVel"]), 
                      "angVel": np.copy(intState["sangVel"])})
         if intState["contact"] == 1:
@@ -227,17 +226,39 @@ class ObjectState(State):
         if DIFFERENCES:
             self.update({"id": intState["oid"], "name": intState["oname"], 
                      "pos":np.copy(intState["spos"]+intState["dir"]),
-                     "euler": np.copy(intState["seuler"]+intState["deuler"]), 
+                     "ori": np.copy(intState["sori"]+intState["dori"]), 
                      "linVel":np.copy(intState["slinVel"]+intState["dlinVel"]),
                      "angVel": np.copy(intState["sangVel"]+intState["dangVel"])})
         else:
             self.update({"id": intState["oid"], "name": intState["oname"], 
                      "pos":np.copy(intState["opos"]),
-                     "euler": np.copy(intState["oeuler"]), 
+                     "ori": np.copy(intState["oori"]), 
                      "linVel":np.copy(intState["olinVel"]),
                      "angVel": np.copy(intState["oangVel"])})
         if intState["contact"] == 1:
             self["contact"] = intState["sname"]
+            
+    def getKeyPoints(self):
+        WIDTH = {"blockA":0.25, "gripper": 0.025} #Width from the middle point
+        DEPTH = {"blockA":0.05, "gripper": 0.025} #Height from the middle point
+        p1x = WIDTH[self["name"]]
+        p2x = -p1x
+        p1y = DEPTH[self["name"]]
+        p2y = -p1y
+        ang = self["ori"][2]
+        c = math.cos(ang)
+        s = math.sin(ang)
+        p1xn = p1x*c -p1y*s
+        p1yn = p1x*s + p1y*c
+        p2xn = p2x*c - p2y*s
+        p2yn = p2x*s + p2y*c
+        return np.array([np.copy(self["pos"][:]), np.array([p1xn,p1yn,self["pos"][2]]), np.array([p2xn,p2yn,self["pos"][2]])])
+        
+    def compare(self, other):
+        assert self["name"] == other["name"], "Should only compare the same objects not {} and {}".format(self["name"], other["name"])
+        sKeyPoints = self.getKeyPoints()
+        oKeyPoints = other.getKeyPoints()
+        return sum(np.linalg.norm(sKeyPoints-oKeyPoints,axis=1))/3.0
             
 
 class Action(State):
@@ -271,33 +292,33 @@ class InteractionState(State):
             if DIFFERENCES:
                 self.update({"intId": intId, "sid":-1, "sname": "", 
                          "stype": -1, "spos":np.zeros(3), 
-                         "seuler": np.zeros(3), "slinVel": np.zeros(3), 
+                         "sori": np.zeros(3), "slinVel": np.zeros(3), 
                          "sangVel": mp.zeros(3), "dist": 0, "dir": np.zeros(3),
                          "contact": 0, "oid": -1, "oname": "", "otype": 0, 
-                         "deuler": np.zeros(3), "dlinVel": np.zeros(3), "dangVel":np.zeros(3), "dir":np.zeros(3)})
+                         "dori": np.zeros(3), "dlinVel": np.zeros(3), "dangVel":np.zeros(3), "dir":np.zeros(3)})
             else:             
                 self.update({"intId": intId, "sid":-1, "sname": "", 
                          "stype": -1, "spos":np.zeros(3), 
-                         "seuler": np.zeros(3), "slinVel": np.zeros(3), 
+                         "sori": np.zeros(3), "slinVel": np.zeros(3), 
                          "sangVel": np.zeros(3), "dist": 0, "opos": np.zeros(3),
                          "contact": 0, "oid": -1, "oname": "", "otype": 0, 
-                         "oeuler": np.zeros(3), "olinVel": np.zeros(3), "oangVel":np.zeros(3), "dir":np.zeros(3)})
+                         "oori": np.zeros(3), "olinVel": np.zeros(3), "oangVel":np.zeros(3), "dir":np.zeros(3)})
         else:
             assert isinstance(o1, ObjectState), "{} (o1) is not an ObjectState!".format(o1)        
             if DIFFERENCES:
                 self.update({"intId": intId, "sid":o1["id"], "sname": o1["name"], 
                          "stype": o1["type"], "spos":o1["pos"], 
-                         "seuler": o1["euler"], "slinVel": o1["linVel"], 
+                         "sori": o1["ori"], "slinVel": o1["linVel"], 
                          "sangVel": o1["angVel"], "dist": 0, "dir": np.zeros(3),
                          "contact": 0, "oid": -1, "oname": "", "otype": 0, 
-                         "deuler": np.zeros(3), "dlinVel": np.zeros(3), "dangVel":np.zeros(3), "dir":np.zeros(3)})
+                         "dori": np.zeros(3), "dlinVel": np.zeros(3), "dangVel":np.zeros(3), "dir":np.zeros(3)})
             else:             
                 self.update({"intId": intId, "sid":o1["id"], "sname": o1["name"], 
                          "stype": o1["type"], "spos":o1["pos"], 
-                         "seuler": o1["euler"], "slinVel": o1["linVel"], 
+                         "sori": o1["ori"], "slinVel": o1["linVel"], 
                          "sangVel": o1["angVel"], "dist": 0, "opos": np.zeros(3),
                          "contact": 0, "oid": -1, "oname": "", "otype": 0, 
-                         "oeuler": np.zeros(3), "olinVel": np.zeros(3), "oangVel":np.zeros(3), "dir":np.zeros(3)})
+                         "oori": np.zeros(3), "olinVel": np.zeros(3), "oangVel":np.zeros(3), "dir":np.zeros(3)})
 #        self["side"] = common.SIDE["NONE"]
 #        Do not move from here because the keys need to be set before State.init and the relKeys need to be changed afterwards             
         State.__init__(self) 
@@ -311,7 +332,7 @@ class InteractionState(State):
         self.relKeys.remove("stype")
         self.relKeys.remove("otype")
         
-        self.relKeys.remove("seuler")
+#        self.relKeys.remove("sori")
         self.relKeys.remove("sangVel")        
         self.relKeys.remove("slinVel")
         
@@ -325,7 +346,6 @@ class InteractionState(State):
 #            self.relKeys.remove("opos")
             self.relKeys.remove("oangVel")
             self.relKeys.remove("olinVel")
-#            self.relKeys.remove("oeuler")
         
         
         
@@ -362,12 +382,12 @@ class InteractionState(State):
 #            self["side"] = common.SIDE["UP"]
         if DIFFERENCES:
             self["dir"] = o2["pos"]-self["spos"]        
-            self["deuler"] = o2["euler"]-self["seuler"] 
+            self["dori"] = o2["ori"]-self["sori"] 
             self["dlinVel"] = o2["linVel"] - self["slinVel"]
             self["dangVel"] = o2["angVel"] - self["sangVel"]
         else:
             self["opos"] = o2["pos"]
-            self["oeuler"] = o2["euler"]
+            self["oori"] = o2["ori"]
             self["olinVel"] = o2["linVel"]
             self["oangVel"] = o2["angVel"]
             self["dir"] = o2["pos"]-self["spos"]      
@@ -406,13 +426,13 @@ class InteractionState(State):
 
     def getLocalTransformed(self):
         if DIFFERENCES:
-            transM = common.eulerPosToTransformation(self["seuler"]+self["deuler"],self["spos"]+self["dir"])
+            transM = common.eulerPosToTransformation(self["sori"]+self["dori"],self["spos"]+self["dir"])
             invTrans = common.invertTransMatrix(transM)
-            ori = np.copy(self["seuler"]+self["deuler"])
+            ori = np.copy(self["sori"]+self["dori"])
         else:
-            transM = common.eulerPosToTransformation(self["oeuler"],self["opos"])
+            transM = common.eulerPosToTransformation(self["oori"],self["opos"])
             invTrans = common.invertTransMatrix(transM)
-            ori = np.copy(self["oeuler"])
+            ori = np.copy(self["oori"])
         transformed = copy.deepcopy(self)
         transformed.transform(invTrans, -ori)
         return transformed, transM, ori
@@ -459,13 +479,13 @@ class InteractionState(State):
         if self["sname"] == "gripper":
             mp = np.copy(o2["pos"])
             mp[2] = self["spos"][2]
-            ang = o2["euler"][2]
+            ang = o2["ori"][2]
             
             x0x,x0y,x0z = self["spos"]
         elif self["sname"] == "blockA":
             mp = np.copy(self["spos"])
             mp[2] = o2["pos"][2]
-            ang = self["seuler"][2]
+            ang = self["sori"][2]
             x0x,x0y,x0z = o2["pos"]
             
         c = math.cos(ang)
@@ -566,9 +586,10 @@ class WorldState(object):
                 tmp = ObjectState()
                 tmp["pos"] = np.round(np.array([m.pose.position.x,m.pose.position.y,m.pose.position.z]), NUMDEC) #/ 2.0
 #                print "parsing model: {}, pos: {}".format(m.name, tmp["pos"])
-                tmp["euler"]  = np.round(common.quaternionToEuler(np.array([m.pose.orientation.x,m.pose.orientation.y,
+                tmp["ori"]  = np.round(common.quaternionToEuler(np.array([m.pose.orientation.x,m.pose.orientation.y,
                                             m.pose.orientation.z,m.pose.orientation.w])), NUMDEC)
-                tmp["euler"][:2] = 0
+                tmp["ori"][:2] = 0
+#                print "parsed ori: ", tmp["ori"]
 #                tmp["euler"]  = common.quaternionToEuler(np.array([0.0,0.0,m.pose.orientation.z,m.pose.orientation.w]))
 #                print "quaternion: {}, euler: {}".format(np.array([m.pose.orientation.x,m.pose.orientation.y,
 #                                            m.pose.orientation.z,m.pose.orientation.w]), tmp["euler"])
@@ -585,12 +606,12 @@ class WorldState(object):
                 
                 if m.name == "blockA" and self.transM == None:
                     if INTERACTION_STATES:
-                        self.transM = common.eulerPosToTransformation(tmp["euler"],tmp["pos"])
+                        self.transM = common.eulerPosToTransformation(tmp["ori"],tmp["pos"])
                         
                         self.invTrans = common.invertTransMatrix(self.transM)
                                        
     #                    print "invTrans: ", self.invTrans
-                        self.ori = np.copy(tmp["euler"])
+                        self.ori = np.copy(tmp["ori"])
                     else:
                         self.transM = np.identity(4)
                         self.invTrans = np.identity(4)     
@@ -608,7 +629,8 @@ class WorldState(object):
             intState = InteractionState(self.numIntStates, o1)
 #            self.addInteractionState(intState)
             for o2 in tmpList:
-                if not np.array_equal(o1,o2):             
+                if not np.array_equal(o1,o2):    
+                    
                     intState.fill(o2)
 #                    if intState["sname"] == "blockA":
 #                        print "intState blockA spos: ", intState["spos"]
@@ -633,24 +655,26 @@ class WorldState(object):
         self.parseContacts(gzWS.contacts)
         self.parseInteractions()
         
-    def reset(self, worldState):
-        self.objectStates = {}
-        self.interactionStates = {}
-        ws = copy.deepcopy(worldState)
-        for intState in ws.interactionStates.values():
-            tmp = ObjectState()
-            tmp.fromInteractionState(intState)
-            #Transform back to world coordinate system first
-            tmp.transform(ws.transM, ws.ori)
-#            print "Tmp after back transformation: ", tmp
-            self.objectStates[tmp["name"]] = tmp
-            if tmp["name"] == "blockA":
-                self.transM = common.eulerPosToTransformation(tmp["euler"],tmp["pos"])
-                self.invTrans = common.invertTransMatrix(self.transM)
-                self.ori = np.copy(tmp["euler"])
-        self.parseInteractions()
-#        
-#        print "InteractionStates: ", self.interactionStates.values()
+    def updateObjectStates(self):
+        for intState in self.interactionStates.values():
+            if SINGLE_INTSTATE:
+                o1 = ObjectState()
+                o1.fromInteractionState(intState)
+                o2 = ObjectState()
+                o2.fromInteractionState2(intState)
+                if DIFFERENCES:
+                    #Transform back to global coordinate system
+                    o1.transform(self.transM, self.ori)
+                    o2.transform(self.transM, self.ori)
+                self.objectStates[o1["name"]] = o1
+                self.objectStates[o2["name"]] = o2
+            else:
+                o1 = ObjectState()
+                o1.fromInteractionState(intState)
+                if DIFFERENCES:
+                    #Transform back to global coordinate system
+                    o1.transform(self.transM, self.ori)
+                self.objectStates[o1["name"]] = o1
 
     def getInteractionState(self, sname):
         for i in self.interactionStates.values():
@@ -658,8 +682,18 @@ class WorldState(object):
                 return i
         return None    
         
-    def getObjectState(self, OSName):
-        if OSName in self.objectStates:
-            return self.objectStates[OSName]
+    def getObjectState(self, osName):
+        if osName in self.objectStates:
+            return self.objectStates[osName]
+        else:
+            for intState in self.interactionStates.values():
+                if intState["sname"] == osName:
+                    res = ObjectState()
+                    res.fromInteractionState(intState)
+                    return res
+                elif intState["oname"] == osName:
+                    res = ObjectState()
+                    res.fromInteractionState2(intState)
+                    return res
         return None
      

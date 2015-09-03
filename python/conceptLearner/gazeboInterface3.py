@@ -180,22 +180,22 @@ class GazeboInterface():
             for intState in self.lastPrediction.interactionStates.values():
     #            tmp = self.getModelState(intState["sname"] + "Shadow", intState["spos"], intState["sori"], 
     #                                     self.lastPrediction.transM, self.lastPrediction.quat)
-                tmp = self.getModelState2(intState["sname"] + "Shadow", intState["spos"], intState["seuler"], 
+                tmp = self.getModelState2(intState["sname"] + "Shadow", intState["spos"], intState["sori"], 
                                  self.lastPrediction.transM, self.lastPrediction.ori)
     
                 msg.models.extend([tmp])
                 if SINGLE_INTSTATE:
                     if DIFFERENCES:
-                        tmp = self.getModelState2(intState["oname"] + "Shadow", intState["spos"]+intState["dir"], intState["seuler"]+intState["deuler"], 
+                        tmp = self.getModelState2(intState["oname"] + "Shadow", intState["spos"]+intState["dir"], intState["sori"]+intState["dori"], 
                                  self.lastPrediction.transM, self.lastPrediction.ori)
                     else:
-                        tmp = self.getModelState2(intState["oname"] + "Shadow", intState["opos"], intState["oeuler"],
+                        tmp = self.getModelState2(intState["oname"] + "Shadow", intState["opos"], intState["oori"],
                                  self.lastPrediction.transM, self.lastPrediction.ori)
     
                     msg.models.extend([tmp])
         else:
             for objectState in self.lastPrediction.objectStates.values():
-                tmp = self.getModelState2(objectState["name"]+"Shadow", objectState["pos"], objectState["euler"], self.lastPrediction.transM, self.lastPrediction.ori)
+                tmp = self.getModelState2(objectState["name"]+"Shadow", objectState["pos"], objectState["ori"], self.lastPrediction.transM, self.lastPrediction.ori)
                 msg.models.extend([tmp])
         self.posePublisher.publish(msg)
         

@@ -29,9 +29,12 @@ from config import DIFFERENCES, SINGLE_INTSTATE, INTERACTION_STATES
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
 
-#import modelActionFixed as model
-import modelActions as model
-#import model6 as model
+if INTERACTION_STATES:
+#    import model6 as model
+    import model4 as model
+else:
+    import modelActions as model
+    
 
 from sklearn.externals.six import StringIO
 import pydot
@@ -49,6 +52,8 @@ MODE = PUSHTASKSIMULATION
 #MODE = FREE_EXPLORATION
 #MODE = MOVE_TO_TARGET
 
+RECORD_SIMULATION = True
+SIMULATION_FILENAME = "model6Test1.txt"
 
 RANDOM_BLOCK_ORI = False
 #RANDOM_BLOCK_ORI = True
@@ -61,7 +66,7 @@ DIRECTIONGENERALISATION = False
 
 
 
-NUM_TRAIN_RUNS = 10
+NUM_TRAIN_RUNS = 3
 NUM_TEST_RUNS = 20
 
 class GazeboInterface():
@@ -73,10 +78,12 @@ class GazeboInterface():
          
         self.active = True
         self.lastState = None
-#        self.worldModel = model.ModelAction()
-        self.worldModel = model.ModelCBR()
-#        self.lastAction = model.GripperAction()
-        self.lastAction = model.Action()
+        if INTERACTION_STATES:
+            self.worldModel = model.ModelCBR()
+            self.lastAction = model.Action()
+        else:
+            self.worldModel = model.ModelAction()
+            self.lastAction = model.GripperAction()
         self.lastPrediction = None
         self.ignore = True
         self.target = None
@@ -185,6 +192,93 @@ class GazeboInterface():
             tmp = self.getModelState(objectState["name"]+"Shadow", objectState["pos"], objectState["ori"])
             msg.models.extend([tmp])
         self.posePublisher.publish(msg)
+        
+    def sendPredictionInteractions(self):
+        """
+        Function to send the last prediction to gazebo. This will move the shadow model
+        positions.
+        """
+        msg = pygazebo.msg.modelState_v_pb2.ModelState_V()
+        if INTERACTION_STATES:
+            for intState in self.lastPrediction.interactionStates.values():
+                tmp = self.getModelState2(intState["sname"] + "Shadow", intState["spos"], intState["sori"], 
+                                 self.lastPrediction.transM, self.lastPrediction.ori)
+    
+                msg.models.extend([tmp])
+                if SINGLE_INTSTATE:
+                    if DIFFERENCES:
+                        tmp = self.getModelState2(intState["oname"] + "Shadow", intState["spos"]+intState["dir"], intState["sori"]+intState["dori"], 
+                                 self.lastPrediction.transM, self.lastPrediction.ori)
+                    else:
+                        tmp = self.getModelState2(intState["oname"] + "Shadow", intState["opos"], intState["oori"],
+                                 self.lastPrediction.transM, self.lastPrediction.ori)
+    
+                    msg.models.extend([tmp])
+        else:
+            for objectState in self.lastPrediction.objectStates.values():
+                tmp = self.getModelState2(objectState["name"]+"Shadow", objectState["pos"], objectState["euler"], self.lastPrediction.transM, self.lastPrediction.ori)
+                msg.models.extend([tmp])
+        self.posePublisher.publish(msg)
+        
+    def getModelState2(self, name, pos, euler, transM=None, eulerdif=None):
+        """
+        Function to create a ModeLState object from a name and the desired position and orientation.
+        
+        Parameters
+        ----------
+        name : String
+            Name of the model
+        pos : np.array() Size 3
+            The position of the model
+        ori : np.array() Size 4
+            The quaternion for the orientation of the model
+            
+        Returns
+        -------
+        modelState_pb2.ModelState
+            Protobuf object for a model state with fixed id to 99
+        """
+        
+        assert not np.any(np.isnan(pos)), "Pos has nan in it: {}".format(pos)
+        assert not np.any(np.isnan(euler)), "euler has nan in it: {}".format(euler)
+        if transM != None:
+            assert not np.any(np.isnan(transM)), "transM has nan in it: {}".format(transM)
+            assert not np.any(np.isnan(eulerdif)), "eulerDif has nan in it: {}".format(eulerdif)
+        msg = modelState_pb2.ModelState()
+        msg.name = name
+        msg.id = 99
+#        print "getting model State for: ", name
+        if transM != None:
+            #Build inverse transformation matrix
+#            matrix = np.matrix(np.zeros((4,4)))
+#            matrix[:3,:3] = transM[:3,:3].T
+#            matrix[:3,3] = -transM[:3,:3].T*transM[:3,3]
+#            matrix[3,3] = 1.0
+##            print "Original matrix: {} \n, transpose: {}".format(transM, matrix)
+            tmpPos = np.matrix(np.concatenate((pos,[1])))
+            tpos = np.array((transM*tmpPos.T)[:3]).flatten()   
+#            print "OriginalPosition: {}, resulting position: {}".format(tmpPos, pos)
+            msg.pose.position.x = tpos[0] #* 2.0
+            msg.pose.position.y = tpos[1] #* 2.0
+            msg.pose.position.z = tpos[2] #* 2.0
+        else:
+            msg.pose.position.x = pos[0] #* 2.0
+            msg.pose.position.y = pos[1] #* 2.0
+            msg.pose.position.z = pos[2] #* 2.0
+        
+        if eulerdif != None:
+            newOri = common.eulerToQuat(euler+eulerdif)
+            msg.pose.orientation.x = newOri[0]
+            msg.pose.orientation.y = newOri[1]
+            msg.pose.orientation.z = newOri[2]
+            msg.pose.orientation.w = newOri[3]
+        else:
+            ori= common.eulerToQuat(euler)
+            msg.pose.orientation.x = ori[0]
+            msg.pose.orientation.y = ori[1]
+            msg.pose.orientation.z = ori[2]
+            msg.pose.orientation.w = ori[3]
+        return msg    
  
 
     def getModelState(self, name, pos, euler):
@@ -262,13 +356,12 @@ class GazeboInterface():
             
         else:
             worldState = worldState_pb2.WorldState.FromString(data)
-    #        if self.lastPrediction != None:
-    ##            print "Parsing worldState with last coordinate system."
-    ##            resultWS = model.WorldState(self.lastPrediction.transM, self.lastPrediction.invTrans, self.lastPrediction.quat)
-    #            resultWS = model.WorldState(self.lastPrediction.transM, self.lastPrediction.invTrans, self.lastPrediction.ori)
-    #            resultWS.parse(worldState)
-    #        else:
-    #            resultWS = None
+        
+            if self.lastPrediction != None:
+                resultWS = model.WorldState(self.lastPrediction.transM, self.lastPrediction.invTrans, self.lastPrediction.ori)
+                resultWS.parse(worldState)
+            else:
+                resultWS = None
             print "parsing new WorldState"
             newWS = model.WorldState()
             newWS.parse(worldState)
@@ -278,7 +371,7 @@ class GazeboInterface():
             elif MODE == PUSHTASK:
                 self.pushTask(newWS)
             elif MODE == PUSHTASKSIMULATION:
-                self.pushTaskSimulation(newWS)
+                self.pushTaskSimulation(newWS, resultWS)
             elif MODE == MOVE_TO_TARGET:
                 self.getTarget()
                 self.moveToTarget(newWS)
@@ -299,7 +392,7 @@ class GazeboInterface():
         gripperOs = worldState.getObjectState("gripper")
         tPos = gripperOs["pos"]
         
-        if np.linalg.norm(tPos) > 1.0 or self.stepCounter > 500:
+        if np.linalg.norm(tPos) > 1.0 or self.stepCounter > 150:
             return True
         return False
         
@@ -444,9 +537,12 @@ class GazeboInterface():
         if self.worldModel.numPredictions > 0:
             print "% correctCase selected: ", self.worldModel.numCorrectCase/(float)(self.worldModel.numPredictions)
             
+    
+            
+            
     def pushTaskSimulation(self, worldState, resultState=None):
         self.stepCounter += 1
-        resultState=copy.deepcopy(worldState)
+#        resultState=copy.deepcopy(worldState)
         print "num cases: " + str(len(self.worldModel.cases))
 #        print "num abstract cases: " + str(len(self.worldModel.abstractCases))
         
@@ -480,36 +576,7 @@ class GazeboInterface():
 #                self.finalPrediction = self.lastPrediction
                 if self.trainRun == NUM_TRAIN_RUNS:
                     self.pauseWorld()
-                    
-                    print "actions: ", self.worldModel.actions.values()
-                    with open("../../data/actionVectorsTestNew", 'w') as f:
-                        a = self.worldModel.actions.values()[0]
-                        f.write("#"+"; ".join(model.InteractionState().features) + "; ActionID; " + "; ".join(model.ObjectState().actionItems) + "\n")
-                        for a in self.worldModel.actions.values():      
-#                            f.write("================================\n")
-#                            f.write("Action for {}(id: {})\n".format(a.targets, a.id))
-#                            case, intStates = a.refCases[0]
-#                            f.write("sid; oid; dist; closing; contact; relPosX; relPosY; relPosZ; closingDivDist; Dif_linVelY; Dif_linVelX; Dif_linVelZ; Dif_posY; Dif_posZ; Dif_posX; Dif_ori; Dif_id; Dif_angVel; post_linVelX; post_linVelY; post_linVelZ; post_angVel \n")
-#                            f.write("; ".join(intStates[0].features[intStates[0].mask]) + "; " 
-#                                + "(dif); ".join(case.dif.keys()) + "(dif); " 
-#                                + "(post); ".join(case.postState.actionItems) + "(post)\n")
-#                            for w in a.weights:
-#                                f.write("{:.4f};".format(w))
-#                            f.write("\n")
-                            for case, intStates in a.refCases:
-                                for i in intStates:
-                                    for x in i.vec:
-                                        f.write("{:.4f};".format(x))
-                                    f.write("{}; ".format(a.id))
-#                                for x in intStates[0].getVec():
-#                                    f.write("{:.4f};".format(x))
-#                                for v in case.dif.values():
-#                                    f.write("{:.4f};".format(v[0]))
-                                f.write(";".join(["{:.4f}".format(case.postState[k][0]) for k in case.postState.actionItems]))
-#                                for k in case.postState.actionItems:
-#                                    f.write("{:.4f};".format(case.postState[k][0]))
-                                
-                                f.write("\n")
+#                    self.printActions()
 #                    dot_data = StringIO()
 #                    self.worldModel.getGraphViz(dot_data)
 #                    graph = pydot.graph_from_dot_data(dot_data.getvalue())
@@ -523,6 +590,11 @@ class GazeboInterface():
                 self.lastAction = model.Action.getGripperAction(cmd = GAZEBOCMDS["MOVE"], direction=self.direction)
                 if self.lastPrediction != None:
                     predictedWorldState = self.lastPrediction
+#                    predictedWorldState = model.WorldState()
+#                    if INTERACTION_STATES:
+#                        predictedWorldState.reset(self.lastPrediction)
+#                    else:
+#                        predictedWorldState.reset2(self.lastPrediction)
                     curDif = self.compare(worldState, self.lastPrediction)
                     self.accDif += curDif
                     self.numSteps +=1
@@ -532,20 +604,23 @@ class GazeboInterface():
 #                    print "lastPrediction: {}, worldState: {} ".format(self.lastPrediction.interactionStates, worldState.interactionStates)
                 self.lastPrediction = self.worldModel.predict(predictedWorldState, self.lastAction)
 #                print "lastAction: ", self.lastAction
-                self.sendPrediction()
+                if INTERACTION_STATES:
+                    self.sendPredictionInteractions()
+                else:
+                    self.sendPrediction()
                 self.sendCommand(self.lastAction)
             else:
                 self.testRun += 1
-#                difference = self.compare(worldState, self.finalPrediction)
-#                print difference
-#                with open("../../data/differencesSINGLES3.txt", "a") as f:
-#                    f.write("{}; ".format(difference))
-#                    f.write("{}; ".format(self.accDif))
-#                    f.write("{}; ".format(self.accDif/self.numSteps))
-#                    f.write("\n")
-#                self.accDif = 0.0
-#                self.numSteps = 0
-#                self.startRun()
+                if RECORD_SIMULATION:
+                    difference = self.compare(worldState, self.finalPrediction)
+                    with open("../../data/" + SIMULATION_FILENAME, "a") as f:
+                        f.write("{}; ".format(difference))
+                        f.write("{}; ".format(self.accDif))
+                        f.write("{}; ".format(self.accDif/self.numSteps))
+                        f.write("\n")
+                    self.accDif = 0.0
+                    self.numSteps = 0
+#                    self.startRun()
         else:
             self.pauseWorld()
         
@@ -581,9 +656,42 @@ class GazeboInterface():
 #        else:
 #            self.lastAction = model.Action(cmd=GAZEBOCMDS["NOTHING"])
         self.lastPrediction = self.worldModel.predict(worldState, self.lastAction)
-        self.sendPrediction()
+        if INTERACTION_STATES:
+            self.sendPredictionInteractions()
+        else:
+            self.sendPrediction()
         self.sendCommand(self.lastAction)
 
+    def printActions(self):
+        print "actions: ", self.worldModel.actions.values()
+        with open("../../data/actionVectorsTestNew", 'w') as f:
+            a = self.worldModel.actions.values()[0]
+            f.write("#"+"; ".join(model.InteractionState().features) + "; ActionID; " + "; ".join(model.ObjectState().actionItems) + "\n")
+            for a in self.worldModel.actions.values():      
+                f.write("================================\n")
+                f.write("Action for {}(id: {})\n".format(a.targets, a.id))
+                case, intStates = a.refCases[0]
+                f.write("sid; oid; dist; closing; contact; relPosX; relPosY; relPosZ; closingDivDist; Dif_linVelY; Dif_linVelX; Dif_linVelZ; Dif_posY; Dif_posZ; Dif_posX; Dif_ori; Dif_id; Dif_angVel; post_linVelX; post_linVelY; post_linVelZ; post_angVel \n")
+                f.write("; ".join(intStates[0].features[intStates[0].mask]) + "; " 
+                    + "(dif); ".join(case.dif.keys()) + "(dif); " 
+                    + "(post); ".join(case.postState.actionItems) + "(post)\n")
+                for w in a.weights:
+                    f.write("{:.4f};".format(w))
+                f.write("\n")
+                for case, intStates in a.refCases:
+                    for i in intStates:
+                        for x in i.vec:
+                            f.write("{:.4f};".format(x))
+                        f.write("{}; ".format(a.id))
+#                        for x in intStates[0].getVec():
+#                            f.write("{:.4f};".format(x))
+#                        for v in case.dif.values():
+#                            f.write("{:.4f};".format(v[0]))
+                    f.write(";".join(["{:.4f}".format(case.postState[k][0]) for k in case.postState.actionItems]))
+#                                for k in case.postState.actionItems:
+#                                    f.write("{:.4f};".format(case.postState[k][0]))
+                    
+                    f.write("\n")
 
     def randomExploration(self, worldState, resultState):
         """
@@ -717,7 +825,10 @@ class GazeboInterface():
 #                print "global action: ", self.lastAction
                 self.lastState = worldState
                 self.lastPrediction = self.worldModel.predict(worldState, self.lastAction)
-                self.sendPrediction()
+                if INTERACTION_STATES:
+                    self.sendPredictionInteractions()
+                else:
+                    self.sendPrediction()
                 self.sendCommand(self.lastAction)
             else:
                 self.testRun += 1

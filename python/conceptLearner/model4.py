@@ -38,11 +38,12 @@ from sklearn import tree
 from config import SINGLE_INTSTATE
 
 
-#from state1 import State, ObjectState, Action, InteractionState, WorldState
-if SINGLE_INTSTATE:
-    from state3 import State, ObjectState, Action, InteractionState, WorldState
-else:
-    from state2 import State, ObjectState, Action, InteractionState, WorldState
+#if SINGLE_INTSTATE:
+#    from state3 import State, ObjectState, Action, InteractionState, WorldState
+#else:
+#    from state2 import State, ObjectState, Action, InteractionState, WorldState
+
+from state4 import State, Action, ObjectState, InteractionState, WorldState
 
 FEATURE_SELECTION_THRESHOLD =5
 
@@ -57,7 +58,7 @@ TARGETTHRESHOLD = MAXCASESCORE - 0.05
 
 NUM_SAMPLES = 10
 
-USE_CONSTANTS = True
+USE_CONSTANTS = False
 
 NUM_PROTOTYPES = 5
 
@@ -81,6 +82,7 @@ class BaseCase(object):
         self.action = action
         self.dif = {}
         self.abstCase = None
+#        print "sname: {}, pre ori: {}, post ori: {}".format(pre["oname"], pre["dori"], post["dori"])
         for k in pre.relKeys:
             self.dif[k] = post[k]-pre[k]
             
@@ -91,6 +93,7 @@ class BaseCase(object):
         """
         r = Set()
         for k in self.dif.keys():
+#            print "getSetOfAttribgs: k: {}, normdif: {}".format(k, np.linalg.norm(self.dif[k]))
             if np.linalg.norm(self.dif[k]) > 0.001:
                 r.add(k)
         return r
@@ -163,7 +166,7 @@ class AbstractCase(object):
 #                    prediction = self.predictors[k].predict(np.concatenate((state.toVec(self.constants),action.toVec(self.constants))))
                     prediction = self.predictors[k].predict(np.concatenate((state.toVec(self.unusedFeatures[k]),action.toVec(self.unusedFeatures[k]))))
                 else:
-                    prediction = self.predictors[k].predict(np.concatenate((state.toVec(),action.toVec())))
+                    prediction = self.predictors[k].predict(np.concatenate((state.getVec(),action.getVec())))
 #                if state["sname"] == "blockA":
 #                print "variable: {}, prediction: {}".format(k, prediction)
                 if prediction != None:
@@ -467,7 +470,7 @@ class AbstractCase(object):
                 node = Node(0, wIn=case.preState.toVec(unusedFeatures), action=case.action.toVec(unusedFeatures),
                         wOut=case.postState[attrib]-case.preState[attrib])
         else:
-            node = Node(0, wIn=case.preState.toVec(), action=case.action.toVec(),
+            node = Node(0, wIn=case.preState.getVec(), action=case.action.getVec(),
                     wOut=case.postState[attrib]-case.preState[attrib])
         return node
         
@@ -1010,7 +1013,7 @@ class ModelCBR(object):
                 
         
         if isinstance(bestCase, AbstractCase):
-#            print "selected AC: ", bestCase.variables
+            print "selected AC: ", bestCase.variables
             if bestCase.variables == []:
                 self.numZeroCase += 1
 
@@ -1028,7 +1031,9 @@ class ModelCBR(object):
             return state, bestCase
     
     def predict(self, worldState, action):
-        
+        """
+        TODO: Should return a valid ws with object in GLOBAL coordinate system!!
+        """
         predictionWs = WorldState()
         predictionWs.transM = np.copy(worldState.transM)
         predictionWs.invTrans = np.copy(worldState.invTrans)
@@ -1040,8 +1045,9 @@ class ModelCBR(object):
             
             prediction, usedCase = self.predictIntState(intState, transformedAction)
             predictionWs.addInteractionState(prediction, usedCase)
-        print "usedCase: ", usedCase.variables if usedCase != None else None
-        print "resulting prediction: ", predictionWs.interactionStates
+#        print "usedCase: ", usedCase.variables if usedCase != None else None
+#        print "resulting prediction: ", predictionWs.interactionStates
+        predictionWs.updateObjectStates()
         return predictionWs
         
     def updateState(self, state, action, prediction, result, usedCase):
@@ -1070,7 +1076,7 @@ class ModelCBR(object):
 #        predictionRating = result.rate(prediction)#, self.weights)
 #        predictionScore = sum(predictionRating.values())
         predictionScore = result.score(prediction)
-#        print "Correct attribSet for state: {} : {}".format(result["sname"], sorted(attribSet))
+        print "Correct attribSet for state: {} : {}".format(result["sname"], sorted(attribSet))
         print "predictionScore: ", predictionScore
         abstractCase = None
         retrain = False
@@ -1083,10 +1089,12 @@ class ModelCBR(object):
             
         if abstractCase != None:    
             correctPrediction = abstractCase.predict(state, action)
-            correctRating = result.rate(correctPrediction)
-            worstRating = min(correctRating.items(), key=itemgetter(1))
+#            correctRating = result.rate(correctPrediction)
+            correctScore = result.score(correctPrediction)
+#            worstRating = min(correctRating.items(), key=itemgetter(1))
             self.correctPredictions += 1
-            self.avgCorrectPrediction += (sum(correctRating.values())-self.avgCorrectPrediction)/(float(self.correctPredictions))
+#            self.avgCorrectPrediction += (sum(correctRating.values())-self.avgCorrectPrediction)/(float(self.correctPredictions))
+            self.avgCorrectPrediction += (correctScore-self.avgCorrectPrediction)/(float(self.correctPredictions))
 #            print "Prediction Score of correctCase prediction: {}, worst attrib: {} ({})".format(sum(correctRating.values()), worstRating[0], worstRating[1]) 
         if usedCase != None:
             if usedCase.variables == attribSet:
@@ -1138,11 +1146,11 @@ class ModelCBR(object):
     def retrainACClassifier(self):
         print "Retraining!"
         if len(self.abstractCases) > 1:
-            nFeature = np.size(np.concatenate((self.cases[0].preState.toSelVec(),self.cases[0].action.toSelVec())))
+            nFeature = np.size(np.concatenate((self.cases[0].preState.getVec(),self.cases[0].action.getVec())))
             X = np.zeros((len(self.cases),nFeature))
             Y = np.zeros(len(self.cases))
             for i in range(len(self.cases)):
-                X[i,:] = np.concatenate((self.cases[i].preState.toSelVec(),self.cases[i].action.toSelVec()))
+                X[i,:] = np.concatenate((self.cases[i].preState.getVec(),self.cases[i].action.getVec()))
                 Y[i] = self.cases[i].abstCase.id
 #            self.scaler = preprocessing.StandardScaler(with_mean = False, with_std=True).fit(X)
 #            self.scaler = preprocessing.MinMaxScaler().fit(X)

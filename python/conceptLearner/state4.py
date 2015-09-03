@@ -9,8 +9,11 @@ Created on Wed Jun 24 11:40:03 2015
 import numpy as np
 import common
 from common import NUMDEC
+from common import GAZEBOCMDS as GZCMD
 import math
 import copy
+
+from config import DIFFERENCES, INTERACTION_STATES, SINGLE_INTSTATE
 
 WIDTH = {"blockA":0.25, "gripper": 0.025} #Width from the middle point
 DEPTH = {"blockA":0.05, "gripper": 0.025} #Height from the middle point
@@ -36,7 +39,53 @@ class State(dict):
     def relItems(self):
         for k in self.relKeys:
             yield k, self[k]
+            
+    def relevantItems(self):
+        r = []
+        for k in self.relKeys:
+            r.append((k,self[k]))
+        return r
         
+        
+        
+    def __eq__(self, other):
+        if not isinstance(other, State):
+            return False
+            
+        for k, v in self.relevantItems():
+            if np.linalg.norm(v-other[k]) > 0.001:
+                return False
+        
+        return True
+        
+    def __ne__(self, other):
+        return not self.__eq__(other)
+            
+        
+class Action(State):
+    
+    def __init__(self, cmd=GZCMD["NOTHING"], direction=np.array([0.0,0.0,0.0])):
+        self.vec = np.zeros(4)
+        self.update({"cmd":self.vec[0:1], "mvDir": self.vec[1:4]})
+        self["mvDir"][:3] = direction
+        self.relKeys = self.keys()
+        self.mask = np.array(range(len(self.vec)))
+        
+    def transform(self, matrix):
+        tmpMVDir = np.zeros(4)
+        tmpMVDir[:3] = np.copy(self["mvDir"])
+        self["mvDir"][:3] = np.round(np.array((np.dot(matrix,tmpMVDir))[:3]), NUMDEC)      
+   
+    @classmethod
+    def sample(cls, number):
+        return [cls(cmd=GZCMD["MOVE"], direction=np.array([0.5*math.cos(x), 0.5*math.sin(y),0.0])) for x in [0+i*math.pi/number for i in range(number)] for y in [0+i*math.pi/number for i in range(number)]]
+         
+    @classmethod
+    def getGripperAction(cls, cmd=GZCMD["NOTHING"], direction = np.zeros(3)):
+        res = cls()
+        res["cmd"] = cmd
+        res["mvDir"] = direction
+        return res
     
 class ObjectState(State):
     
@@ -51,6 +100,30 @@ class ObjectState(State):
         self.relKeys = ["id", "posX", "posY", "posZ", "ori", "linVelX", "linVelY", "linVelZ", "angVel"]
         self.actionItems = ["linVelX", "linVelY", "linVelZ", "angVel"]
         self.mask = np.array([1,2,3,4,5,6,7,8])
+        
+    @classmethod
+    def fromInteractionState(cls, intState):
+        o1 = cls()
+        o1["name"] = intState["sname"]
+        o1["id"][0] = intState["sid"]
+        o1["pos"][:3] = np.copy(intState["spos"])
+        o1["linVel"][:3] = np.copy(intState["slinVel"])
+        o1["angVel"][0] = np.copy(intState["sangVel"])
+        o1["ori"][0] = np.copy(intState["sori"])
+        o2 = cls()
+        o2["name"] = intState["oname"]
+        o2["id"] = intState["oid"]
+        if DIFFERENCES:
+            o2["pos"][:3], o2["linVel"][:3] = common.globalPosVel(o1["pos"], o1["ori"], intState["dir"], intState["dori"])
+            o2["angVel"][0] = o1["angVel"] + intState["dangVel"]
+            o2["ori"][0] = o1["ori"] + intState["dori"]
+        else:
+            o2["pos"][:3] = np.copy(intState["opos"])
+            o2["linVel"][:3] = np.copy(intState["olinVel"])
+            o2["angVel"][0] = np.copy(intState["oangVel"])
+            o2["ori"][0] = np.copy(intState["oori"])
+        
+        return o1, o2
         
     @classmethod
     def clone(cls, other):
@@ -73,36 +146,80 @@ class ObjectState(State):
         p1yn = p1x*s + p1y*c
         p2xn = p2x*c - p2y*s
         p2yn = p2x*s + p2y*c
-        return np.array([np.copy(self["pos"][:]), np.array([p1xn,p1yn,self["posY"]]), np.array([p2xn,p2yn,self["posY"]])])
+        return np.array([np.copy(self["pos"][:]), np.array([p1xn,p1yn,self["posZ"]]), np.array([p2xn,p2yn,self["posZ"]])])
         
     def compare(self, other):
         assert self["name"] == other["name"], "Should only compare the same objects not {} and {}".format(self["name"], other["name"])
         sKeyPoints = self.getKeyPoints()
         oKeyPoints = other.getKeyPoints()
         return sum(np.linalg.norm(sKeyPoints-oKeyPoints,axis=1))/3.0
+        
+    def transform(self, matrix, euler):
+        res = ObjectState.clone(self)
+        tmpPos = np.ones(4)
+        tmpPos[:3] = np.copy(self["pos"])
+        res["pos"] = np.round(np.array((np.dot(matrix,tmpPos))[:3]), NUMDEC)
+        if res["name"] == "gripper":
+            res["ori"][0] = 0.0
+        else:
+            res["ori"][0] += euler
+
+        tmplV = np.zeros(4)
+        tmplV[:3] = np.copy(self["linVel"])
+        res["linVel"] = np.round(np.array((np.dot(matrix,tmplV))[:3]), NUMDEC)
+#        tmpaV = np.zeros(4)
+#        tmpaV[:3] = np.copy(self["angVel"])
+#        res["angVel"] = np.round(np.array((np.dot(matrix,tmpaV))[:3]), NUMDEC)
+#        print "res pos:", res["pos"]
+        return res
 
         
 class InteractionState(State):
     
     def __init__(self):
-        self.vec = np.zeros(16)
-        self.update({"name": "", "sname":"", "oname": "", "sid": self.vec[0:1], "oid":self.vec[1:2],
-                     "dist": self.vec[2:3], "closing": self.vec[3:4], "contact":self.vec[4:5],
-                     "relPosX": self.vec[5:6], "relPosY": self.vec[6:7], "relPosZ":self.vec[7:8],
-                     "relVlX": self.vec[8:9], "relVlY": self.vec[9:10], "relVlZ": self.vec[10:11],
-                     "closingDivDist":self.vec[11:12], "relPos": self.vec[5:8], "relVl": self.vec[8:11], 
-                     "closing1":self.vec[12:13], "closing2":self.vec[13:14], "closing1DivDist":self.vec[14:15], 
-                     "closing2DivDist":self.vec[15:16] })
-        self.features = np.array(["sid","oid","dist","closing","contact","relPosX", "relPosY", "relPosZ", 
-                                  "relVlX", "relVlY", "relVlZ", 
-                                  "closingDivDist", "closing1", "closing2", "closing1DivDist", "closing2DivDist"])
-        self.mask = np.array(range(len(self.vec)))
+        
+        if INTERACTION_STATES:
+            
+            if DIFFERENCES:
+                self.vec = np.zeros(20)
+                self.update({"sname": "", "oname": "", "sid":self.vec[0:1], 
+                             "oid": self.vec[1:2], "spos":self.vec[2:5], "sori":self.vec[5:6],
+                             "slinVel": self.vec[6:9],"sangVel": self.vec[9:10], "dist": self.vec[10:11], "dir": self.vec[11:14],
+                             "contact": self.vec[14:15], "dori": self.vec[15:16], "dlinVel": self.vec[16:19], 
+                             "dangVel": self.vec[19:20]})
+                self.features = np.array(["sid", "oid", "dist", "dir", "spos", "sori", "slinVel", "sangVel", "contact",
+                                          "dori", "dlinVel", "dangVel"])
+            else:  
+                self.vec = np.zeros(23)
+                self.update({"sname": "", "oname": "", "sid":self.vec[0:1], 
+                             "oid": self.vec[1:2], "spos":self.vec[2:5], "sori":self.vec[5:6],
+                             "slinVel": self.vec[6:9],"sangVel": self.vec[9:10], "dist": self.vec[10:11], "opos": self.vec[11:14],
+                             "contact": self.vec[14:15], "oori": self.vec[15:16], "olinVel": self.vec[16:19], 
+                             "oangVel": self.vec[19:20], "dir":self.vec[20:23]})
+                self.features = np.array(["sid", "oid", "dist", "dir", "spos", "sori", "slinVel", "sangVel", "contact",
+                                          "opos", "oori", "olinVel", "oangVel"])
+            self.relKeys = list(self.features)
+            self.mask = np.array(range(len(self.vec)))
+        else:
+            self.vec = np.zeros(16)
+            self.update({"name": "", "sname":"", "oname": "", "sid": self.vec[0:1], "oid":self.vec[1:2],
+                         "dist": self.vec[2:3], "closing": self.vec[3:4], "contact":self.vec[4:5],
+                         "relPosX": self.vec[5:6], "relPosY": self.vec[6:7], "relPosZ":self.vec[7:8],
+                         "relVlX": self.vec[8:9], "relVlY": self.vec[9:10], "relVlZ": self.vec[10:11],
+                         "closingDivDist":self.vec[11:12], "relPos": self.vec[5:8], "relVl": self.vec[8:11], 
+                         "closing1":self.vec[12:13], "closing2":self.vec[13:14], "closing1DivDist":self.vec[14:15], 
+                         "closing2DivDist":self.vec[15:16] })
+            self.features = np.array(["sid","oid","dist","closing","contact","relPosX", "relPosY", "relPosZ", 
+                                      "relVlX", "relVlY", "relVlZ", 
+                                      "closingDivDist", "closing1", "closing2", "closing1DivDist", "closing2DivDist"])
+            self.mask = np.array(range(len(self.vec)))
 #        if CLOSING_REFERAL:
 #            self.mask=[0,1,2,5,6,8,9,12,13]
 #        else:            
 #            self.mask = [0,1,2,3,4,5,6,8,9]
 #            self.mask = np.array([0,1,4,5,6,8,9,12,13,14,15])
 #        self.relKeys = ["sid", "oid", "dist", "closing", "contact", "relPosX", "relPosY", "relPosZ", "closingDivDist", "closing2"]
+        
         
     @classmethod
     def parseInteraction(cls, os1, os2):
@@ -116,35 +233,40 @@ class InteractionState(State):
 #                        intState["dist"][0], intState["closing1"][0], intState["closing2"][0] = self.computeDistanceClosing(os1,os2)
 #                    else:
 #                        intState["dist"][0], intState["closing"][0] = self.computeDistanceClosing(os1,os2)
-        intState["dist"][0], intState["closing"][0], intState["closing1"][0], intState["closing2"][0]= cls.computeDistanceClosing(os1,os2)
+        intState["dist"][0], closing, closing1, closing2 = cls.computeDistanceClosing(os1,os2)
         if intState["dist"] < 0.0:
             intState["dist"] = 0.0
         if os1["contact"] == os2["name"]:
             intState["contact"][0] = 1
-#                    intState["relPosX"][0] = np.round(os1["posX"]-os2["posX"], NUMDEC)
-#                    intState["relPosY"][0] = np.round(os1["posY"]-os2["posY"], NUMDEC)
-#                    intState["relPosZ"][0] = np.round(os1["posZ"]-os2["posZ"], NUMDEC)
-        intState["relPos"][:3], intState["relVl"][:3] = cls.calcRelPosVel(os1,os2)
-#                    print "Rel pos for object {}: {}".format(intState["sname"], intState["relPos"])
-#                    intState["relVl"][:3] = os2["linVel"][:3]-os1["linVel"][:3]
-#                    if os1["name"] == "blockA":                    
-#                        print "Closing for os1 {}: {}".format(os1["name"], intState["closing"])
-#                        print "dist: ", intState["dist"]
-#                        print "relVl: ", intState["relVl"]
-#                        print "o1lv: ", os1["linVel"]
-#                        print "o2lv: ", os2["linVel"]
-#                    print "os1 name: ", os1["name"]
-#                    print "relPos: ", intState["relPos"]
-#                    print "relPosY: ", intState["relPosY"]
-        if intState["dist"] != 0:
-            intState["closingDivDist"][0] = intState["closing"]/intState["dist"]
-            intState["closing1DivDist"][0] = intState["closing1"]/intState["dist"]
-            intState["closing2DivDist"][0] = intState["closing2"]/intState["dist"]
+        if INTERACTION_STATES:
+            intState["spos"][:3] = os1["pos"]
+            intState["slinVel"][:3] = os1["linVel"]
+            intState["sori"][0] = os1["ori"]
+            intState["sangVel"][0] = os1["angVel"]
+            if DIFFERENCES:
+                intState["dir"][:3] = os2["pos"]-os1["pos"]
+                intState["dori"][0] = os2["ori"]-os1["ori"] 
+                intState["dlinVel"][:3] = os2["linVel"] - os1["linVel"]
+                intState["dangVel"][0] = os2["angVel"] - os1["angVel"]
+            else:
+                intState["opos"][:3] = os2["pos"]
+                intState["oori"][0] = os2["ori"]
+                intState["olinVel"][:3] = os2["linVel"]
+                intState["oangVel"][0] = os2["angVel"]
+                intState["dir"][:3] = os2["pos"]-os1["pos"]
+            
         else:
-            intState["closingDivDist"][0] = intState["closing"]/0.001
-            intState["closing1DivDist"][0] = intState["closing1"]/0.001
-            intState["closing2DivDist"][0] = intState["closing2"]/0.001
-#                    intState["closingDivDist"][0] = np.round(math.tanh(1+0.1*intState["closingDivDist"]), NUMDEC)
+            intState["closing"][0], intState["closing1"][0], intState["closing2"][0] = closing, closing1, closing2
+            intState["relPos"][:3], intState["relVl"][:3] = cls.calcRelPosVel(os1,os2)
+            if intState["dist"] != 0:
+                intState["closingDivDist"][0] = intState["closing"]/intState["dist"]
+                intState["closing1DivDist"][0] = intState["closing1"]/intState["dist"]
+                intState["closing2DivDist"][0] = intState["closing2"]/intState["dist"]
+            else:
+                intState["closingDivDist"][0] = intState["closing"]/0.001
+                intState["closing1DivDist"][0] = intState["closing1"]/0.001
+                intState["closing2DivDist"][0] = intState["closing2"]/0.001
+    #                    intState["closingDivDist"][0] = np.round(math.tanh(1+0.1*intState["closingDivDist"]), NUMDEC)
         return intState
         
     @classmethod
@@ -277,11 +399,12 @@ class InteractionState(State):
         
 class WorldState(object):
     
-    def __init__(self):
+    def __init__(self, transM = np.identity(4), invTrans = np.identity(4), ori = 0.0):
         self.objectStates = {}
         self.interactionStates = {}
-        self.transM = np.identity(4)
-        self.invTrans = np.identity(4)
+        self.predictionCases = {}
+        self.transM = transM
+        self.invTrans = invTrans
         self.ori = 0.0
         pass        
             
@@ -312,6 +435,15 @@ class WorldState(object):
                     tmp["linVelZ"][0] = 0.0
                 if m.name == "blockA":
                     tmp["angVel"][0] = np.round(m.angVel.z, NUMDEC)
+                    if self.transM == None:
+                        if INTERACTION_STATES:
+                            self.transM = common.eulerPosToTransformation(tmp["ori"],tmp["pos"])
+                            self.invTrans = common.invertTransMatrix(self.transM)
+                            self.ori = np.copy(tmp["ori"])
+                        else:
+                            self.transM = np.identity(4)
+                            self.invTrans = np.identity(4)     
+                            self.ori = 0
 #                if m.name == "blockA":
 #                    print "angVel: ", tmp["angVel"]
 #                    print "angVel.x: {:.4f}, angVel.y: {:.4f}".format(m.angVel.x, m.angVel.y)
@@ -333,11 +465,19 @@ class WorldState(object):
     
                 
     def parseInteractions(self):
-        for n1, os1 in self.objectStates.items():
-            for n2, os2 in self.objectStates.items():
-                if n1 != n2:
-                    intState = InteractionState.parseInteraction(os1,os2)
-                    self.interactionStates[intState["name"]] = intState
+        if SINGLE_INTSTATE:
+            for n1, os1 in self.objectStates.items():
+                if n1 != "gripper":
+                    for n2, os2 in self.objectStates.items():
+                        if n1 != n2:
+                            intState = InteractionState.parseInteraction(os1,os2.transform(self.invTrans, -self.ori))
+                            self.interactionStates[intState["name"]] = intState
+        else:
+            for n1, os1 in self.objectStates.items():
+                for n2, os2 in self.objectStates.items():
+                    if n1 != n2:
+                        intState = InteractionState.parseInteraction(os1,os2.transform(self.invTrans, -self.ori))
+                        self.interactionStates[intState["name"]] = intState
                     
                     
    
@@ -349,18 +489,52 @@ class WorldState(object):
         self.parseInteractions()
 
 
-        
-        
-        
-
     def getInteractionState(self, name):
         return self.interactionStates[name]
         
     def getObjectState(self, name):
-        return self.objectStates[name]
+        if name in self.objectStates:
+            return self.objectStates[name]
+        else:
+            intStates = self.getSelfInteractionStates(name)
+            if len(intStates) > 0:
+                o1, o2 = ObjectState.fromInteractionState(intStates[0])
+                return o1
+            intStates = self.getOtherInteractionStates(name)
+            if len(intStates) > 0:
+                o1, o2 = ObjectState.fromInteractionState(intStates[0])
+                return o2
+            else:
+                raise NotImplementedError("There seems to be no object named: {} \
+                either in object states ({}) or in the intStates({})".format(name, 
+                    self.objectStates.keys(), self.interactionStates.keys()))
+                
+                
+    def updateObjectStates(self):
+        for intState in self.interactionStates.values():
+            o1,o2 = ObjectState.fromInteractionState(intState)
+            if DIFFERENCES:
+                #Transform back to global coordinate system
+                o1.transform(self.transM, self.ori)
+                o2.transform(self.transM, self.ori)
+            self.objectStates[o1["name"]] = o1
+            if not SINGLE_INTSTATE:
+                self.objectStates[o2["name"]] = o2
+        
+    def addInteractionState(self, intState, usedCase = None):
+        self.interactionStates[intState["name"]] = intState
+        self.predictionCases[intState["name"]] = usedCase
+#        if not intState["sname"] in self.objectStates:
+#            self.objectStates[intState["sname"]], self.objectStates[intState["oname"]] = ObjectState.fromInteractionState(intState)
         
     def addObjectState(self, os):
         self.objectStates[os["name"]] = os
+        
+    def getSelfInteractionStates(self, sname):
+        return self.getInteractionStates(sname)
+        
+    def getOtherInteractionStates(self, oname):
+        return [intState for intState in self.interactionStates.values() if intState["oname"] == oname]
         
     def getInteractionStates(self, sname):
         return [intState for intState in self.interactionStates.values() if intState["sname"] == sname]

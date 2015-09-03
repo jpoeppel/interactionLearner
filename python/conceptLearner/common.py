@@ -101,7 +101,19 @@ def quatPosToTransformation(quat, pos):
                       [2*x*z+2*w*y,2*y*z-2*w*x, 1-2*x*x-2*y*y, pz],[0.0,0.0,0.0,1.0]])
                       
 def eulerPosToTransformation(euler, pos):
-    b,g,a = euler
+    if hasattr(euler, "__len__"):
+        if len(euler) == 1:
+            b = 0.0
+            g = 0.0
+            a = euler[0]
+        else:
+            assert len(euler) == 3, "Euler represents roll, pitch, yaw angles (in radians): {}".format(euler)
+            b, g, a = euler
+    else:
+        b = 0.0
+        g = 0.0
+        a = euler
+#    b,g,a = euler
     px,py,pz = pos
     ca = math.cos(a)
     cb = math.cos(b)

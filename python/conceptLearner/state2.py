@@ -685,15 +685,5 @@ class WorldState(object):
     def getObjectState(self, osName):
         if osName in self.objectStates:
             return self.objectStates[osName]
-        else:
-            for intState in self.interactionStates.values():
-                if intState["sname"] == osName:
-                    res = ObjectState()
-                    res.fromInteractionState(intState)
-                    return res
-                elif intState["oname"] == osName:
-                    res = ObjectState()
-                    res.fromInteractionState2(intState)
-                    return res
         return None
      

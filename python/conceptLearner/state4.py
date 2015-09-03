@@ -496,19 +496,7 @@ class WorldState(object):
         if name in self.objectStates:
             return self.objectStates[name]
         else:
-            intStates = self.getSelfInteractionStates(name)
-            if len(intStates) > 0:
-                o1, o2 = ObjectState.fromInteractionState(intStates[0])
-                return o1
-            intStates = self.getOtherInteractionStates(name)
-            if len(intStates) > 0:
-                o1, o2 = ObjectState.fromInteractionState(intStates[0])
-                return o2
-            else:
-                raise NotImplementedError("There seems to be no object named: {} \
-                either in object states ({}) or in the intStates({})".format(name, 
-                    self.objectStates.keys(), self.interactionStates.keys()))
-                
+            return None 
                 
     def updateObjectStates(self):
         for intState in self.interactionStates.values():

@@ -1,0 +1,188 @@
+% XeTeX-Vorlage für Abschlußarbeiten an der Universität Bielefeld
+% ---------------------------------------------------------------------
+% Stand, 07. Juni 2010
+%
+% Timo Reuter (treuter@cit-ec.uni-bielefeld.de), AG Semantic Computing
+% Exzellenzcluster für Cognitive Interaction Technology
+%
+% Dies Vorlage setzt die Schriftart FagoNo sowie einen XeTeX-Kompiler 
+% voraus. Alle Dokumente müssen zwingend mit Unicode (UTF-8) als
+% Kodierung abgespeichert werden.
+
+\documentclass[
+  a4paper,              % Wir verwenden A4 Papier
+  %oneside,             % Einseitiger Druck
+  twoside,              % Zweiseitiger Druck
+  12pt,                 % Große Schrift, besser geeignet für A4
+  halfparskip,          % Halbe Zeile Abstand zwischen Absätzen
+  chapterprefix,        % Kapitel mit 'Kapitel' anschreiben
+  headsepline,          % Linie nach Kopfzeile
+  footsepline,          % Linie vor Fußzeile
+  bibtotocnumbered,     % Literaturverzeichnis im Inhaltsverzeichnis numeriert einfügen
+  DIV=15,
+  BCOR=8mm
+]{scrbook}
+
+% Kopf-/ und Fußzeilen
+\usepackage{footmisc}
+
+% Parts haben im Inhaltsverzeichnis keine Seitenzahlen
+\makeatletter
+\let\partbackup\l@part
+\renewcommand*\l@part[2]{\partbackup{#1}{}}
+\makeatother
+
+% Zeichencodierung des Dokuments und des Zeichensatzes.
+\usepackage{pifont}
+\usepackage{fontspec}
+\usepackage{xunicode}
+\usepackage{xltxtra}
+\usepackage{textcomp}
+\usepackage{csquotes}
+
+% Lokalisierung auf deutsch (Silbentrennung usw.)
+%\usepackage[german]{babel}
+\usepackage[english]{babel}
+
+% Paket um Grafiken im Dokument einbetten zu können.
+\usepackage{graphicx}
+
+% PDF-Merkmale
+\usepackage[
+  pdftitle={Memory-based exploratory online learning of simple object manipulation},            % Titel des PDF Dokuments.
+  pdfauthor={Jan Pöppel},                 % Autor des PDF Dokuments.
+  pdfsubject={Memory-based exploratory online learning of simple object manipulation},          % Thema des PDF Dokuments.
+  pdfcreator={Texlive, XeTeX},           % Erzeuger des PDF Dokuments.
+  pdfkeywords={Keyword1, keyword2},      % Schlüsselwörter für das PDF.
+  pdfpagemode=UseOutlines,               % Inhaltsverzeichnis anzeigen beim Öffnen
+  bookmarksopen=false,                   % Inhaltsverzeichnisbaum geöffnet anzeigen
+  pdfdisplaydoctitle=true,               % Dokumenttitel statt Dateiname anzeigen.
+  pdflang=en                             % Sprache des Dokuments.
+]{hyperref}
+
+% Schriften
+%\defaultfontfeatures{Mapping=tex-text}
+%\setmainfont[ItalicFont={FagoNo}, BoldFont={FagoNoLf-Bold}]{GoudyOlSt BT}
+%\setsansfont{FagoNo}
+%{\setmonofont{Arial}\fontsize{48pt}{\baselineskip}\selectfont}
+%\usepackage{default}
+
+% Farben definieren
+\usepackage{color, colortbl}
+\definecolor{LinkColor}{rgb}{0,0,0}
+\definecolor{ListingBackground}{rgb}{0.85,0.85,0.85}
+\definecolor{LightGrey}{rgb}{0.93,0.93,0.93}
+\definecolor{LightGrey2}{rgb}{0.9,0.9,0.9}
+\definecolor{DarkGrey}{rgb}{0.65,0.65,0.65}
+\definecolor{UniBiGreen}{rgb}{0.0,0.457,0.336}
+\definecolor{CitecOrange}{rgb}{0.93,0.453,0.004}
+
+% Farbeinstellungen für die Verweise im PDF-Dokument.
+\hypersetup{
+  colorlinks=true,       % Aktivieren von farbigen Verweisen im Dokument (ohne Rahmen)
+  linkcolor=LinkColor,   % Farbe festlegen.
+  citecolor=LinkColor,   % Farbe festlegen.
+  filecolor=LinkColor,   % Farbe festlegen.
+  menucolor=LinkColor,   % Farbe festlegen.
+  urlcolor=LinkColor,    % Farbe von URL's im Dokument.
+  bookmarksnumbered=true % Überschriftsnummerierung im PDF Inhalt anzeigen.
+}
+
+% Beschriftungen für Bilder und Tabellen
+\setcapindent{1em} % Zeilenumbruch bei Bildbeschreibungen.
+\setkomafont{captionlabel}{\fontspec[Color=656565, Scale=0.7]{FagoNoLf-Bold}} % Beschriftungen für Bilder und Tabellen
+\setkomafont{caption}{\fontspec[Color=656565, Scale=0.7]{FagoNoLf-Bold}} % Beschriftungen für Bilder und Tabellen
+\setkomafont{descriptionlabel}{\fontspec{FagoNoLf-Bold}} % Optionales Label in der description-Umgebung
+
+
+% Stil der Kopf- und Fußzeilen
+\usepackage[footsepline,plainfootsepline]{scrpage2}
+\pagestyle{scrheadings}
+\setheadsepline{}[\color{DarkGrey}]    % Kopfzeilenlinie
+\setfootsepline{}[\color{DarkGrey}]    % Fußzeilenlinie
+\renewcommand*{\partpagestyle}{empty}  % Parts haben keine Kopf-/Fußzeile
+
+% Überschriften
+\setkomafont{sectioning}{\normalfont\bfseries} % Titel mit Normalschrift
+\addtokomafont{sectioning}{\fontspec{FagoNoLf-Bold}}
+\addtokomafont{pagehead}{\fontspec[Color=656565]{FagoNoLf-Bold}}   % Seitentitel
+\addtokomafont{pagenumber}{\fontspec[Color=656565]{FagoNoLf-Bold}} % Fußnoten
+
+% Stil der Überschriften
+\usepackage[Lenny]{sty/fncychapleo}
+
+% Paket um Quelltext sauber zu formatieren.
+\usepackage[savemem]{listings}
+% Einstellungen für das 'listings' Paket.
+\lstloadlanguages{C}            % Sprache laden, notwendig wegen Option 'savemem'
+\lstset{
+	language=C,                 % Sprache des Quelltexts ist C
+	numbers=left,               % Zelennummern links
+	stepnumber=1,               % Jede Zeile numerieren.
+	numbersep=5pt,              % 5pt Abstand zum Quellcode
+	numberstyle=\tiny,          % Zeichengröße 'tiny' für die Nummern.
+	breaklines=true,            % Zeilen umbrechen, wenn notwendig.
+	breakautoindent=true,       % Nach dem Zeilenumbruch Zeile einrücken.
+	postbreak=\space,           % Bei Leerzeichen umbrechen.
+	tabsize=2,                  % Tabulatorgröße (Indent) ist 2
+	basicstyle=\ttfamily\scriptsize, % Schrift
+	showspaces=false,           % Leerzeichen nicht anzeigen.
+	showstringspaces=false,     % Leerzeichen auch in Zeichenketten ('') nicht anzeigen.
+	extendedchars=true,         % Alle Zeichen vom Latin1 Zeichensatz anzeigen.
+	backgroundcolor=\color{ListingBackground}, % Hintergrundfarbe des Quelltexts setzen.
+	captionpos=b,               % Caption unten
+    %linewidth=0.9\textwidth,   % base line width
+    xleftmargin=0.02\textwidth, % margin left
+    xrightmargin=0.02\textwidth % margin right
+}
+
+% Tabellen
+\usepackage{array}                  % Paket für erweiterte Tabelleneigenschaften
+\usepackage{multirow}               % Zusammengefaßte Reihen in Tabellen ermöglichen
+\setlength{\arrayrulewidth}{0.7pt}
+\setlength{\extrarowheight}{3pt}
+\arrayrulecolor{DarkGrey}           
+\usepackage{longtable}              % Ermöglicht sich über mehrere Seiten erstreckende Tabellen
+\usepackage{tabularx}               % Mächtigere Tabellenumgebung
+
+
+% Stil für Designboxen
+\newcommand{\designbox}[2]{
+  \hspace*{17pt}
+  \begin{tabular*}{402pt}{p{378pt}p{0pt}}
+    \begin{flushright}\fontspec[Color=656565, Scale=0.9]{FagoNoLf-Bold}#1\hspace*{-18.5pt}\vspace*{-16pt}\end{flushright}\\
+    \hline
+    \cellcolor{LightGrey}\fontspec{FagoNo}#2 & \cellcolor{DarkGrey}\\
+    \begin{picture}(0,0)
+      \put(245,13){\color{DarkGrey}\rule{151pt}{0.5pt}}
+    \end{picture}
+  \end{tabular*}
+}
+
+% Bibliographie-Stil
+%\usepackage{apacite}         % Psychologie
+\usepackage[numbers]{natbib}  % Linguistik und Naturwissenschaften
+
+% Silbentrennung für Wörter, die nicht vom Babel-Paket erkannt werden
+\hyphenation{Dezi-mal-trenn-zeichen In-stal-la-ti-ons-as-sis-tent}
+
+
+% Überschriften anpassen
+%\usepackage{titlesec}
+%\titleformat{\subsection}{\bfseries\large\sffamily\itshape}{}{0em}{\thesubsection~}
+
+% Folgende Dinge tut man in TeX NICHT, da das Ganze gegen die Grundregeln des
+% Textsatzes verstößt. Wer meint, es trotzdem verwenden zu müssen, um ein "Word"-ähnlicheres 
+% Satzbild zu bekommen, sollte mit dem Verantwortlichen über Sinn oder Unsinn dieses 
+% Vorhabens diskutieren und diese "Hacks" möglichst unterlassen.
+
+% Zeilenabstand ändern (Standard bei TeX ist 1,2)
+%\usepackage{setspace}
+%\onehalfspacing % Ergibt 1,5 Zeilenabstand
+%\doublespacing % Ergibt 2,0 Zeilenabstand
+
+% Seitenränder ändern
+%\usepackage{anysize}
+%\marginsize{2.5cm}{2cm}{2.5cm}{2.5cm}
+
+

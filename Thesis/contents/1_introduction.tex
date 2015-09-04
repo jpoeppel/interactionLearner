@@ -1,0 +1,38 @@
+\chapter{Introduction}
+
+Robotic research is both fueled by the desire to better understand the human cognition as well as the desire to 
+create tools that improve our everyday life. Starting from industry machines that have become more and more capable
+in their abilities to perform their designated tasks autonomously, robots and virtual agents are becoming 
+more popular in our everyday life. Lawn mower or vacuum cleaning robots are just two inventions that have become increasingly popular in recent years \cite{LawnMowerIncrease}. In addition to such specialized machines, researches are trying to develop general purpose robots that are capable of performing a multitude of tasks, including object manipulation and interaction with other agents. Although a complete system meeting such standards has not been developed yet, the researches around the world are making progress in distinct subproblems such as object recognition \cite{HondaObject} or trajectory learning \cite{pancake}.
+
+%\section{Problem formulation}
+
+Currently, robots are mostly trained to perform one specific set of tasks offline with previously recorded data \cite{TODO}. %TODO Find citetion!
+In most cases the performance improves with the amount of data available for training. However, there are two major problems with the current approach. Firstly, especially in robotics, gathering data is usually very expensive. A lot research is being performed to try to reduce the required amount of data (e.g \cite{lessData}). Secondly, such an approach limits the system to the abilities that it learned from the presented training data. Although modern learning approaches can show good generalization performances \cite{generalisationPerformance}, there is currently no learning approach that can for example learn to open a bottle from training data that was recorded moving blocks. Acquiring training data for all possible tasks the robot is supposed to perform during its lifetime is infeasible at best. For that reason, online learning has become very important in recent robotics research \cite{list_of_online_learnes}. When performing online learning, especially when it is performed life-long, i.e. during the entire lifetime of the robot, additional challenges arise, such as meeting performance criteria and the stability-plasticity-dilemma \cite{stabilityPlasitcity}. Modern robot architecture consist of a multitude of separate components. Online learning can be used in different parts of a complete architecture, potentially even improving the performance of other components since they can adapt to changes dynamically \cite{Example_for_learning_components}.
+
+Object manipulation is a very important task for many robots since it allows 
+them to interact with their environment. Human children are capable of learning 
+simple object manipulation at a very young age with only a relatively limited 
+amount of training. %TODO source!
+Furthermore, humans are able to generalize what they have learned to quickly 
+acquire the knowledge about how to manipulate never before seen objects. 
+Understanding how the human brain achieves these learning performances as well 
+as enabling this tasks to robots has become the goal for many researchers 
+\cite{list_of_object_manipulation}. %TODO more here!
+
+This thesis presents an online learning model to learn simple object interaction through self-driven exploration.
+
+%TODO
+TODO: Mention
+\begin{itemize}
+\item reasons/motivation for Memory-based approach (one-shot learning), check 
+with concept section about memory based models
+\item Tasks: Prediction/Forward model and planning/inverse model
+
+\end{itemize}
+
+%The inverse model is supposed to return (parts of) the input when given a 
+%desired output. In this case, a certain target configuration of an interaction 
+%is given, and the model should return an action that reduces the distance to 
+%this target. 
+

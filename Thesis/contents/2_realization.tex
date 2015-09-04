@@ -1,0 +1,132 @@
+\chapter{Model realization\label{chap:modelReal}}
+
+This chapter explains how the different concepts were implemented. Starting 
+with some commonalities that are shared by the different model implementations in section 
+\ref{sec:commons}, the pairwise interaction model is described in 
+\ref{sec:pairRealization} and... %TODO
+
+
+\section{Commonalities\label{sec:commons}}
+TODO: REWRITE to fit into this chapter!!! %TODO
+The concepts presented here share some common aspects. Firstly, these models 
+work on single timestep
+intervals or episodes which is further explained in section \ref{sec:ste}. 
+Furthermore, the actuator
+is treated just as any other object which is detailed in section \ref{sec:aao}.
+
+\subsection{Single timestep prediction\label{sec:ste}}
+
+The developed models all share the same idea of working with single timesteps. That means that 
+instead of predicting the final result of an interaction, the models make small predictions at each 
+timestep. The reason for this decision is mainly due to the fact, that different interactions take 
+varying amounts of time. While it is possible to train prediction models, that can reproduce 
+trajectories with varying speeds, such as a Hidden Markov Model \cite{hmm}, it is very hard to 
+define the endpoint of an interaction automatically. Since these models are supposed to learn 
+incrementally by self exploration or at least in an online manner without being provided labeled 
+data from the outside, the models would need to derive the start and endpoints of an interaction 
+themselves.
+
+By using single timestep predictions, the models do not need such a segmentation. This approach 
+does however assume that the interactions are first order Markov processes, i.e. the next state 
+only depends on the current state. This assumption is justified, as long as the state contains 
+dynamic features.
+
+
+%\subsection{Training data format}
+%%TODO change name and rewrite
+%(TODO is a own subsection justified?)
+%
+%\begin{itemize}
+%\item Explain world
+%\end{itemize}
+%
+%(TODO remove CBR here, since CBR is not really used anymore, is it?)
+%Episodes consist of an initial state, an optional action that was performed during this episode 
+%and the resulting state. The idea is similar to the concept of case-based-reasoning (CBR) 
+%\cite{CBR} (see section \ref{sec:CBR} for more details).
+
+%TODO
+(TODO Nice text but does not make sense here-> move elsewhere but where?)
+By storing enough of such cases, prediction as well as one step planning can be 
+reduced to a nearest neighbor search. The problems with this approach for the 
+given setting of incremental learning of interaction prediction are the 
+following: Firstly, the given feature space poses some problems. Nearest 
+neighbor search heavily relies on the used metric and finding an appropriate 
+distance measure for the given features or constructing a representation 
+suitable for a given metric is a research challenge in itself. Secondly, even 
+more problematic is the amount of episodes that are required to cover most of 
+the interaction space sufficiently well. Since all the stored episodes need to 
+be compared when searching for the most suitable one, performance deteriorates 
+over time when more and more episodes are recorded in order to cover the entire 
+space. In order for the system to be able to operate in real time, improvements 
+need to be made.
+
+\subsection{Actuator as object\label{sec:aao}}
+
+For all the concepts presented here, the actuator that the model can control 
+via actions, is regarded just like any other object in the scene. The reasons 
+for this is that these concepts do not have a specific control model for the 
+actuator, i.e. they initially do not know the effects of the actions they can 
+do. In this sense, the concepts try to estimate a forward model of their own 
+actions and try to learn about interaction between objects at the same time. 
+%TODO give 
+%reasons why you make it so hard on yourself ;-)
+
+
+\section{Pairwise interactions\label{sec:pairRealization}}
+
+As mentioned in section \ref{sec:pairInteractions} the pairwise interaction model considers the 
+interactions between object pairs directly and derives the actual object properties from these 
+interactions. That means that the objects attributes that are published by the simulation, are 
+first transformed into interaction states, which are further explained in section 
+\ref{sec:pairStates}. 
+
+Each timestep the model is provided with the current new interaction states 
+for all object pairs. Furthermore, the model knows about the last state, the last action and it's 
+last prediction in case it has performed one. This information is used to update the model, which 
+is further explained in section \ref{sec:pairUpdate}. 
+
+In order to predict the next state, the current interaction state as well as the current action are used to first select the most appropriate abstract collection (see section \ref{sec:acSel} for details about how the selection is performed). This basically already determines what attributes will change by performing the selected action. Afterwards, the selected collection uses the same input to predict how much the attributes actually change by querying the trained predictor.
+
+\subsection{States and Features\label{sec:pairStates}}
+
+%TODO make properly
+Short version:
+sid, oid, spos, sori, slinVel, sangVel, dist, oid, dpos, dori, dlinVel, dangVel
+Attributes relative to the block object were used. By doing this, the model 
+was 
+invariant to different rotations in the world.
+
+\subsection{Model update\label{sec:pairUpdate}}
+%TODO use same formalism as in the concept
+Updating the model for predictions means to update the predictors for the abstract collections. In 
+order to do so, the difference set from the last and current state is computed and the 
+corresponding abstract collection (AC) is selected, if it already exists. If a new combination of 
+changed attributes is discovered, a new AC object is created and added to the model's list of ACs. 
+The last state, the last action and the resulting current state are then passed to the responsible AC
+as reference where it can be used to improve the predictor. The model itself uses the last state and the last action in order to improve the AC selection.
+
+The abstract collections can use any suitable regression model for their predictors, in this case Instantaneous Topological Maps with additional output (ITM see section \ref{sec:ITM} for details) were used. The last state and the last action are used as input while the differences to the resulting interaction state were used as outputs. One can train a single ITM for all outputs together, however, in order to reduce the dimensionality an individual ITM was trained for each changing output feature. So if an AC is responsible for changes in spos and dist, the AC trains two ITMs on the received training data.
+
+For the AC selection a decision tree is used as already mentioned when describing the concept. This decision tree is trained with the last interaction state and last action as input and the id of the AC that was actually responsible for the occurring change. So far this training is a batch training, using the input vectors of all previously seen references that are stored in each AC, since the training is quick enough. This should however be changed to an incremental update to that the references do not need to be stored indefinitely.
+
+\subsection{Abstract collection selection\label{sec:acSel}}
+
+The naive approach of selection the most probable responsible AC is to compare the current interaction state and the current action to all the references of all ACs. The most probable AC is then the one that contained to most similar reference. This however negates the purpose of abstract collections since it requires to test against all previously seen examples and by doing so one could simple use the result of the reference instead of the prediction of the abstract case. Although this approach is unfeasible due to the computational costs, it can be used when the classifier has not been trained sufficiently well. Furthermore, it can be used as baseline to evaluate the classifier.
+   
+The normal way however, is to use a trained classifier, in this thesis a decision tree. Using the current interaction state and the current action as input, this classifier returns the id of the abstract collection that should be responsible for the resulting change.
+
+
+
+\section{Object state\label{sec:objectRealization}}
+TODO
+
+\subsection{States and Features\label{sec:objectStates}}
+%TODO make properly
+Short version:
+The object states are represented by following features:
+id, posX, posY, ori, linVelX, linVelY, angVel
+For the global predictions, features that represent the interactions are 
+needed. Here pairwise interactions are used:
+sid, oid, dist, closing, relPosX, relPosY, relVelX, relVelY
+(Still subject to a lot of change)

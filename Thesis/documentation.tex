@@ -1,0 +1,44 @@
+% XeTeX-Header zur Definition des Dokuments
+\input{contents/0_header}
+
+\begin{document}
+  % Römische Nummerierung für Einleitung mit Index usw.
+  \pagenumbering{roman}
+
+  \input{contents/0_A_titlepage}
+  \input{contents/0_B_abstract} % Abstract
+  %\input{contents/0_C_citation} % Widmung/Zitat
+  
+  \tableofcontents  % Inhaltsverzeichnis
+  %\listoffigures    % Bildverzeichnis
+  %\listoftables     % Tabellenverzeichnis
+
+  \cleardoublepage  % Seitennummerierung neustarten
+
+  % Arabische Nummerierung für den Hauptteil
+  \pagenumbering{arabic}
+  
+  % Einzelne Kapitel werden hier eingefügt
+  \input{contents/1_introduction}
+  \input{contents/1_stateOfTheArt}
+  \input{contents/2_concept}
+  \input{contents/2_realization}
+  \input{contents/2_environment}
+  \input{contents/2_evaluation}
+  \input{contents/3_conclusion}
+  %\input{contents/2_kapitel}
+  %\input{contents/2_motivation}
+  %\input{contents/3_fazit}
+
+  % Anhang
+  \appendix
+  %\input{contents/A_abkuerzungen}
+  %\input{contents/B_glossar}
+  \input{contents/C_erklaerung}
+
+  \bibliographystyle{alphadin}
+  \bibliography{contents/D_references}
+
+  %\input{contents/E_resources}
+
+\end{document}

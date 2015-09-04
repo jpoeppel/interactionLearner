@@ -13,6 +13,7 @@ TODOS:
 """
 
 import numpy as np
+from numpy.linalg import norm as npnorm
 from metrics import similarities
 from metrics import differences
 #from metrics import weights
@@ -42,19 +43,19 @@ from config import SINGLE_INTSTATE
 #    from state3 import State, ObjectState, Action, InteractionState, WorldState
 #else:
 #    from state2 import State, ObjectState, Action, InteractionState, WorldState
+#MAXSTATESCORE = 12-5 #state2/3
+#PREDICTIONTHRESHOLD = MAXSTATESCORE - 0.001 #state2/3
 
 from state4 import State, Action, ObjectState, InteractionState, WorldState
+MAXSTATESCORE = 1 #state 4
+PREDICTIONTHRESHOLD = MAXSTATESCORE - 0.01 #state4
+
+
 
 FEATURE_SELECTION_THRESHOLD =5
 
 THRESHOLD = 0.01
 BLOCK_BIAS = 0.4
-
-MAXCASESCORE = 14-6
-MAXSTATESCORE = 12-6
-#PREDICTIONTHRESHOLD = 0.5
-PREDICTIONTHRESHOLD = MAXSTATESCORE - 0.001
-TARGETTHRESHOLD = MAXCASESCORE - 0.05
 
 NUM_SAMPLES = 10
 
@@ -73,10 +74,10 @@ MAX_DEPTH = 5
 class BaseCase(object):
     
     def __init__(self, pre, action, post):
-        assert isinstance(pre, State), "{} is not a State object.".format(pre)
-        assert isinstance(post, State), "{} is not a State object.".format(post)
-        assert isinstance(action, Action), "{} is not an Action object.".format(action)
-        assert (pre.relKeys==post.relKeys), "Pre and post states have different keys: {}, {}.".format(pre.keys(), post.keys())
+#        assert isinstance(pre, State), "{} is not a State object.".format(pre)
+#        assert isinstance(post, State), "{} is not a State object.".format(post)
+#        assert isinstance(action, Action), "{} is not an Action object.".format(action)
+#        assert (pre.relKeys==post.relKeys), "Pre and post states have different keys: {}, {}.".format(pre.keys(), post.keys())
         self.preState = pre
         self.postState = post
         self.action = action
@@ -93,8 +94,8 @@ class BaseCase(object):
         """
         r = Set()
         for k in self.dif.keys():
-#            print "getSetOfAttribgs: k: {}, normdif: {}".format(k, np.linalg.norm(self.dif[k]))
-            if np.linalg.norm(self.dif[k]) > 0.001:
+#            print "getSetOfAttribgs: k: {}, normdif: {}".format(k, npnorm(self.dif[k]))
+            if npnorm(self.dif[k]) > 0.001:
                 r.add(k)
         return r
         
@@ -103,7 +104,7 @@ class BaseCase(object):
         #TODO make more efficient by storing these values
         r = []
         for k in self.dif.keys():
-            if np.linalg.norm(self.dif[k]) <= 0.001:
+            if npnorm(self.dif[k]) <= 0.001:
                 r.append((k,self.preState[k]))
         return r
     
@@ -195,7 +196,7 @@ class AbstractCase(object):
             inputs += partialInputs
             
                 
-#            difChange += np.linalg.norm(dif[k] - expectedDif) - np.linalg.norm(dif[k])
+#            difChange += npnorm(dif[k] - expectedDif) - npnorm(dif[k])
 #        print "Dif change: ", difChange
 #        if difChange > -0.01:
 #            print "Best Action: {} is too bad {}".format(action/norm, difChange)
@@ -238,7 +239,7 @@ class AbstractCase(object):
     def checkPreCons(self, preCons, state):
         for k,v in state.relevantItems():
             if k in self.constants:
-                if np.linalg.norm(v-self.constants[k]) > 0.05:
+                if npnorm(v-self.constants[k]) > 0.05:
                     print "Failed at constant: {}".format(k)
                     return False
             else:
@@ -258,7 +259,7 @@ class AbstractCase(object):
 #        for k,v in self.constants.items():
 #            for k2,v2 in state.relevantItems() + action.relevantItems():
 #                if k == k2:
-#                    if np.linalg.norm(v-v2) > 0.01:
+#                    if npnorm(v-v2) > 0.01:
 ##                        if state["sid"] == 15:
 #                        print "AC: {} failed because of k: {}, constant: {}, actual: {}, with {} numRefs".format(self.variables, k, v, v2, len(self.refCases))
 #                        return 0
@@ -270,7 +271,7 @@ class AbstractCase(object):
                     ori = np.zeros(len(v))
                 else:
                     ori = 0
-                distToOri = np.linalg.norm(v-ori)
+                distToOri = npnorm(v-ori)
                 if distToOri < self.minima[k]:
                     s += 0
                 elif distToOri > self.maxima[k]:
@@ -287,7 +288,7 @@ class AbstractCase(object):
                             bestScore = score
                     s += bestScore
             else:
-                if np.linalg.norm(v-self.constants[k]) > 0.01:
+                if npnorm(v-self.constants[k]) > 0.01:
 #                    print "AC: {} failed because of k: {}, constant: {}, actual: {}, with {} numRefs".format(self.variables, k, self.constants[k], v, len(self.refCases))
                     return 0
                 # Reward ACs with many constants that were met!
@@ -306,30 +307,31 @@ class AbstractCase(object):
         retraining = False
 #        if ref in self.refCases:
 #            raise TypeError("ref already in refCases")
-        for k,v in ref.preState.relevantItems():# + ref.action.relevantItems():
-            if self.constants.has_key(k):
-                if np.linalg.norm(v-self.constants[k]) > 0.001:
-                    print "deleting constant {} in ac {}".format(k, self.variables)
-                    del self.constants[k]
-                    for f in self.variables:
-                        self.unusedFeatures[f] = self.constants.keys()
-                    retraining = True
-            else:
-                if len(self.refCases) == 0:
-                    self.constants[k] = v
-                    for f in self.variables:
-                        self.unusedFeatures[f] = self.constants.keys()
-                    retraining = True
-                    
-            if hasattr(v, "__len__"):
-                ori = np.zeros(len(v))
-            else:
-                ori = 0
-            distToOri = np.linalg.norm(v-ori)
-            if not self.minima.has_key(k) or distToOri < self.minima[k]:
-                self.minima[k] = distToOri
-            if not self.maxima.has_key(k) or distToOri > self.maxima[k]:
-                self.maxima[k] = distToOri
+        if USE_CONSTANTS:
+            for k,v in ref.preState.relevantItems():# + ref.action.relevantItems():
+                if self.constants.has_key(k):
+                    if npnorm(v-self.constants[k]) > 0.001:
+    #                    print "deleting constant {} in ac {}".format(k, self.variables)
+                        del self.constants[k]
+                        for f in self.variables:
+                            self.unusedFeatures[f] = self.constants.keys()
+                        retraining = True
+                else:
+                    if len(self.refCases) == 0:
+                        self.constants[k] = v
+                        for f in self.variables:
+                            self.unusedFeatures[f] = self.constants.keys()
+                        retraining = True
+                        
+                if hasattr(v, "__len__"):
+                    ori = np.zeros(len(v))
+                else:
+                    ori = 0
+                distToOri = npnorm(v-ori)
+                if not self.minima.has_key(k) or distToOri < self.minima[k]:
+                    self.minima[k] = distToOri
+                if not self.maxima.has_key(k) or distToOri > self.maxima[k]:
+                    self.maxima[k] = distToOri
                 
          
         self.refCases.append(ref)
@@ -401,7 +403,7 @@ class AbstractCase(object):
         error = 0.0
         for c in testSet:
             prediction = predictor.predict(np.concatenate((c.preState.toVec(unusedFeatures),c.action.toVec(unusedFeatures))))
-            error += np.linalg.norm(c.dif[attrib]-prediction)
+            error += npnorm(c.dif[attrib]-prediction)
         return error
 
         
@@ -627,7 +629,7 @@ class ModelCBR(object):
 #                print "expected Difs: ", expectedDifs                      
                 remainingError = 0.0
                 for k,v in expectedDifs.items():
-                    remainingError += np.linalg.norm(difs[k]-v)
+                    remainingError += npnorm(difs[k]-v)
 #                print "improvement: ", improvement
                 if remainingError < bestAction["im"]:
                     bestAction["ac"] = ac
@@ -687,12 +689,12 @@ class ModelCBR(object):
     def computeNewTransMatrix(self, relTarget, globTarget, translation):
         
         relPos = relTarget["pos"]
-        if np.linalg.norm(relPos) > 1.0:
-            relPos /= np.linalg.norm(relPos)
+        if npnorm(relPos) > 1.0:
+            relPos /= npnorm(relPos)
         globPos = (globTarget["pos"]-translation.A1)
-        if np.linalg.norm(globPos):
-            globPos /= np.linalg.norm(globPos)
-        s = np.linalg.norm(np.cross(relPos, globPos))
+        if npnorm(globPos):
+            globPos /= npnorm(globPos)
+        s = npnorm(np.cross(relPos, globPos))
         
         c = np.dot(relPos, globPos)
         if s != 0:
@@ -799,7 +801,7 @@ class ModelCBR(object):
             print "relTargetOS: ", relTargetOs
 #            curDif = 0.0
 #            for k in self.target.relKeys:
-#                curDif += self.target.weights[k]*np.linalg.norm(curOsGlobal[k]-self.target[k])
+#                curDif += self.target.weights[k]*npnorm(curOsGlobal[k]-self.target[k])
             curDif = self.target.score(curOsGlobal)    
             print "ScoreToBeat: ", curDif
             bestAction = self.findBestAction(copy.deepcopy(worldState), self.target, curDif, 0)
@@ -818,7 +820,7 @@ class ModelCBR(object):
 #                    osPrediction.transform(state.transM, state.ori)   
 #                    s = 0.0
 #                    for k in self.target.relKeys:
-#                        s += np.linalg.norm(osPrediction[k]-self.target[k])
+#                        s += npnorm(osPrediction[k]-self.target[k])
 #                    if s < worstDif:
 #                        bestAction = a
 #                        worstDif = s
@@ -881,7 +883,7 @@ class ModelCBR(object):
             s = target.score(osPrediction)
 #            s = 0.0
 #            for k in target.relKeys:
-#                s += target.weights[k]* np.linalg.norm(osPrediction[k]-target[k])
+#                s += target.weights[k]* npnorm(osPrediction[k]-target[k])
             if s > bestScore:
                 bestAction = a
                 bestScore = s
@@ -966,9 +968,9 @@ class ModelCBR(object):
 #            a["cmd"] = GZCMD["NOTHING"]
             a["cmd"] = GZCMD["MOVE"]
         a["mvDir"][2] = 0
-        norm = np.linalg.norm(a["mvDir"])
+        norm = npnorm(a["mvDir"])
         if norm > 0.25:
-            a["mvDir"] /= 2*np.linalg.norm(a["mvDir"])
+            a["mvDir"] /= 2*npnorm(a["mvDir"])
         return a
     
     def setTarget(self, postState = None):
@@ -979,61 +981,55 @@ class ModelCBR(object):
 #        print "getBestCase with state: {} \n action: {}".format(state, action)
         bestCase = None
 
-        if self.lvq != None:
-            x = np.concatenate((state.toSelVec(),action.toSelVec()))
-            caseId = self.lvq.classify(x)
-            if caseId != None:
-                bestCase = self.abstractCases[caseId]
-        
-#        if self.aCClassifier != None:
-#            x = [np.concatenate((state.toSelVec(),action.toSelVec()))]
-##            print "X before scaling: ", x
+#        if self.lvq != None:
+#            x = np.concatenate((state.toSelVec(),action.toSelVec()))
+#            caseId = self.lvq.classify(x)
+#            if caseId != None:
+#                bestCase = self.abstractCases[caseId]
+#        
+        if self.aCClassifier != None:
+            x = [np.concatenate((state.toSelVec(),action.toSelVec()))]
+#            print "X before scaling: ", x
 #            if self.scaler != None:
 #                x = self.scaler.transform(x)
-##            print "X after scaling: ", x
-#            caseID = int(self.aCClassifier.predict(x)[0])
-##            print "CLASS PROBABILITIES: ", self.aCClassifier.predict_proba(x)
-##            print "CaseID: ", caseID
-##            print "Case prob: ", self.aCClassifier.predict_proba(x)
-#            bestCase = self.abstractCases[caseID]
+#            print "X after scaling: ", x
+            caseID = int(self.aCClassifier.predict(x)[0])
+#            print "CLASS PROBABILITIES: ", self.aCClassifier.predict_proba(x)
+#            print "CaseID: ", caseID
+#            print "Case prob: ", self.aCClassifier.predict_proba(x)
+            bestCase = self.abstractCases[caseID]
         else:
-#            scoreList = [(c,c.score(state,action)) for c in self.abstractCases]
             scoreList = [(c.abstCase,c.score(state,action)) for c in self.cases]
-            
-    #        sortedList = sorted(self.abstractCases, key=methodcaller('score', state, action), reverse= True)
             sortedList = sorted(scoreList, key=itemgetter(1), reverse=True) 
-    #        self.lastScorelist = [(s, sorted(c.variables), len(c.refCases)) for c,s in sortedList]
-    #        if state["sid"] == 15:
-#            print "ScoreList: ", [(s, sorted(c.variables), len(c.refCases)) for c,s in sortedList]
             if len(sortedList) > 0:
-    #            if sortedList[0][1] == 0 and self.lastAC != None:
-    #                bestCase = self.lastAC
-    #            else:
                 bestCase = sortedList[0][0]
                 
+        return bestCase
         
-        if isinstance(bestCase, AbstractCase):
-            print "selected AC: ", bestCase.variables
-            if bestCase.variables == []:
-                self.numZeroCase += 1
-
-            return bestCase
-        else:
-            return None
+#        if isinstance(bestCase, AbstractCase):
+##            print "selected AC: ", bestCase.variables
+#            if bestCase.variables == []:
+#                self.numZeroCase += 1
+#
+#            return bestCase
+#        else:
+#            return None
     
     def predictIntState(self, state, action):
 #        print "predict: ", state["sname"]
         bestCase = self.getBestCase(state, action)
-        if bestCase != None:
+        try:
             self.lastAC = bestCase
-            return bestCase.predict(state, action), bestCase
-        else:
+            return bestCase.predict(state,action), bestCase
+        except AttributeError:
             return state, bestCase
+#        if bestCase != None:
+#            self.lastAC = bestCase
+#            return bestCase.predict(state, action), bestCase
+#        else:
+#            return state, bestCase
     
     def predict(self, worldState, action):
-        """
-        TODO: Should return a valid ws with object in GLOBAL coordinate system!!
-        """
         predictionWs = WorldState()
         predictionWs.transM = np.copy(worldState.transM)
         predictionWs.invTrans = np.copy(worldState.invTrans)
@@ -1076,7 +1072,7 @@ class ModelCBR(object):
 #        predictionRating = result.rate(prediction)#, self.weights)
 #        predictionScore = sum(predictionRating.values())
         predictionScore = result.score(prediction)
-        print "Correct attribSet for state: {} : {}".format(result["sname"], sorted(attribSet))
+#        print "Correct attribSet for state: {} : {}".format(result["sname"], sorted(attribSet))
         print "predictionScore: ", predictionScore
         abstractCase = None
         retrain = False
@@ -1098,7 +1094,7 @@ class ModelCBR(object):
 #            print "Prediction Score of correctCase prediction: {}, worst attrib: {} ({})".format(sum(correctRating.values()), worstRating[0], worstRating[1]) 
         if usedCase != None:
             if usedCase.variables == attribSet:
-                print "correct case selected!!!!!!!!!!!!!!!!!"
+#                print "correct case selected!!!!!!!!!!!!!!!!!"
                 usedCase.updatePredictionScore(predictionScore)
                 self.numCorrectCase += 1
             else:
@@ -1146,11 +1142,11 @@ class ModelCBR(object):
     def retrainACClassifier(self):
         print "Retraining!"
         if len(self.abstractCases) > 1:
-            nFeature = np.size(np.concatenate((self.cases[0].preState.getVec(),self.cases[0].action.getVec())))
+            nFeature = np.size(np.concatenate((self.cases[0].preState.toSelVec(),self.cases[0].action.toSelVec())))
             X = np.zeros((len(self.cases),nFeature))
             Y = np.zeros(len(self.cases))
             for i in range(len(self.cases)):
-                X[i,:] = np.concatenate((self.cases[i].preState.getVec(),self.cases[i].action.getVec()))
+                X[i,:] = np.concatenate((self.cases[i].preState.toSelVec(),self.cases[i].action.toSelVec()))
                 Y[i] = self.cases[i].abstCase.id
 #            self.scaler = preprocessing.StandardScaler(with_mean = False, with_std=True).fit(X)
 #            self.scaler = preprocessing.MinMaxScaler().fit(X)

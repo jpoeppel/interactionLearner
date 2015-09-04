@@ -46,6 +46,9 @@ class State(dict):
             r.append((k,self[k]))
         return r
         
+    def toSelVec(self):
+        return self.getVec(self.selMask)
+        
         
         
     def __eq__(self, other):
@@ -70,6 +73,7 @@ class Action(State):
         self["mvDir"][:3] = direction
         self.relKeys = self.keys()
         self.mask = np.array(range(len(self.vec)))
+        self.selMask = self.mask
         
     def transform(self, matrix):
         tmpMVDir = np.zeros(4)
@@ -142,10 +146,10 @@ class ObjectState(State):
         ang = self["ori"]
         c = math.cos(ang)
         s = math.sin(ang)
-        p1xn = p1x*c -p1y*s
-        p1yn = p1x*s + p1y*c
-        p2xn = p2x*c - p2y*s
-        p2yn = p2x*s + p2y*c
+        p1xn = p1x*c -p1y*s + self["posX"][0]
+        p1yn = p1x*s + p1y*c + self["posY"][0]
+        p2xn = p2x*c - p2y*s + self["posX"][0]
+        p2yn = p2x*s + p2y*c + self["posY"][0]
         return np.array([np.copy(self["pos"][:]), np.array([p1xn,p1yn,self["posZ"]]), np.array([p2xn,p2yn,self["posZ"]])])
         
     def compare(self, other):
@@ -200,6 +204,7 @@ class InteractionState(State):
                                           "opos", "oori", "olinVel", "oangVel"])
             self.relKeys = list(self.features)
             self.mask = np.array(range(len(self.vec)))
+            self.selMask = self.mask
         else:
             self.vec = np.zeros(16)
             self.update({"name": "", "sname":"", "oname": "", "sid": self.vec[0:1], "oid":self.vec[1:2],
@@ -213,6 +218,7 @@ class InteractionState(State):
                                       "relVlX", "relVlY", "relVlZ", 
                                       "closingDivDist", "closing1", "closing2", "closing1DivDist", "closing2DivDist"])
             self.mask = np.array(range(len(self.vec)))
+            self.selMask = self.mask
 #        if CLOSING_REFERAL:
 #            self.mask=[0,1,2,5,6,8,9,12,13]
 #        else:            
@@ -503,10 +509,10 @@ class WorldState(object):
             o1,o2 = ObjectState.fromInteractionState(intState)
             if DIFFERENCES:
                 #Transform back to global coordinate system
-                o1.transform(self.transM, self.ori)
-                o2.transform(self.transM, self.ori)
+                o1 = o1.transform(self.transM, self.ori)
+                o2 = o2.transform(self.transM, self.ori)
             self.objectStates[o1["name"]] = o1
-            if not SINGLE_INTSTATE:
+            if SINGLE_INTSTATE:
                 self.objectStates[o2["name"]] = o2
         
     def addInteractionState(self, intState, usedCase = None):

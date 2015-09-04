@@ -8,23 +8,24 @@ Created on Thu Mar 26 13:38:02 2015
 
 import math
 import numpy as np
+from numpy.linalg import norm as npnorm
 
 def cosS(a, b):
     try:
-        if np.linalg.norm(a) == 0:
-            if np.linalg.norm(b) == 0:
+        if npnorm(a) == 0:
+            if npnorm(b) == 0:
                 return 1
             else:
                 return 0
         else:
-            return abs(a.dot(b)/(np.linalg.norm(a)*np.linalg.norm(b)))
+            return abs(a.dot(b)/(npnorm(a)*npnorm(b)))
     except Exception, e:
         print e
         print "a: " + str(a)
         print "b: " + str(b)
     
 def expS(a,b):
-    return math.exp(-0.5*(np.linalg.norm(a-b)))
+    return math.exp(-0.5*(npnorm(a-b)))
     
 def equalS(a,b):
     if a == b:

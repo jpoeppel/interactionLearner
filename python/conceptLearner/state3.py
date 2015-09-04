@@ -24,17 +24,17 @@ class WorldState(state2.WorldState):
     
 
     def parseInteractions(self):
-        tmpList = self.objectStates.values()
+#        tmpList = self.objectStates.values()
         gripperO = None
-        for o in tmpList:
+        for o in self.objectStates.values():
             #Transform to local block coordinate system
-            o.transform(self.invTrans, -self.ori)
+#            o.transform(self.invTrans, -self.ori)
             if o["name"] == "gripper":
-                gripperO = o
+                gripperO = o.transform(self.invTrans, -self.ori)
         for o1 in self.objectStates.values():
             intState = InteractionState(self.numIntStates, gripperO)
             if not np.array_equal(o1,gripperO):   
-                intState.fill(o1)
+                intState.fill(o1.transform(self.invTrans, -self.ori))
                 self.addInteractionState(intState)
 #        
 #        print "InteractionStates: ", self.interactionStates.values()

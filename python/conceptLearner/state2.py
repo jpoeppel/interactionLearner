@@ -12,6 +12,8 @@ from common import GAZEBOCMDS as GZCMD
 from metrics import similarities
 from metrics import differences
 import numpy as np
+from numpy import dot as npdot
+from numpy.linalg import norm as npnorm
 import math
 import copy
 from operator import methodcaller, itemgetter
@@ -44,7 +46,7 @@ class State(dict):
 #            else:
 #                w = 1.0/MAXCASESCORE
 #            s -= self.weights[k]*differences[k](self[k], otherState[k]) 
-            s += self.weights[k]* similarities[k](self[k], otherState[k]) 
+            s += similarities[k](self[k], otherState[k]) #self.weights[k]* 
 #            s[k] = self.weights[k]* similarities[k](self[k], otherState[k])
             
         return s
@@ -52,7 +54,7 @@ class State(dict):
     def dist(self, other):
         s = 0.0
         for k in self.relKeys:
-            s += np.linalg.norm(self[k]-other[k])**2 #+ np.log(np.linalg.norm(self[k]-other[k])+0.001)
+            s += npnorm(self[k]-other[k])**2 #+ np.log(npnorm(self[k]-other[k])+0.001)
             
         return s
         
@@ -63,7 +65,7 @@ class State(dict):
                 norm = len(v)
             else:
                 norm = 1.0
-            a += math.exp(-1.0/float(norm) * np.linalg.norm(v-otherState[k])**2)#*1.0/variances[k]
+            a += math.exp(-1.0/float(norm) * npnorm(v-otherState[k])**2)#*1.0/variances[k]
         return a
         
     def rate(self, otherState):
@@ -118,7 +120,7 @@ class State(dict):
         maxAttrib = None
         maxDif = 0.0
         for k in self.relKeys:
-            d = np.linalg.norm(self[k] - curState[k])
+            d = npnorm(self[k] - curState[k])
             if d < minDif:
                 minAttrib = k
                 minDif = d
@@ -160,7 +162,7 @@ class State(dict):
             return False
             
         for k, v in self.relevantItems():
-            if np.linalg.norm(v-other[k]) > 0.001:
+            if npnorm(v-other[k]) > 0.001:
                 return False
         
         return True
@@ -196,22 +198,29 @@ class ObjectState(State):
         self.relSelKeys = self.keys()
         self.actionItems = ["linVel", "angVel"]
                           
+    
     def transform(self, matrix, ori):
-        tmpPos = np.matrix(np.concatenate((self["pos"],[1])))
+        res = copy.deepcopy(self)
+        tmpPos = np.ones(4)
+        tmpPos[:3] = np.copy(self["pos"])
+        
 #        print "tmpPos: {}, matrix: {}".format(tmpPos, matrix)
-        self["pos"] = np.round(np.array((matrix*tmpPos.T)[:3]).flatten(), NUMDEC)
+        res["pos"] = np.round(np.array((npdot(matrix,tmpPos))[:3]), NUMDEC)
 #        print "original pos: {}, result pos: {}".format(tmpPos, self["pos"])
         if self["name"] == "gripper":
-            self["ori"] = np.array([0.0,0.0,0.0])
+            res["ori"] = np.array([0.0,0.0,0.0])
         else:
-            self["ori"] += ori
+            res["ori"] += ori
             
 
 #        print "original ori: {}, resulting ori: {}".format(q2, self["orientation"])
-        tmplV = np.matrix(np.concatenate((self["linVel"],[0])))
-        self["linVel"] = np.round(np.array((matrix*tmplV.T)[:3]).flatten(), NUMDEC)
-        tmpaV = np.matrix(np.concatenate((self["angVel"],[0])))
-        self["angVel"] = np.round(np.array((matrix*tmpaV.T)[:3]).flatten(), NUMDEC)
+        tmplV = np.zeros(4)
+        tmplV[:3] = np.copy(self["linVel"])
+        res["linVel"] = np.round(np.array((npdot(matrix,tmplV))[:3]), NUMDEC)
+        tmpaV = np.zeros(4)
+        tmpaV[:3] = np.copy(self["angVel"])
+        res["angVel"] = np.round(np.array((npdot(matrix,tmpaV))[:3]), NUMDEC)
+        return res
         
     def fromInteractionState(self, intState):
         self.update({"id": intState["sid"], "name":intState["sname"], 
@@ -248,17 +257,17 @@ class ObjectState(State):
         ang = self["ori"][2]
         c = math.cos(ang)
         s = math.sin(ang)
-        p1xn = p1x*c -p1y*s
-        p1yn = p1x*s + p1y*c
-        p2xn = p2x*c - p2y*s
-        p2yn = p2x*s + p2y*c
+        p1xn = p1x*c -p1y*s + self["pos"][0]
+        p1yn = p1x*s + p1y*c + self["pos"][1]
+        p2xn = p2x*c - p2y*s + self["pos"][0]
+        p2yn = p2x*s + p2y*c + self["pos"][1]
         return np.array([np.copy(self["pos"][:]), np.array([p1xn,p1yn,self["pos"][2]]), np.array([p2xn,p2yn,self["pos"][2]])])
         
     def compare(self, other):
         assert self["name"] == other["name"], "Should only compare the same objects not {} and {}".format(self["name"], other["name"])
         sKeyPoints = self.getKeyPoints()
         oKeyPoints = other.getKeyPoints()
-        return sum(np.linalg.norm(sKeyPoints-oKeyPoints,axis=1))/3.0
+        return sum(npnorm(sKeyPoints-oKeyPoints,axis=1))/3.0
             
 
 class Action(State):
@@ -452,7 +461,7 @@ class InteractionState(State):
         self["oname"] = givenInt["oname"]
         for k,v in self.relevantItems():
             dif =  v-givenInt[k]
-            if np.linalg.norm(dif) > np.linalg.norm(biggestDif):
+            if npnorm(dif) > npnorm(biggestDif):
                 biggestDifKey = k
                 biggestDif = dif
         if biggestDifKey != None:
@@ -503,7 +512,7 @@ class InteractionState(State):
         if x0x <= x2xn and x0x >= x1xn: 
             d1 = abs((x2n[0]-x1n[0])*(x1n[1]-x0y)-(x1n[0]-x0x)*(x2n[1]-x1n[1]))/math.sqrt((x2n[0]-x1n[0])**2+(x2n[1]-x1n[1])**2) - 0.025
         else:
-            d1 = min(np.linalg.norm(x1n-np.array([x0x,x0y,x0z])), np.linalg.norm(x2n-np.array([x0x,x0y,x0z])))
+            d1 = min(npnorm(x1n-np.array([x0x,x0y,x0z])), npnorm(x2n-np.array([x0x,x0y,x0z])))
         x1x = -0.25
         x1y = 0.05
         x2x = 0.25
@@ -517,7 +526,7 @@ class InteractionState(State):
         if x0x <= x2xn and x0x >= x1xn: 
             d2 = abs((x2n[0]-x1n[0])*(x1n[1]-x0y)-(x1n[0]-x0x)*(x2n[1]-x1n[1]))/math.sqrt((x2n[0]-x1n[0])**2+(x2n[1]-x1n[1])**2) - 0.025
         else:
-            d2 = min(np.linalg.norm(x1n-np.array([x0x,x0y,x0z])), np.linalg.norm(x2n-np.array([x0x,x0y,x0z])))
+            d2 = min(npnorm(x1n-np.array([x0x,x0y,x0z])), npnorm(x2n-np.array([x0x,x0y,x0z])))
         x1x = -0.25
         x1y = 0.05
         x2x = -0.25
@@ -531,7 +540,7 @@ class InteractionState(State):
         if x0y <= x1yn and x0y >= x2yn: 
             d3 = abs((x2n[0]-x1n[0])*(x1n[1]-x0y)-(x1n[0]-x0x)*(x2n[1]-x1n[1]))/math.sqrt((x2n[0]-x1n[0])**2+(x2n[1]-x1n[1])**2) - 0.025
         else:
-            d3 = min(np.linalg.norm(x1n-np.array([x0x,x0y,x0z])), np.linalg.norm(x2n-np.array([x0x,x0y,x0z])))
+            d3 = min(npnorm(x1n-np.array([x0x,x0y,x0z])), npnorm(x2n-np.array([x0x,x0y,x0z])))
         x1x = 0.25
         x1y = 0.05
         x2x = 0.25
@@ -545,7 +554,7 @@ class InteractionState(State):
         if x0y <= x1yn and x0y >= x2yn: 
             d4 = abs((x2n[0]-x1n[0])*(x1n[1]-x0y)-(x1n[0]-x0x)*(x2n[1]-x1n[1]))/math.sqrt((x2n[0]-x1n[0])**2+(x2n[1]-x1n[1])**2) - 0.025
         else:
-            d4 = min(np.linalg.norm(x1n-np.array([x0x,x0y,x0z])), np.linalg.norm(x2n-np.array([x0x,x0y,x0z])))
+            d4 = min(npnorm(x1n-np.array([x0x,x0y,x0z])), npnorm(x2n-np.array([x0x,x0y,x0z])))
         return np.round(np.max([0.0,np.min((d1,d2,d3,d4))]), NUMDEC)
             
 
@@ -594,10 +603,10 @@ class WorldState(object):
 #                print "quaternion: {}, euler: {}".format(np.array([m.pose.orientation.x,m.pose.orientation.y,
 #                                            m.pose.orientation.z,m.pose.orientation.w]), tmp["euler"])
                 tmp["linVel"] = np.round(np.array([m.linVel.x,m.linVel.y,m.linVel.z]), NUMDEC)
-                if np.linalg.norm(tmp["linVel"]) < 0.01:
+                if npnorm(tmp["linVel"]) < 0.01:
                     tmp["linVel"] = np.array([0.0,0.0,0.0])
 #                print "name: {}, linVel: {}".format(m.name, tmp["linVel"])
-                tmp["angVel"] = np.round(np.array([m.angVel.x,m.angVel.y,m.angVel.z]), 1)
+                tmp["angVel"] = np.round(np.array([m.angVel.x,m.angVel.y,m.angVel.z]), NUMDEC)
 #                print "Raw AngVel: ", tmp["angVel"]
                 tmp["name"] = m.name
                 tmp["id"] = m.id
@@ -619,19 +628,19 @@ class WorldState(object):
                     
                 
     def parseInteractions(self):
-        tmpList = self.objectStates.values()
-        for o in tmpList:
-            #Transform to local block coordinate system
-            o.transform(self.invTrans, -self.ori)
+#        tmpList = self.objectStates.values()
+#        for o in tmpList:
+#            #Transform to local block coordinate system
+#            o.transform(self.invTrans, -self.ori)
 #            pass
         for o1 in self.objectStates.values():
 #            print "interactionState for o1: ", o1
-            intState = InteractionState(self.numIntStates, o1)
+            intState = InteractionState(self.numIntStates, o1.transform(self.invTrans, -self.ori))
 #            self.addInteractionState(intState)
             for o2 in tmpList:
                 if not np.array_equal(o1,o2):    
                     
-                    intState.fill(o2)
+                    intState.fill(o2.transform(self.invTrans, -self.ori))
 #                    if intState["sname"] == "blockA":
 #                        print "intState blockA spos: ", intState["spos"]
                     self.addInteractionState(intState)
@@ -664,8 +673,8 @@ class WorldState(object):
                 o2.fromInteractionState2(intState)
                 if DIFFERENCES:
                     #Transform back to global coordinate system
-                    o1.transform(self.transM, self.ori)
-                    o2.transform(self.transM, self.ori)
+                    o1 = o1.transform(self.transM, self.ori)
+                    o2 = o2.transform(self.transM, self.ori)
                 self.objectStates[o1["name"]] = o1
                 self.objectStates[o2["name"]] = o2
             else:
@@ -673,7 +682,7 @@ class WorldState(object):
                 o1.fromInteractionState(intState)
                 if DIFFERENCES:
                     #Transform back to global coordinate system
-                    o1.transform(self.transM, self.ori)
+                    o1 = o1.transform(self.transM, self.ori)
                 self.objectStates[o1["name"]] = o1
 
     def getInteractionState(self, sname):

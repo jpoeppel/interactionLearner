@@ -53,7 +53,7 @@ MODE = PUSHTASKSIMULATION
 #MODE = MOVE_TO_TARGET
 
 RECORD_SIMULATION = True
-SIMULATION_FILENAME = "model6Test1.txt"
+SIMULATION_FILENAME = "model4_State4_100HZ3TrainRunsDT"
 
 RANDOM_BLOCK_ORI = False
 #RANDOM_BLOCK_ORI = True
@@ -109,8 +109,10 @@ class GazeboInterface():
         self.tmpBlockErrorOri = 0.0
         self.direction = np.array([0.0,0.5,0.0])
         self.finalPrediction = None
+        self.startPositions = []
         
-        self.accDif = 0.0
+        self.accDifBlock = 0.0
+        self.accDifActuator = 0.0
         self.numSteps = 0        
         
         np.random.seed(1234)
@@ -412,6 +414,8 @@ class GazeboInterface():
             posX = 0.25
         elif self.trainRun == 2:
             posX = 0
+        self.startPositions.append(posX)
+
             
         self.sendPose("gripper", np.array([posX,0.0,0.03]), 0.0)
         if RANDOM_BLOCK_ORI:
@@ -595,8 +599,9 @@ class GazeboInterface():
 #                        predictedWorldState.reset(self.lastPrediction)
 #                    else:
 #                        predictedWorldState.reset2(self.lastPrediction)
-                    curDif = self.compare(worldState, self.lastPrediction)
-                    self.accDif += curDif
+                    curDifBlock, curDifActuator = self.compare(worldState, self.lastPrediction)
+                    self.accDifBlock += curDifBlock
+                    self.accDifActuator += curDifActuator
                     self.numSteps +=1
                 else:
                     predictedWorldState = worldState
@@ -612,18 +617,25 @@ class GazeboInterface():
             else:
                 self.testRun += 1
                 if RECORD_SIMULATION:
-                    difference = self.compare(worldState, self.finalPrediction)
-                    with open("../../data/" + SIMULATION_FILENAME, "a") as f:
-                        f.write("{}; ".format(difference))
-                        f.write("{}; ".format(self.accDif))
-                        f.write("{}; ".format(self.accDif/self.numSteps))
+                    differenceBlock, differenceActuator = self.compare(worldState, self.finalPrediction)
+                    print "difference at end: ", differenceBlock
+                    print "numsteps: ", self.numSteps
+                    with open("../../data/" + SIMULATION_FILENAME + ".txt", "a") as f:
+                        f.write("{}; ".format(differenceBlock))
+                        f.write("{}; ".format(self.accDifBlock))
+                        f.write("{}; ".format(self.accDifBlock/self.numSteps))
+                        f.write("{}; ".format(differenceActuator))
+                        f.write("{}; ".format(self.accDifActuator))
+                        f.write("{}; ".format(self.accDifActuator/self.numSteps))
                         f.write("\n")
-                    self.accDif = 0.0
+                    self.accDifBlock = 0.0
+                    self.accDifActuator = 0.0
                     self.numSteps = 0
 #                    self.startRun()
         else:
             self.pauseWorld()
-        
+            with open("../../data/"+ SIMULATION_FILENAME + "startPos.txt", "w") as f:
+                f.write("; ".join(["{:.4f}".format(x) for x in self.startPositions]))
 #        if self.worldModel.numPredictions > 0:
 #            print "% correctCase selected: ", self.worldModel.numCorrectCase/(float)(self.worldModel.numPredictions)
 #        print "numPredictions: ", self.worldModel.numPredictions
@@ -632,7 +644,9 @@ class GazeboInterface():
     def compare(self, worldState, prediction):
         blockOSReal = worldState.getObjectState("blockA")
         blockOSPrediction = prediction.getObjectState("blockA")
-        return blockOSReal.compare(blockOSPrediction)
+        gripperOSReal = worldState.getObjectState("gripper")
+        gripperOSPrediction = prediction.getObjectState("gripper")
+        return blockOSReal.compare(blockOSPrediction), gripperOSReal.compare(gripperOSPrediction)
         
         
             

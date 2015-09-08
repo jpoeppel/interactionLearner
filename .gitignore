@@ -7,6 +7,15 @@ __pycache__/
 pip-*
 *~
 
+#latex
+*.aux
+*.bbl
+*.blg
+*.out
+*.synctex.gz
+*.toc
+
+
 # C extensions
 *.so
 

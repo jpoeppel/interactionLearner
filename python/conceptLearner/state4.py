@@ -450,11 +450,6 @@ class WorldState(object):
                             self.transM = np.identity(4)
                             self.invTrans = np.identity(4)     
                             self.ori = 0
-#                if m.name == "blockA":
-#                    print "angVel: ", tmp["angVel"]
-#                    print "angVel.x: {:.4f}, angVel.y: {:.4f}".format(m.angVel.x, m.angVel.y)
-#                    print "ori: ", tmp["ori"]
-#                    print "pos: ", tmp["pos"]
                 self.objectStates[m.name] = tmp
                 
     def parseContacts(self, contacts):

@@ -12,7 +12,7 @@ import math
 from operator import itemgetter
 
 EMAX = 0.001
-ETA = 0.0
+ETA = 0.1
 #For neighbours
 SIGMAE = 0.05
 
@@ -51,7 +51,7 @@ class ITM(Network):
         x.name = name
         nearest, second = self.getWinners(x.vec())
         if nearest != None and second != None:
-#            nearest.adapt(x, ETA)
+            nearest.adapt(x, ETA)
             self.addEdge(nearest.name, second.name)
             for n in nearest.neighbours.values():
                 if n != second and npdot(nearest.vec()-second.vec(), n.vec()-second.vec()) < 0:

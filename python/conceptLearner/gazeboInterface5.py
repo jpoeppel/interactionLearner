@@ -30,7 +30,7 @@ import common
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
 
-import modelActions2 as model
+import modelGate as model
 #import model6 as model
 
 #from sklearn.externals.six import StringIO
@@ -50,7 +50,7 @@ MODE = PUSHTASKSIMULATION
 #MODE = MOVE_TO_TARGET
 
 
-NUM_TRAIN_RUNS = 3
+NUM_TRAIN_RUNS = 10
 NUM_TEST_RUNS = 20
 
 class GazeboInterface():
@@ -455,7 +455,8 @@ class GazeboInterface():
                     self.setTarget()
                     self.pauseWorld()
         elif self.testRun < NUM_TEST_RUNS:
-            if self.lastPrediction != None and resultState != None:
+            if self.lastAction != None and resultState != None:
+                print "updating with last action: ", self.lastAction
                 self.worldModel.update(worldState, self.lastAction)
             else:
                 self.worldModel.resetObjects(worldState)
@@ -465,27 +466,12 @@ class GazeboInterface():
 #            self.sendPrediction()
             self.sendPose("blockAShadow", np.array([0.5,-0.2,0.05]), -1.8)
             
-    def moveToTarget2(self, worldState, resultState=None):
-#        raise NotImplementedError
-#        if self.target is None:
-#            self.target = self.getTarget()
-#            self.worldModel.setTarget(self.target)
-#        self.worldModel.update(worldState, self.lastAction)
-#        self.lastAction = self.worldModel.getAction()
-#        self.sendCommand(self.lastAction)
-        self.worldModel.update(worldState, self.lastAction)
-#        self.lastAction = self.worldModel.circleObject(15)
-        self.lastAction = self.worldModel.getAction()
-        print "recieved action: ", self.lastAction
-        self.sendCommand(self.lastAction)
-#        self.lastPrediction = self.worldModel.predict(worldState, self.lastAction)
-#        self.sendPrediction()
         
 
     def setTarget(self):
         target = model.Object()
         target.id = 15
-        target.vec = np.array([15, 0.5, -0.2, 0.05, -1.8, 0.0,0.0,0.0])
+        target.vec = np.array([15, 0.5, -0.2, 0.05, -1.8, 0.0,0.0,0.0, 0.0])
         self.worldModel.setTarget(target)
     
     def stop(self):

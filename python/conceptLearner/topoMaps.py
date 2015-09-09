@@ -12,7 +12,7 @@ import math
 from operator import itemgetter
 
 EMAX = 0.001
-ETA = 0.1
+ETA = 0.0
 #For neighbours
 SIGMAE = 0.05
 
@@ -209,6 +209,10 @@ class ITM(Network):
                 
                 
                 if len(self.nodes) > 1:
+#                    print "minNode wIn: ", minNode.wIn
+#                    print "minNode wout: ", minNode.wOut
+#                    print "second wIn: ", ds[1][1].wIn
+#                    print "second wout: ", ds[1][1].wOut
                     secNode = ds[1][1]
                     norm = math.exp(-np.linalg.norm(wIn-minNode.vecInA())**2/(SIGMAE**2))
                     res = norm*minNode.wOut

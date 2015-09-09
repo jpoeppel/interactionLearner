@@ -626,7 +626,7 @@ class GazeboInterface():
                         f.write("{}; ".format(self.accDifBlock/self.numSteps))
                         f.write("{}; ".format(differenceActuator))
                         f.write("{}; ".format(self.accDifActuator))
-                        f.write("{}; ".format(self.accDifActuator/self.numSteps))
+                        f.write("{} ".format(self.accDifActuator/self.numSteps))
                         f.write("\n")
                     self.accDifBlock = 0.0
                     self.accDifActuator = 0.0

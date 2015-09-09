@@ -7,6 +7,7 @@ Created on Thu Apr  9 11:31:07 2015
 """
 
 import numpy as np
+from numpy import dot as npdot
 import math
 
 from operator import itemgetter
@@ -153,7 +154,7 @@ def invertTransMatrix(matrix):
     
     invTransRot = invTrans[:r,:c]
     invTransRot[:,:] = np.copy(matrixRot.T)
-    invTrans[:r,c] = np.dot(-matrixRot.T,matrix[:r,c])
+    invTrans[:r,c] = npdot(-matrixRot.T,matrix[:r,c])
     invTrans[r,c] = 1.0
     return invTrans                      
                       
@@ -178,21 +179,21 @@ def dist(center, edge1, edge2, ang, ref):
 #                 [0.0, 0.0, 1.0]])
     r = np.array([[ca, -sa], 
                   [sa, ca]])
-    edge1N = np.dot(r, edge1)
-    edge2N = np.dot(r, edge2)
+    edge1N = npdot(r, edge1)
+    edge2N = npdot(r, edge2)
     v = (edge1N+center)
     w = (edge2N+center)
     
-    l2 = np.dot(v-w, v-w)
+    l2 = npdot(v-w, v-w)
     if l2 == 0.0:
-        return np.sqrt(np.dot(v-ref, v-ref)), v
-    t = np.dot(ref-v, w-v) / l2
+        return np.sqrt(npdot(v-ref, v-ref)), v
+    t = npdot(ref-v, w-v) / l2
     if t < 0.0:
-        return np.sqrt(np.dot(v-ref,v-ref)), v
+        return np.sqrt(npdot(v-ref,v-ref)), v
     elif t > 1.0:
-        return np.sqrt(np.dot(w-ref,w-ref)), w
+        return np.sqrt(npdot(w-ref,w-ref)), w
     projection = v + t * (w - v)
-    return np.sqrt(np.dot(ref-projection, ref-projection)), projection
+    return np.sqrt(npdot(ref-projection, ref-projection)), projection
     
 def relPos(p1, ang,  p2):
     """
@@ -207,7 +208,7 @@ def relPos(p1, ang,  p2):
     invTrans = invertTransMatrix(trans)
     tmpPos = np.ones(4)
     tmpPos[:3] = np.copy(p2)
-    newPos = np.dot(invTrans, tmpPos)[:3]
+    newPos = npdot(invTrans, tmpPos)[:3]
     return np.round(newPos, NUMDEC)
     
 def relPosVel(p1,v1, ang, p2,v2):
@@ -220,12 +221,12 @@ def relPosVel(p1,v1, ang, p2,v2):
     invTrans = invertTransMatrix(trans)
     tmpPos = np.ones(4)
     tmpPos[:3] = np.copy(p2)
-    newPos = np.dot(invTrans, tmpPos)[:3]
+    newPos = npdot(invTrans, tmpPos)[:3]
     tmpVel = np.zeros(4)
     tmpVel[:3] = v2-v1
-    newRelVel = np.dot(invTrans, tmpVel)[:3]
+    newRelVel = npdot(invTrans, tmpVel)[:3]
     tmpVel[:3] = v2
-    newVel = np.dot(invTrans, tmpVel)[:3]
+    newVel = npdot(invTrans, tmpVel)[:3]
     return np.round(newPos, NUMDEC), np.round(newRelVel, NUMDEC), np.round(newVel, NUMDEC)
     
 def relPosVelChange(ang, pdif, vdif):
@@ -234,8 +235,8 @@ def relPosVelChange(ang, pdif, vdif):
     trans = np.array([[ca, sa, 0.0],
                       [-sa, ca, 0.0],
                       [0.0,0.0,1.0]])
-    newPDif = np.dot(trans,pdif)
-    newVDif = np.dot(trans,vdif)
+    newPDif = npdot(trans,pdif)
+    newVDif = npdot(trans,vdif)
     return np.round(newPDif, NUMDEC), np.round(newVDif, NUMDEC)
     
 def globalPosVelChange(ang, pdif, vdif):
@@ -244,8 +245,8 @@ def globalPosVelChange(ang, pdif, vdif):
     trans = np.array([[ca, -sa, 0.0],
                       [sa, ca, 0.0],
                       [0.0,0.0,1.0]])
-    newPDif = np.dot(trans,pdif)
-    newVDif = np.dot(trans,vdif)
+    newPDif = npdot(trans,pdif)
+    newVDif = npdot(trans,vdif)
     return np.round(newPDif, NUMDEC), np.round(newVDif, NUMDEC)
     
 def globalPosVel(p1, ang, relPos, relVel):
@@ -257,10 +258,10 @@ def globalPosVel(p1, ang, relPos, relVel):
                  [0.0,0.0,0.0,1.0]])
     tmpPos = np.ones(4)
     tmpPos[:3] = np.copy(relPos)
-    newPos = np.dot(trans, tmpPos)[:3]
+    newPos = npdot(trans, tmpPos)[:3]
     tmpVel = np.zeros(4)
     tmpVel[:3] = relVel
-    newVel = np.dot(trans, tmpVel)[:3]
+    newVel = npdot(trans, tmpVel)[:3]
     return np.round(newPos, NUMDEC), np.round(newVel, NUMDEC)
     
 
@@ -292,7 +293,7 @@ def computeDistanceClosing(id1, p1, v1, ang1, id2, p2, v2, ang2):
     norm = np.linalg.norm(normal)
     if norm > 0.0:
         normal /= np.linalg.norm(normal)
-    return np.round(sortedL[0][0]-0.025, NUMDEC), np.round(np.dot(normal, vel), NUMDEC)
+    return np.round(sortedL[0][0]-0.025, NUMDEC), np.round(npdot(normal, vel), NUMDEC)
     
 if __name__=="__main__":
     

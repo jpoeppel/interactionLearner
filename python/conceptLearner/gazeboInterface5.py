@@ -36,6 +36,9 @@ import modelGate as model
 #from sklearn.externals.six import StringIO
 #import pydot
 
+trainRuns = [3]
+RECORD_SIMULATION = True
+SIMULATION_FILENAME = "gateModel{}Runs_Gate_Act_NoDyns"
 
 logging.basicConfig()
 
@@ -47,10 +50,10 @@ PUSHTASKSIMULATION = 2
 MOVE_TO_TARGET = 3
 MODE = PUSHTASKSIMULATION
 #MODE = FREE_EXPLORATION
-#MODE = MOVE_TO_TARGET
+MODE = MOVE_TO_TARGET
 
 
-NUM_TRAIN_RUNS = 10
+NUM_TRAIN_RUNS = 8
 NUM_TEST_RUNS = 20
 
 class GazeboInterface():
@@ -90,8 +93,11 @@ class GazeboInterface():
         self.direction = np.array([0.0,0.5,0.0])
         self.finalPrediction = None
         
-        self.accDif = 0.0
-        self.numSteps = 0        
+        self.startPositions = []
+        self.accDifBlock = 0.0
+        self.accDifActuator = 0.0
+        self.numSteps = 0       
+        self.runNumber = 0
         
         np.random.seed(1234)
         
@@ -306,6 +312,8 @@ class GazeboInterface():
             posX = 0.25
         elif self.trainRun == 2:
             posX = 0
+        if self.trainRun == trainRuns[self.runNumber]:
+            self.startPositions.append(posX)    
             
         self.sendPose("gripper", np.array([posX,0.0,0.03]), 0.0)
         self.stepCounter = 0
@@ -348,45 +356,73 @@ class GazeboInterface():
                 self.direction = np.array([0.0,0.5,0.0])
             return
             
-        if self.trainRun < NUM_TRAIN_RUNS:
+        if self.trainRun < trainRuns[self.runNumber]: #NUM_TRAIN_RUNS:
             print "Train run #: ", self.trainRun
             if self.runStarted:
                 self.updateModel(worldState, resultState, self.direction)
             else:
                 self.trainRun += 1
-#                self.finalPrediction = self.lastPrediction
-                if self.trainRun == NUM_TRAIN_RUNS:
-                    self.pauseWorld()
-#                    import sys
-#                    sys.exit()
+                if self.trainRun == trainRuns[self.runNumber]: # NUM_TRAIN_RUNS:
+#                    self.pauseWorld()
+                    np.random.seed(4321) # Set new seed so that all test runs start identically, independent of the number of training runs
                     
         elif self.testRun < NUM_TEST_RUNS:
             print "Test run #: ", self.testRun
             if self.runStarted:
-#                self.lastAction = model.Action.getGripperAction(cmd = GAZEBOCMDS["MOVE"], direction=self.direction)
                 self.lastAction = self.direction
                 if self.lastPrediction != None:
                     predictedWorldState = self.lastPrediction
-                    self.worldModel.actuator.vec = self.lastPrediction.actuator.vec
-#                    self.accDif += curDif
-#                    self.numSteps +=1
+#                    self.worldModel.actuator.vec = self.lastPrediction.actuator.vec
+                    curDifBlock, curDifActuator = self.compare(worldState, self.lastPrediction)
+                    self.accDifBlock += curDifBlock
+                    self.accDifActuator += curDifActuator
+                    self.numSteps +=1
                 else:
                     print "lastPrediction None"
                     predictedWorldState = worldState
                     self.worldModel.resetObjects(worldState)
-                    #Retransform
-#                    print "lastPrediction: {}, worldState: {} ".format(self.lastPrediction.interactionStates, worldState.interactionStates)
-#                self.lastPrediction = self.worldModel.predict(predictedWorldState, self.lastAction)
                 
                 self.lastPrediction = self.worldModel.predict(predictedWorldState, self.lastAction)
-#                print "lastAction: ", self.lastAction
                 self.sendPrediction()
                 self.sendCommand(self.lastAction)
             else:
                 self.testRun += 1
+                if RECORD_SIMULATION:
+                    differenceBlock, differenceActuator = self.compare(worldState, self.finalPrediction)
+                    with open("../../data/" + SIMULATION_FILENAME.format(trainRuns[self.runNumber]) + ".txt", "a") as f:
+                        f.write("{}; ".format(differenceBlock))
+                        f.write("{}; ".format(self.accDifBlock))
+                        f.write("{}; ".format(self.accDifBlock/self.numSteps))
+                        f.write("{}; ".format(differenceActuator))
+                        f.write("{}; ".format(self.accDifActuator))
+                        f.write("{} ".format(self.accDifActuator/self.numSteps))
+                        f.write("\n")
+                    self.accDifBlock = 0.0
+                    self.accDifActuator = 0.0
+                    self.numSteps = 0
         else:
-            self.pauseWorld()
+#            self.pauseWorld()
+            with open("../../data/"+ SIMULATION_FILENAME.format(trainRuns[self.runNumber]) + "startPos.txt", "w") as f:
+                f.write("; ".join(["{:.4f}".format(x) for x in self.startPositions]))
+            if self.runNumber < len(trainRuns)-1:
+                self.runNumber += 1
+                self.testRun = 0
+                self.trainRun = 0
+                np.random.seed(1234)
+                self.worldModel = model.ModelAction()
+                self.resetWorld()
+                self.finalPrediction = None
+                self.startPositions = []
+            else:
+                self.pauseWorld()
             
+    def compare(self, worldState, prediction):
+        blockOSReal = worldState.objectStates[15]
+        blockOSPrediction = prediction.objectStates[15]
+        gripperOSReal = worldState.actuator
+        gripperOSPrediction = prediction.actuator
+        return blockOSReal.compare(blockOSPrediction), gripperOSReal.compare(gripperOSPrediction)
+        
             
     def updateModel(self, worldState, resultState, direction=np.array([0.0,0.5,0.0])):
         """
@@ -471,7 +507,7 @@ class GazeboInterface():
     def setTarget(self):
         target = model.Object()
         target.id = 15
-        target.vec = np.array([15, 0.5, -0.2, 0.05, -1.8, 0.0,0.0,0.0, 0.0])
+        target.vec = np.array([15, 0.5, -0.2, 0.05, -1.8])#, 0.0,0.0,0.0, 0.0])
         self.worldModel.setTarget(target)
     
     def stop(self):

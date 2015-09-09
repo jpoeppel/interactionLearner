@@ -24,7 +24,6 @@ from sklearn.linear_model import PassiveAggressiveClassifier
 from sklearn.naive_bayes import MultinomialNB
 
 
-from state4 import WorldState as ws4
 
 import common
 from common import NUMDEC
@@ -34,8 +33,10 @@ import copy
 
 GREEDY_TARGET = True
 
-HARDCODEDGATE = False
+HARDCODEDGATE = True
 HARDCODEDACTUATOR = True
+
+USE_DYNS = False
 
 class Object(object):
     
@@ -52,17 +53,19 @@ class Object(object):
             Computes the relative (interaction) vector of the other object with respect
             to the own reference frame.
         """
-        vec = np.zeros(14)
+        vec = np.zeros(13)
         vec[0] = self.id
         vec[1] = other.id
-        vec[2], vec[3] = common.computeDistanceClosing(self.id, self.vec[1:4],self.vec[5:8], 
+        if USE_DYNS:
+            vec[2], vec[3] = common.computeDistanceClosing(self.id, self.vec[1:4],self.vec[5:8], 
                         self.vec[4], other.id, other.vec[1:4], other.vec[5:8], other.vec[4])
-        vec[4:7], vec[7:10], vec[11:14] = common.relPosVel(self.vec[1:4], self.vec[5:8], self.vec[4], other.vec[1:4], other.vec[5:8])
-#        vec[2],vec[3] = common.computeDistanceClosing(self.id, self.vec[1:4],self.vec[1:4]-self.lastVec[1:4], 
-#                        self.vec[4], other.id, other.vec[1:4], other.vec[1:4]-other.lastVec[1:4], other.vec[4])
-#        vec[4:7], vec[7:10] = common.relPosVel(self.vec[1:4], self.vec[1:4]-self.lastVec[1:4], 
-#                                            self.vec[4], other.vec[1:4], other.vec[1:4]-other.lastVec[1:4])
-        vec[10] = np.dot(np.linalg.norm(vec[4:7]), np.linalg.norm(vec[7:10]))
+            vec[4:7], vec[7:10], vec[10:13] = common.relPosVel(self.vec[1:4], self.vec[5:8], self.vec[4], other.vec[1:4], other.vec[5:8])
+        else:
+            vec[2], vec[3] = common.computeDistanceClosing(self.id, self.vec[1:4],self.vec[1:4]-self.lastVec[1:4], 
+                        self.vec[4], other.id, other.vec[1:4], other.vec[1:4]-other.lastVec[1:4], other.vec[4])
+            vec[4:7], vec[7:10], vec[10:13] = common.relPosVel(self.vec[1:4], self.vec[1:4]-self.lastVec[1:4], self.vec[4], other.vec[1:4], other.vec[1:4]-other.lastVec[1:4])
+        
+#        vec[10] = np.dot(np.linalg.norm(vec[4:7]), np.linalg.norm(vec[7:10]))
         return vec#[:11]
         
     def getGlobalPosVel(self, localPos, localVel):
@@ -72,7 +75,10 @@ class Object(object):
     def getLocalChangeVec(self, post):
         res = np.copy(post.vec)
         res -= self.vec
-        res[1:4], res[5:8] = common.relPosVelChange(self.vec[4], res[1:4], res[5:8])
+        if USE_DYNS:
+            res[1:4], res[5:8] = common.relPosVelChange(self.vec[4], res[1:4], res[5:8])
+        else:
+            res[1:4], v =  common.relPosVelChange(self.vec[4], res[1:4], np.zeros(3))
         return res
 
     def predict(self, predictor, other):
@@ -80,7 +86,10 @@ class Object(object):
 #        print "object before: ", resO.vec[1:4]
 #        print "relVec: ", self.getRelVec(other)
         pred = predictor.predict(self.getRelVec(other))
-        pred[1:4], pred[5:8] = common.globalPosVelChange(self.vec[4], pred[1:4], pred[5:8])
+        if USE_DYNS:
+            pred[1:4], pred[5:8] = common.globalPosVelChange(self.vec[4], pred[1:4], pred[5:8])
+        else:
+            pred[1:4], v = common.globalPosVelChange(self.vec[4], pred[1:4], np.zeros(3))
 #        print "prediction for o: {}: {}".format(self.id, pred)
         self.predVec = self.vec + pred*1.5 #interestingly enough, *1.5 improves prediction accuracy quite a lot
         resO.vec 
@@ -123,21 +132,53 @@ class Object(object):
     def __repr__(self):
         return "{}".format(self.id)
         
+    def getKeyPoints(self):
+        WIDTH = {15: 0.25, 8: 0.025} #Width from the middle point
+        DEPTH = {15: 0.05, 8: 0.025} #Height from the middle point
+        p1x = WIDTH[self.id]
+        p2x = -p1x
+        p1y = DEPTH[self.id]
+        p2y = -p1y
+        ang = self.vec[4]
+        c = np.cos(ang)
+        s = np.sin(ang)
+        p1xn = p1x*c -p1y*s + self.vec[1]
+        p1yn = p1x*s + p1y*c + self.vec[2]
+        p2xn = p2x*c - p2y*s + self.vec[1]
+        p2yn = p2x*s + p2y*c + self.vec[2]
+        return np.array([np.copy(self.vec[1:4]), np.array([p1xn,p1yn,self.vec[3]]), np.array([p2xn,p2yn,self.vec[3]])])
+        
+    def compare(self, other):
+        assert self.id == other.id, "Should only compare the same objects not {} and {}".format(self.id, othe.id)
+        sKeyPoints = self.getKeyPoints()
+        oKeyPoints = other.getKeyPoints()
+        return sum(np.linalg.norm(sKeyPoints-oKeyPoints,axis=1))/3.0
+        
     @classmethod
     def parse(cls, m):
         res = cls()
         res.id = m.id 
-        res.vec = np.zeros(9)
-        res.vec[0] = m.id
-        res.vec[1] = npround(m.pose.position.x, NUMDEC) #posX
-        res.vec[2] = npround(m.pose.position.y, NUMDEC) #posY
-        res.vec[3] = npround(m.pose.position.z, 2) #posZ
-        res.vec[4] = npround(common.quaternionToEuler(np.array([m.pose.orientation.x,m.pose.orientation.y,
-                                            m.pose.orientation.z,m.pose.orientation.w])), NUMDEC)[2] #ori
-        res.vec[5] = npround(m.linVel.x, NUMDEC) #linVelX
-        res.vec[6] = npround(m.linVel.y, NUMDEC) #linVelY
-        res.vec[7] = 0.0 #linVelZ
-        res.vec[8] = npround(m.angVel.z, NUMDEC) #angVel
+        if USE_DYNS:
+            res.vec = np.zeros(8)
+            res.vec[0] = m.id
+            res.vec[1] = npround(m.pose.position.x, NUMDEC) #posX
+            res.vec[2] = npround(m.pose.position.y, NUMDEC) #posY
+            res.vec[3] = npround(m.pose.position.z, 2) #posZ
+            res.vec[4] = npround(common.quaternionToEuler(np.array([m.pose.orientation.x,m.pose.orientation.y,
+                                                m.pose.orientation.z,m.pose.orientation.w])), NUMDEC)[2] #ori
+            res.vec[5] = npround(m.linVel.x, NUMDEC) #linVelX
+            res.vec[6] = npround(m.linVel.y, NUMDEC) #linVelY
+            res.vec[7] = 0.0 #linVelZ
+        
+#            res.vec[8] = npround(m.angVel.z, NUMDEC) #angVel
+        else:
+            res.vec = np.zeros(5)
+            res.vec[0] = m.id
+            res.vec[1] = npround(m.pose.position.x, NUMDEC) #posX
+            res.vec[2] = npround(m.pose.position.y, NUMDEC) #posY
+            res.vec[3] = npround(m.pose.position.z, 2) #posZ
+            res.vec[4] = npround(common.quaternionToEuler(np.array([m.pose.orientation.x,m.pose.orientation.y,
+                                                m.pose.orientation.z,m.pose.orientation.w])), NUMDEC)[2] #ori
         res.lastVec = np.copy(res.vec)
         return res
 
@@ -146,7 +187,10 @@ class Actuator(Object):
     def __init__(self):
         Object.__init__(self)
         self.predictor = ITM()
-        self.vec = np.zeros(9)
+        if USE_DYNS:
+            self.vec = np.zeros(9)
+        else:
+            self.vec = np.zeros(5)
         pass
     
     def predict(self, action):
@@ -155,7 +199,10 @@ class Actuator(Object):
         res.id = self.id
         self.predVec = np.copy(self.vec)
 #        res.vec[5:8] = action #Set velocity
-        self.predVec[5:8] = action
+        if USE_DYNS:
+            self.predVec[5:8] = action
+        else:
+            pass
         #Hardcorded version
         if HARDCODEDACTUATOR:
 #            res.vec[1:4] += 0.01*action
@@ -182,7 +229,7 @@ class Actuator(Object):
     @classmethod
     def parse(cls, protoModel):
         res = super(Actuator, cls).parse(protoModel)
-        res.vec[8] = 0.0 #Fix angular velocity
+#        res.vec[8] = 0.0 #Fix angular velocity
         return res
     
 class WorldState(object):
@@ -236,7 +283,7 @@ class Classifier(object):
 #                print "Change: closing: {}, dist: {}, relVel: {}".format(ovec[3], ovec[2], ovec[7:10])
                 return 1
             else:
-                if ovec[3] == 0 and np.linalg.norm(ovec[7:10]) < 0.01 and ovec[2] < 0.05: #Todo remove distance from this
+                if ovec[3] == 0 and np.linalg.norm(ovec[7:10]) < 0.001 and ovec[2] < 0.05: #Todo remove distance from this
 #                    print "Change: closing: {}, dist: {}, relVel: {}".format(ovec[3], ovec[2], ovec[7:10])
                     return 1    
                 else:
@@ -313,6 +360,7 @@ class MetaNode(object):
             Absolut difference value of the feature
         """
         #Compare incoming pres and find the things they have in common/are relevant for a given dif
+        print "node trained with dif: ", dif
         lPre = len(pre)
         if self.zeroPass == None:
             self.zeroPass = [False]*lPre
@@ -323,8 +371,12 @@ class MetaNode(object):
             self.prev = np.zeros(lPre)
         for i in xrange(lPre):
             if not self.zeroPass[i]:
-                if abs(pre[i]) < 0.01:
-                    self.zeroPass[i] = True
+                if USE_DYNS:
+                    if abs(pre[1]) < 0.01:
+                        self.zeroPass[i] = True
+                else:
+                    if abs(pre[i]) < 0.001:
+                        self.zeroPass[i] = True
             if pre[i] < 0:
                 self.negSum[i] += dif*pre[i]
                 self.negWeights[i] += dif
@@ -337,12 +389,11 @@ class MetaNode(object):
         
     def getPreconditions(self):
         res = np.zeros(len(self.zeroPass))
-        print "node zeroPass: ", self.zeroPass
         for i in xrange(len(self.zeroPass)):
             if self.zeroPass[i]:
                 res[i] = (self.posSum[i]+self.negSum[i])/(self.posWeights[i]+self.negWeights[i])
             else:
-                print "index: {}, pos weights: {}, neg weights: {}".format(i, self.posWeights[i], self.negWeights[i])
+#                print "index: {}, pos weights: {}, neg weights: {}".format(i, self.posWeights[i], self.negWeights[i])
                 if self.posWeights[i] > self.negWeights[i]:
                     res[i] = self.posSum[i]/self.posWeights[i]
                 elif self.posWeights[i] == self.negWeights[i]:
@@ -362,6 +413,7 @@ class MetaNetwork(object):
         pass
     
     def train(self, pre, difs):
+        print "training network with pre: ", pre
         for i in xrange(len(difs)):
             if abs(difs[i]) > 0.003:
                 index = i*np.sign(difs[i])
@@ -507,7 +559,7 @@ class ModelAction(object):
                 pre = self.predictor.getAction2(self.target.id, difVec[:5])
                 relTargetPos = pre[4:7]
 #                print "rel target pos: ", relTargetPos
-                relTargetVel = pre[11:14]
+                relTargetVel = pre[10:13]
                 
                 pos, vel = targetO.getGlobalPosVel(relTargetPos, relTargetVel)
 #                print "target pos: ", pos
@@ -536,7 +588,7 @@ class ModelAction(object):
 #                else:
                 print "using vel"
                 normVel = np.linalg.norm(vel)
-                if normVel < 0.2:
+                if normVel > 0.01 and normVel < 0.2:
                     return vel
                 else:
                     return 0.3*vel/normVel
@@ -551,7 +603,8 @@ class ModelAction(object):
         
     def predict(self, ws, action):
         newWS = WorldState()
-        newWS.actuator = self.actuator.predict(action)
+        newWS.actuator.predictor = self.actuator.predictor #Do not really like this -.-
+        newWS.actuator = ws.actuator.predict(action)
         for o in ws.objectStates.values():
             if self.gate.test(o, newWS.actuator, action): #TODO Check of newWS.actuator is correct here and if action can be removed!
                 #TODO that depends on how the gate/classifier is trained. if it is trained on pre1,pre2+action, then this should be o, self.actuator, action

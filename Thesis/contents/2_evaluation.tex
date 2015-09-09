@@ -29,7 +29,8 @@ same seed for all models and configurations. %TODO does not work, not even with 
 The first three are chosen so that the actuator touches the object on the outer left, the outer right side
 and directly at the center. This has been done to ensure that the models have seen all general interactions for when they are evaluated with only 3
 runs. The random start positions are chosen in such a range, that the actuator can also pass the object without touching it, by sampling starting positions
-between -0.35 and 0.35.
+between -0.35 and 0.35. Another seed is set after the training is done, so that all models are tested on the same starting positions, regardless of
+the number of training examples.
 
 The number of iterations used here is 150 when using
 the model at 100Hz. During these iterations the actuator moves approximately 75cm. The maximal distance is set to 1m when using the
@@ -78,19 +79,39 @@ to compare the predicted position with the actual position.}
 %TODO 
 [TODOSome first results of the interaction model. Not perfectly tuned yet, as the DT often selects strange things]
 
+\begin{table}
 \begin{tabular}{|c|c|c|c|}
 \hline Model configuration & Actuator final dif & Actuator cumDif & Actuator mean dif \\ 
 \hline Pairwise AC DT 3 Train & 0.001 & 0.095 & 0.001  \\ 
 \hline Pairwise AC DT 10 Train & 0.053 & 3.929 & 0.026  \\ 
+\hline Gate HG HA 3 Train & 0.001 & 0.128 & 0.001 \\
+\hline Gate HG HA 10 Train ITM $\eta$ 0.0 & 0.001 & 0.127 & 0.001 \\ 
+\hline Gate HG HA 10 Train ITM $\eta$ 0.1 & 0.001 & 0.122 & 0.001 \\
+\hline Gate HG HA 10 Train ITM $\eta$ 0.2 & 0.001 & 0.122 & 0.001 \\ 
+\hline Gate HG HA 10 Train NoAV & 0.001 & 0.135 & 0.001 \\ 
+\hline Gate HG HA 10 Train NoDyns & 0.001 & 0.130 & 0.001 \\ 
 \hline 
 \end{tabular} 
+\caption{Test1}
+\end{table}
 
+\begin{table}
 \begin{tabular}{|c|c|c|c|}
 \hline Model configuration & Block final dif & Block cumDif & Block mean dif \\ 
 \hline Pairwise AC DT 3 Train & 0.209 & 14.051 & 0.094  \\ 
-\hline Pairwise AC DT 10 Train & 0.142 & 10.841 & 0.073  \\ 
+\hline Pairwise AC DT 10 Train & 0.142 & 10.841 & 0.073  \\
+\hline Gate HG HA 3 Train & 0.048 & 3.061 & 0.021 \\ 
+\hline Gate HG HA 10 Train ITM $\eta$ 0.0 & 0.052 & 3.189 & 0.021 \\ 
+\hline Gate HG HA 10 Train ITM $\eta$ 0.1 & 0.046 & 2.968 & 0.020 \\ 
+\hline Gate HG HA 10 Train ITM $\eta$ 0.2 & 0.061 & 3.538 & 0.024 \\ 
+\hline Gate HG HA 10 Train NoAV & 0.050 & 2.859 & 0.019 \\ 
+\hline Gate HG HA 10 Train NoDyns & 0.068 & 4.670 & 0.031 \\ 
 \hline 
 \end{tabular} 
+\caption{Test2}
+\end{table}
+
+%TODO Also test only interaction prediction performance, by removing all the instances where only the gripper moved!
 
 
 

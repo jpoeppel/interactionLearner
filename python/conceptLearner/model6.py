@@ -8,7 +8,7 @@ Try to implement a top-down model...
 from model4 import State, ObjectState, InteractionState, WorldState, BaseCase, Action
 #from model4 import State, BaseCase, Action
 
-from model4 import THRESHOLD, MAXCASESCORE, MAXSTATESCORE, PREDICTIONTHRESHOLD, TARGETTHRESHOLD
+from model4 import THRESHOLD, MAXSTATESCORE, PREDICTIONTHRESHOLD
 from common import GAZEBOCMDS as GZCMD
 import model4
 import numpy as np
@@ -149,7 +149,7 @@ class ModelCBR(object):
             weightDic = bestCase.predict(state, action)
             for k in weightDic:
                 prediction = self.predictors[k].predict(np.concatenate((state.getVec(),action.getVec())))
-                print "k: {}, pred: {}".format(k, prediction)
+#                print "k: {}, pred: {}".format(k, prediction)
                 if prediction != None:
                     resultState[k] = state[k] +  prediction #* weightDic[k] 
                 else:
@@ -175,6 +175,7 @@ class ModelCBR(object):
 #            print "predicted intId: ", prediction["intId"]
             predictionWs.addInteractionState(prediction, usedCase)
 #        print "resulting prediction: ", predictionWs.interactionStates
+        predictionWs.updateObjectStates()
         return predictionWs
         
     def updateState(self, state, action, prediction, result, usedCase):

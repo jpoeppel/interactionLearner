@@ -65,7 +65,7 @@ class GazeboInterface():
          
         self.active = True
         self.lastState = None
-        self.worldModel = model.ModelAction()
+        self.worldModel = model.ModelGate()
         self.lastAction = np.zeros(3)
         self.lastPrediction = None
         self.ignore = True

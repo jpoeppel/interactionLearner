@@ -50,10 +50,9 @@ PUSHTASKSIMULATION = 2
 MOVE_TO_TARGET = 3
 MODE = PUSHTASKSIMULATION
 #MODE = FREE_EXPLORATION
-#MODE = MOVE_TO_TARGET
+MODE = MOVE_TO_TARGET
 
-RECORD_SIMULATION = True
-SIMULATION_FILENAME = "model4_State4_100HZ3TrainRunsDT"
+
 
 RANDOM_BLOCK_ORI = False
 #RANDOM_BLOCK_ORI = True
@@ -64,10 +63,11 @@ DIFFERENTBLOCKORIENTATION = False
 DIRECTIONGENERALISATION = True
 DIRECTIONGENERALISATION = False
 
-
-
-NUM_TRAIN_RUNS = 3
+NUM_TRAIN_RUNS = 0
 NUM_TEST_RUNS = 20
+
+RECORD_SIMULATION = True
+SIMULATION_FILENAME = "model6_State4_100HZ{}TrainRunsDT".format(NUM_TRAIN_RUNS)
 
 class GazeboInterface():
     """
@@ -580,6 +580,7 @@ class GazeboInterface():
 #                self.finalPrediction = self.lastPrediction
                 if self.trainRun == NUM_TRAIN_RUNS:
                     self.pauseWorld()
+                    np.random.seed(4321)
 #                    self.printActions()
 #                    dot_data = StringIO()
 #                    self.worldModel.getGraphViz(dot_data)
@@ -758,8 +759,8 @@ class GazeboInterface():
     def startRunTarget(self, randomRange=0.5):
         self.runStarted = True
         posX = ((np.random.rand()-0.5)*randomRange) #* 0.5
-        self.sendPose("gripper", np.array([posX,0.0,0.03]), np.array([0.0,0.0,0.0,0.0]))
-        self.sendPose("blockA", np.array([0.0,0.075,0.05]), np.array([0.0,0.0,0.0,0.0]))
+        self.sendPose("gripper", np.array([posX,0.0,0.03]), 0.0)
+        self.sendPose("blockA", np.array([0.0,0.075,0.05]), 0.0)
         self.stepCounter = 0
         
             
@@ -770,22 +771,31 @@ class GazeboInterface():
         if self.runStarted:
             #Check if run has ended
         
-            gripperInt = worldState.getInteractionState("gripper")
-            if DIFFERENCES:
-                tmpBlockPos = np.matrix(np.concatenate((gripperInt["spos"]+gripperInt["dir"],[1])))
-                tmpBlockOri = np.matrix(np.concatenate((gripperInt["seuler"]+gripperInt["deuler"],[1])))
-            else:
-                tmpBlockPos = np.matrix(np.concatenate((gripperInt["opos"],[1])))
-                tmpBlockOri = np.matrix(np.concatenate((gripperInt["oeuler"],[1])))
-            blockPos = np.array((worldState.transM*tmpBlockPos.T)[:3]).flatten()   
-            blockOri = np.array((worldState.transM*tmpBlockOri.T)[:3]).flatten()   
-            tmpGPos = np.matrix(np.concatenate((gripperInt["spos"],[1])))
-            gPos = np.array((worldState.transM*tmpGPos.T)[:3]).flatten()   
-#            print "Block pos: ", blockPos
-            targetOs = gripperInt.getObjectState(self.target["name"])
-            targetOs.transform(worldState.transM, worldState.ori)
+#            gripperInt = worldState.getInteractionState("gripper")
+#            if DIFFERENCES:
+#                tmpBlockPos = np.matrix(np.concatenate((gripperInt["spos"]+gripperInt["dir"],[1])))
+#                tmpBlockOri = np.matrix(np.concatenate((gripperInt["seuler"]+gripperInt["deuler"],[1])))
+#            else:
+#                tmpBlockPos = np.matrix(np.concatenate((gripperInt["opos"],[1])))
+#                tmpBlockOri = np.matrix(np.concatenate((gripperInt["oeuler"],[1])))
+#            blockPos = np.array((worldState.transM*tmpBlockPos.T)[:3]).flatten()   
+#            blockOri = np.array((worldState.transM*tmpBlockOri.T)[:3]).flatten()   
+#            tmpGPos = np.matrix(np.concatenate((gripperInt["spos"],[1])))
+#            gPos = np.array((worldState.transM*tmpGPos.T)[:3]).flatten()   
+##            print "Block pos: ", blockPos
+#            targetOs = gripperInt.getObjectState(self.target["name"])
+#            targetOs.transform(worldState.transM, worldState.ori)
             
-            if self.target.score(targetOs) > 0.95*len(self.target.relKeys) or blockPos[1] > 1.4 or self.stepCounter > 500 or np.linalg.norm(gPos) > 1.5:
+            gripper = worldState.getObjectState("gripper")
+            block = worldState.getObjectState("blockA")
+            
+            blockPos = block["pos"]
+            gPos = gripper["pos"]
+            
+            targetOs = block
+            
+            if self.target.score(targetOs) > 0.99*len(self.target.relKeys) or blockPos[1] > 1.4 or self.stepCounter > 500 or np.linalg.norm(gPos) > 1.5:
+                print "target reached"
                 self.resetWorld()
                 self.runStarted = False
             else:

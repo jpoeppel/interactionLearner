@@ -74,10 +74,10 @@ MAX_DEPTH = 5
 class BaseCase(object):
     
     def __init__(self, pre, action, post):
-#        assert isinstance(pre, State), "{} is not a State object.".format(pre)
-#        assert isinstance(post, State), "{} is not a State object.".format(post)
-#        assert isinstance(action, Action), "{} is not an Action object.".format(action)
-#        assert (pre.relKeys==post.relKeys), "Pre and post states have different keys: {}, {}.".format(pre.keys(), post.keys())
+        assert isinstance(pre, State), "{} is not a State object.".format(pre)
+        assert isinstance(post, State), "{} is not a State object.".format(post)
+        assert isinstance(action, Action), "{} is not an Action object.".format(action)
+        assert (pre.relKeys==post.relKeys), "Pre and post states have different keys: {}, {}.".format(pre.keys(), post.keys())
         self.preState = pre
         self.postState = post
         self.action = action
@@ -601,7 +601,7 @@ class ModelCBR(object):
         if depth > MAX_DEPTH:
             return None
             
-        givenInteraction = worldState.getInteractionState("gripper")
+        givenInteraction = worldState.getOtherInteractionStates("gripper")[0]
         relTargetInt = self.createRelativeTargetInteraction(worldState, target)
         difs = {}
         for k in relTargetInt.relKeys:

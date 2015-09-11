@@ -29,6 +29,7 @@ import common
 from common import NUMDEC
 from topoMaps import ITM
 from network import Node
+from itm import ITM as ITM2
 import copy
 
 GREEDY_TARGET = True
@@ -85,7 +86,8 @@ class Object(object):
         resO = copy.deepcopy(self)
 #        print "object before: ", resO.vec[1:4]
 #        print "relVec: ", self.getRelVec(other)
-        pred = predictor.predict(self.getRelVec(other))
+#        pred = predictor.predict(self.getRelVec(other))
+        pred = predictor.test(self.getRelVec(other))
         if USE_DYNS:
             pred[1:4], pred[5:8] = common.globalPosVelChange(self.vec[4], pred[1:4], pred[5:8])
         else:
@@ -186,7 +188,8 @@ class Actuator(Object):
     
     def __init__(self):
         Object.__init__(self)
-        self.predictor = ITM()
+#        self.predictor = ITM()
+        self.predictor = ITM2()
         if USE_DYNS:
             self.vec = np.zeros(9)
         else:
@@ -209,7 +212,8 @@ class Actuator(Object):
             self.predVec[1:4] += 0.01*action
         else:
             #Only predict position
-            p = self.predictor.predict(action)
+#            p = self.predictor.predict(action)
+            p = self.predictor.test(action)
             self.predVec[1:4] += p
 #            res.vec[1:4] += p
         res.lastVec = np.copy(self.vec)
@@ -223,7 +227,8 @@ class Actuator(Object):
             pass
         else:
             pdif = newAc.vec[1:4]-self.vec[1:4]
-            self.predictor.train(Node(0, wIn=action, wOut=pdif))
+#            self.predictor.train(Node(0, wIn=action, wOut=pdif))
+            self.predictor.update(action, pdif)
         self.vec = np.copy(newAc.vec)
         
     @classmethod
@@ -490,13 +495,15 @@ class Predictor(object):
     def update(self, intState, action, dif):
         if not intState[0] in self.predictors:
             #TODO check for close ones that can be used
-            self.predictors[intState[0]] = ITM()
+#            self.predictors[intState[0]] = ITM()
+            self.predictors[intState[0]] = ITM2()
             self.inverseModel[intState[0]] = MetaNetwork()
-        self.predictors[intState[0]].train(Node(0, wIn = intState, wOut=dif))
+#        self.predictors[intState[0]].train(Node(0, wIn = intState, wOut=dif))
+        self.predictors[intState[0]].update(intState, dif)
         self.inverseModel[intState[0]].train(intState, dif)
 
 
-class ModelAction(object):
+class ModelGate(object):
     
     def __init__(self):
         self.gate = GateFunction()

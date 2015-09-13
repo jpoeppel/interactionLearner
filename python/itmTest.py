@@ -6,9 +6,9 @@ Created on Sun Sep 13 14:19:03 2015
 """
 
 import numpy as np
-import conceptLearner.itm as ITM2
-import conceptLearner.topoMaps as ITM
-from conceptLearner.network import Node
+import itm as ITM2
+import topoMaps as ITM
+from network import Node
 import time
 
 def trainITM(net, inputs, outputs):
@@ -21,11 +21,9 @@ def trainITM2(net, inputs, outputs):
 
 if __name__ == "__main__":
     np.set_printoptions(precision=3,suppress=True)
-    data = np.loadtxt("../testData.txt", delimiter=";")
-    inputs = data[:,:13]
-    outputs = data[:,13:]
-    print len(inputs)
-    print outputs
+    data = np.loadtxt("testData.txt", delimiter=";")
+    inputs = data[::8,:13]
+    outputs = data[::8,13:]
 
     itm = ITM.ITM()
     itm2 = ITM2.ITM()    
@@ -50,7 +48,7 @@ if __name__ == "__main__":
     for i in xrange(len(inputs)):
         pred = itm.predict(inputs[i])
         if np.linalg.norm(pred- outputs[i]) >0.001:
-            print "input: {}, output: {}, pred: {}".format(inputs[i], outputs[i], pred)
+#            print "input: {}, output: {}, pred: {}".format(inputs[i], outputs[i], pred)
             numErrors  += 1
 
             
@@ -59,7 +57,7 @@ if __name__ == "__main__":
     for i in xrange(len(inputs)):
         pred = itm2.test(inputs[i])
         if np.linalg.norm(pred- outputs[i]) >0.001:
-            print "input: {}, output: {}, pred: {}".format(inputs[i], outputs[i], pred)
+#            print "input: {}, output: {}, pred: {}".format(inputs[i], outputs[i], pred)
             numErrors2 += 1
             
     print "#errors itm: ", numErrors

@@ -86,8 +86,8 @@ class Object(object):
         resO = copy.deepcopy(self)
 #        print "object before: ", resO.vec[1:4]
 #        print "relVec: ", self.getRelVec(other)
-#        pred = predictor.predict(self.getRelVec(other))
-        pred = predictor.test(self.getRelVec(other))
+        pred = predictor.predict(self.getRelVec(other))
+#        pred = predictor.test(self.getRelVec(other))
         if USE_DYNS:
             pred[1:4], pred[5:8] = common.globalPosVelChange(self.vec[4], pred[1:4], pred[5:8])
         else:
@@ -495,11 +495,14 @@ class Predictor(object):
     def update(self, intState, action, dif):
         if not intState[0] in self.predictors:
             #TODO check for close ones that can be used
-#            self.predictors[intState[0]] = ITM()
-            self.predictors[intState[0]] = ITM2()
+            self.predictors[intState[0]] = ITM()
+#            self.predictors[intState[0]] = ITM2()
             self.inverseModel[intState[0]] = MetaNetwork()
-#        self.predictors[intState[0]].train(Node(0, wIn = intState, wOut=dif))
-        self.predictors[intState[0]].update(intState, dif)
+        with open("../../testData.txt", "a") as f:
+            f.write(";".join(["{:.4f}".format(x) for x in np.concatenate((intState, dif))]))
+            f.write("\n")
+        self.predictors[intState[0]].train(Node(0, wIn = intState, wOut=dif))
+#        self.predictors[intState[0]].update(intState, dif)
         self.inverseModel[intState[0]].train(intState, dif)
 
 

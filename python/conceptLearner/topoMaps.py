@@ -11,6 +11,7 @@ from numpy import dot as npdot
 import math
 from operator import itemgetter
 
+
 EMAX = 0.001
 ETA = 0.0
 #For neighbours
@@ -20,7 +21,7 @@ WINNER = 0
 NEIGHBOURS = 1
 BESTTWO = 2
 LINEAR = 3
-PREDICTIONMODE = BESTTWO
+PREDICTIONMODE = WINNER
 
 #mask = np.array([4,5,6,7,8,9])
 mask = range(11)
@@ -29,6 +30,7 @@ class ITM(Network):
     
     def __init__(self):
         super(ITM, self).__init__()
+        self.inserts = 0
         pass
         
     def getWinners(self, x):
@@ -56,7 +58,7 @@ class ITM(Network):
             for n in nearest.neighbours.values():
                 if n != second and npdot(nearest.vec()-second.vec(), n.vec()-second.vec()) < 0:
                     self.removeEdge(nearest.name, n.name)
-            np.set_printoptions(precision=3,suppress=True)
+#            np.set_printoptions(precision=3,suppress=True)
 #            print "talis: ", npdot(nearest.vec()-x.vec(),second.vec()-x.vec())
 #            print "dist: ", np.linalg.norm(x.vec()-nearest.vec())
 #            print "talisOut: ",  np.dot(nearest.wOut-x.wOut, second.wOut-x.wOut)
@@ -66,6 +68,7 @@ class ITM(Network):
             if npdot(nearest.vec()-x.vec(),second.vec()-x.vec()) > 0 and np.linalg.norm(x.vec()-nearest.vec()) > EMAX:
 #            if np.dot(nearest.wOut-x.wOut, second.wOut-x.wOut) > 0 and np.linalg.norm(x.wOut-nearest.wOut) > EMAX:
                 self.addNode(x)
+                self.inserts += 1
 #                x.adapt(nearest, ETA)
 #                print "adding new node: ", x.wOut
 #                print "Dot: ", np.dot(nearest.vec()-x.vec(),second.vec()-x.vec())
@@ -77,6 +80,7 @@ class ITM(Network):
                 self.removeNode(second)
         else:
             self.addNode(x)
+            self.inserts += 1
             print "adding node because there are not enough: ", x.vec()
             
     def getAction(self, wOut):

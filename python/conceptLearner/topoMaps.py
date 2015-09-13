@@ -37,7 +37,8 @@ class ITM(Network):
         if len(self.nodes)< 2:
             return None, None
         else:
-            ds = sorted([(npdot(n.vec()-x,n.vec()-x), n) for n in self.nodes.values()], key=itemgetter(0))
+#            ds = sorted([(npdot(n.vec()-x,n.vec()-x), n) for n in self.nodes.values()], key=itemgetter(0))
+            ds = sorted([(npdot(n.wIn-x,n.wIn-x), n) for n in self.nodes.values()], key=itemgetter(0))
             return ds[0][1], ds[1][1]
             
     def train(self, x):
@@ -51,8 +52,12 @@ class ITM(Network):
 #            print "Nodes train: ", n.vec()
         name = self.idCounter
         x.name = name
-        nearest, second = self.getWinners(x.vec())
+#        nearest, second = self.getWinners(x.vec())
+        nearest, second = self.getWinners(x.wIn)
+        
         if nearest != None and second != None:
+            print "nearestvec: ", nearest.wIn
+            print "input: ", x.wIn
             nearest.adapt(x, ETA)
             self.addEdge(nearest.name, second.name)
             for n in nearest.neighbours.values():
@@ -63,7 +68,7 @@ class ITM(Network):
 #            print "dist: ", np.linalg.norm(x.vec()-nearest.vec())
 #            print "talisOut: ",  np.dot(nearest.wOut-x.wOut, second.wOut-x.wOut)
 #            print "xvec: ", x.vec()
-#            print "nearestvec: ", nearest.vec()
+            
 #            print "secondvec: ", second.vec()
             if npdot(nearest.vec()-x.vec(),second.vec()-x.vec()) > 0 and np.linalg.norm(x.vec()-nearest.vec()) > EMAX:
 #            if np.dot(nearest.wOut-x.wOut, second.wOut-x.wOut) > 0 and np.linalg.norm(x.wOut-nearest.wOut) > EMAX:
@@ -81,7 +86,7 @@ class ITM(Network):
         else:
             self.addNode(x)
             self.inserts += 1
-            print "adding node because there are not enough: ", x.vec()
+#            print "adding node because there are not enough: ", x.vec()
             
     def getAction(self, wOut):
         if not hasattr(wOut, "__len__"):

@@ -29,7 +29,7 @@ import common
 from common import NUMDEC
 from topoMaps import ITM
 from network import Node
-from itm import ITM as ITM2
+#from itm import ITM
 import copy
 
 GREEDY_TARGET = True
@@ -38,6 +38,9 @@ HARDCODEDGATE = True
 HARDCODEDACTUATOR = True
 
 USE_DYNS = False
+
+#mask = np.array([3,4,5,7,8,10,11])
+mask = np.array([0,1,2,3,4,5,6,7,8,9,10,11,12])
 
 class Object(object):
     
@@ -67,7 +70,7 @@ class Object(object):
             vec[4:7], vec[7:10], vec[10:13] = common.relPosVel(self.vec[1:4], self.vec[1:4]-self.lastVec[1:4], self.vec[4], other.vec[1:4], other.vec[1:4]-other.lastVec[1:4])
         
 #        vec[10] = np.dot(np.linalg.norm(vec[4:7]), np.linalg.norm(vec[7:10]))
-        return vec#[:11]
+        return vec
         
     def getGlobalPosVel(self, localPos, localVel):
         return common.globalPosVel(self.vec[1:4], self.vec[4], localPos, localVel)
@@ -86,7 +89,7 @@ class Object(object):
         resO = copy.deepcopy(self)
 #        print "object before: ", resO.vec[1:4]
 #        print "relVec: ", self.getRelVec(other)
-        pred = predictor.predict(self.getRelVec(other))
+        pred = predictor.predict(self.getRelVec(other)[mask])
 #        pred = predictor.test(self.getRelVec(other))
         if USE_DYNS:
             pred[1:4], pred[5:8] = common.globalPosVelChange(self.vec[4], pred[1:4], pred[5:8])
@@ -94,15 +97,15 @@ class Object(object):
             pred[1:4], v = common.globalPosVelChange(self.vec[4], pred[1:4], np.zeros(3))
 #        print "prediction for o: {}: {}".format(self.id, pred)
         self.predVec = self.vec + pred*1.5 #interestingly enough, *1.5 improves prediction accuracy quite a lot
-        resO.vec 
         resO.vec = np.round(self.predVec, common.NUMDEC)
+        resO.lastVec = np.copy(self.vec)
 #        print "resulting object: ", resO.vec[1:4]
         return resO
         
         
         
     def update(self, newO):
-        self.lastVec = self.vec
+        self.lastVec = np.copy(self.vec)
         self.vec = np.copy(newO.vec)
         
     def circle(self, otherObject):
@@ -188,8 +191,7 @@ class Actuator(Object):
     
     def __init__(self):
         Object.__init__(self)
-#        self.predictor = ITM()
-        self.predictor = ITM2()
+        self.predictor = ITM()
         if USE_DYNS:
             self.vec = np.zeros(9)
         else:
@@ -212,23 +214,22 @@ class Actuator(Object):
             self.predVec[1:4] += 0.01*action
         else:
             #Only predict position
-#            p = self.predictor.predict(action)
-            p = self.predictor.test(action)
+            p = self.predictor.predict(action)
             self.predVec[1:4] += p
 #            res.vec[1:4] += p
         res.lastVec = np.copy(self.vec)
         res.vec = np.round(self.predVec, common.NUMDEC)
         return res
             
-    def update(self, newAc, action):
+    def update(self, newAc, action, training = True):
         self.lastVec = self.vec
 #        self.predictor = newAc.predictor
-        if HARDCODEDACTUATOR:
-            pass
-        else:
-            pdif = newAc.vec[1:4]-self.vec[1:4]
-#            self.predictor.train(Node(0, wIn=action, wOut=pdif))
-            self.predictor.update(action, pdif)
+        if training:
+            if HARDCODEDACTUATOR:
+                pass
+            else:
+                pdif = newAc.vec[1:4]-self.vec[1:4]
+                self.predictor.train(Node(0, wIn=action, wOut=pdif))
         self.vec = np.copy(newAc.vec)
         
     @classmethod
@@ -418,7 +419,7 @@ class MetaNetwork(object):
         pass
     
     def train(self, pre, difs):
-        print "training network with pre: ", pre
+#        print "training network with pre: ", pre
         for i in xrange(len(difs)):
             if abs(difs[i]) > 0.003:
                 index = i*np.sign(difs[i])
@@ -496,13 +497,11 @@ class Predictor(object):
         if not intState[0] in self.predictors:
             #TODO check for close ones that can be used
             self.predictors[intState[0]] = ITM()
-#            self.predictors[intState[0]] = ITM2()
             self.inverseModel[intState[0]] = MetaNetwork()
-        with open("../../testData.txt", "a") as f:
+        with open("../../trainDataPush20.txt", "a") as f:
             f.write(";".join(["{:.4f}".format(x) for x in np.concatenate((intState, dif))]))
             f.write("\n")
-        self.predictors[intState[0]].train(Node(0, wIn = intState, wOut=dif))
-#        self.predictors[intState[0]].update(intState, dif)
+        self.predictors[intState[0]].train(Node(0, wIn = intState[mask], wOut=dif))
         self.inverseModel[intState[0]].train(intState, dif)
 
 
@@ -514,6 +513,8 @@ class ModelGate(object):
         self.predictor = Predictor()
         self.curObjects = {}
         self.target = None
+        self.training = True #Determines if the model should be trained on updates or
+                            # just update it's objects features
         
         
     def setTarget(self, target):
@@ -609,23 +610,37 @@ class ModelGate(object):
 #                pass
             
         pass
-        
-        
+    
     def predict(self, ws, action):
+        #TODO Remove ws from here since it is not needed at all    
         newWS = WorldState()
-        newWS.actuator.predictor = self.actuator.predictor #Do not really like this -.-
-        newWS.actuator = ws.actuator.predict(action)
-        for o in ws.objectStates.values():
-            if self.gate.test(o, newWS.actuator, action): #TODO Check of newWS.actuator is correct here and if action can be removed!
-                #TODO that depends on how the gate/classifier is trained. if it is trained on pre1,pre2+action, then this should be o, self.actuator, action
-#                print "predicted change"
+        newWS.actuator = self.actuator.predict(action)
+        for o in self.curObjects.values():
+            if self.gate.test(o, newWS.actuator, action):
                 newO = self.predictor.predict(o, newWS.actuator, action)
                 newWS.objectStates[o.id] = newO
+                
             else:
-#                print "predicted no change"
                 o.vec[5:] = 0.0
                 newWS.objectStates[o.id] = o
         return newWS
+        
+#   Does not work like this without dynamics since lastVec is not properly set to estimate velocities!!   
+#    def predict(self, ws, action):
+#        newWS = WorldState()
+#        newWS.actuator.predictor = self.actuator.predictor #Do not really like this -.-
+#        newWS.actuator = ws.actuator.predict(action)
+#        for o in ws.objectStates.values():
+#            if self.gate.test(o, newWS.actuator, action): #TODO Check of newWS.actuator is correct here and if action can be removed!
+#                #TODO that depends on how the gate/classifier is trained. if it is trained on pre1,pre2+action, then this should be o, self.actuator, action
+##                print "predicted change"
+#                newO = self.predictor.predict(o, newWS.actuator, action)
+#                newWS.objectStates[o.id] = newO
+#            else:
+##                print "predicted no change"
+#                o.vec[5:] = 0.0
+#                newWS.objectStates[o.id] = o
+#        return newWS
         
     def resetObjects(self, curWS):
         for o in curWS.objectStates.values():
@@ -644,15 +659,16 @@ class ModelGate(object):
             #TODO extent to more objects
             if o.id in self.curObjects:
 #                hasChanged, dif = self.gate.update(self.curObjects[o.id], o, self.actuator, action)
-                hasChanged, dif = self.gate.update(self.curObjects[o.id], o, curWS.actuator, action)
-                if hasChanged:
-                    self.predictor.update(o.getRelVec(self.actuator), action, dif)
+                if self.training:
+                    hasChanged, dif = self.gate.update(self.curObjects[o.id], o, curWS.actuator, action)
+                    if hasChanged:
+                        self.predictor.update(self.curObjects[o.id].getRelVec(self.actuator), action, dif)
                 self.curObjects[o.id].update(curWS.objectStates[o.id])
             else:
                 self.curObjects[o.id] = o
                 
         if self.actuator == None:
             self.actuator = curWS.actuator
-        self.actuator.update(curWS.actuator, action)
+        self.actuator.update(curWS.actuator, action, self.training)
             
     

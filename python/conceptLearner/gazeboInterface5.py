@@ -36,9 +36,9 @@ import modelGate as model
 #from sklearn.externals.six import StringIO
 #import pydot
 
-trainRuns = [3]
-RECORD_SIMULATION = True
-SIMULATION_FILENAME = "gateModel{}Runs_Gate_Act_NoDyns"
+trainRuns = [20]
+RECORD_SIMULATION = False
+SIMULATION_FILENAME = "gateModel{}Runs_Gate_Act_NoDynsITMOld"
 
 logging.basicConfig()
 
@@ -50,10 +50,10 @@ PUSHTASKSIMULATION = 2
 MOVE_TO_TARGET = 3
 MODE = PUSHTASKSIMULATION
 #MODE = FREE_EXPLORATION
-MODE = MOVE_TO_TARGET
+#MODE = MOVE_TO_TARGET
 
 
-NUM_TRAIN_RUNS = 8
+NUM_TRAIN_RUNS = 3
 NUM_TEST_RUNS = 20
 
 class GazeboInterface():
@@ -365,6 +365,7 @@ class GazeboInterface():
                 if self.trainRun == trainRuns[self.runNumber]: # NUM_TRAIN_RUNS:
 #                    self.pauseWorld()
                     np.random.seed(4321) # Set new seed so that all test runs start identically, independent of the number of training runs
+                    self.worldModel.training = False
                     
         elif self.testRun < NUM_TEST_RUNS:
             print "Test run #: ", self.testRun
@@ -381,7 +382,7 @@ class GazeboInterface():
                     print "lastPrediction None"
                     predictedWorldState = worldState
                     self.worldModel.resetObjects(worldState)
-                
+                self.worldModel.update(predictedWorldState, self.lastAction)
                 self.lastPrediction = self.worldModel.predict(predictedWorldState, self.lastAction)
                 self.sendPrediction()
                 self.sendCommand(self.lastAction)

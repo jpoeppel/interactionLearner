@@ -23,22 +23,22 @@ BESTTWO = 2
 LINEAR = 3
 PREDICTIONMODE = WINNER
 
-#mask = np.array([4,5,6,7,8,9])
-mask = range(11)
 
 class ITM(Network):
     
     def __init__(self):
         super(ITM, self).__init__()
         self.inserts = 0
+        self.winners = []
         pass
         
     def getWinners(self, x):
         if len(self.nodes)< 2:
             return None, None
         else:
-#            ds = sorted([(npdot(n.vec()-x,n.vec()-x), n) for n in self.nodes.values()], key=itemgetter(0))
-            ds = sorted([(npdot(n.wIn-x,n.wIn-x), n) for n in self.nodes.values()], key=itemgetter(0))
+            ds = sorted([(npdot(n.vec()-x,n.vec()-x), n) for n in self.nodes.values()], key=itemgetter(0))
+#            print "itm: ", ds
+#            ds = sorted([(npdot(n.wIn-x,n.wIn-x), n) for n in self.nodes.values()], key=itemgetter(0))
             return ds[0][1], ds[1][1]
             
     def train(self, x):
@@ -52,12 +52,14 @@ class ITM(Network):
 #            print "Nodes train: ", n.vec()
         name = self.idCounter
         x.name = name
-#        nearest, second = self.getWinners(x.vec())
-        nearest, second = self.getWinners(x.wIn)
+        nearest, second = self.getWinners(x.vec())
+#        nearest, second = self.getWinners(x.wIn)
         
         if nearest != None and second != None:
-            print "nearestvec: ", nearest.wIn
-            print "input: ", x.wIn
+#            print "nearestvec: ", nearest.wIn
+#            print "input: ", x.wIn
+#            print "nearest id: ", nearest.name
+            self.winners.append(nearest.name)
             nearest.adapt(x, ETA)
             self.addEdge(nearest.name, second.name)
             for n in nearest.neighbours.values():

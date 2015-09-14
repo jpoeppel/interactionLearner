@@ -12,39 +12,47 @@ import collections
 from operator import itemgetter
 
 EMAX = 0.001
+EMAX_2 = EMAX**2
 EMAX05_2 = (0.5*EMAX)**2
 
-class Node(np.ndarray):
-    __slots__=('out','id','neig','A')
-    def __new__(cls, input_array, id=-1, output = np.zeros(1)):
-        obj = np.asarray(input_array).view(cls)
-        obj.out = output
-        obj.A = np.zeros((len(output),len(input_array)))
-        obj.neig = {}
-        obj.id = id
-        return obj
+#For besttwo
+SIGMAE = 0.05
+
+WINNER = 0
+BESTTWO = 1
+TESTMODE = BESTTWO
+#
+#class Node(np.ndarray):
+#    __slots__=('out','id','neig','A')
+#    def __new__(cls, input_array, id=-1, output = np.zeros(1)):
+#        obj = np.asarray(input_array).view(cls)
+#        obj.out = output
+#        obj.A = np.zeros((len(output),len(input_array)))
+#        obj.neig = {}
+#        obj.id = id
+#        return obj
+#        
+#    def addNeighbour(self, nId, n):
+#        self.neig[nId] = n
+#        
+#    def remNeighbour(self,nId):
+#        del self.neig[nId]
+#        
+#    def __array_finalize__(self, obj):
+##        pass
+##        print "finalize"
+#        if obj is None: return
+#        self.out = getattr(obj, 'out', None)
+#        self.A = getattr(obj, 'A', None)
+#        self.neig = getattr(obj, 'neig', {})
+#        self.id = getattr(obj,'id', -1)
         
-    def addNeighbour(self, nId, n):
-        self.neig[nId] = n
-        
-    def remNeighbour(self,nId):
-        del self.neig[nId]
-        
-    def __array_finalize__(self, obj):
-#        pass
-#        print "finalize"
-        if obj is None: return
-        self.out = getattr(obj, 'out', None)
-        self.A = getattr(obj, 'A', None)
-        self.neig = getattr(obj, 'neig', {})
-        self.id = getattr(obj,'id', -1)
-        
-class Node2(object):
+class Node(object):
     __slots__=('inp','out','id','neig','A')
     def __init__(self, input_array, id=-1, output=np.zeros(1)):
         self.id = id
         self.inp =  np.asarray(input_array)
-        self.out = output
+        self.out = np.copy(output)
         self.A = np.zeros((len(output),len(input_array)))
         self.neig = {}
         
@@ -53,6 +61,9 @@ class Node2(object):
         
     def remNeighbour(self,nId):
         del self.neig[nId]
+        
+    def __repr__(self):
+        return str(self.id)
 
 
 class ITM(object):
@@ -60,13 +71,18 @@ class ITM(object):
     def __init__(self):
         self.nodes = collections.OrderedDict()
         self.ids = []
+        self.idCounter = 0
         self.valAr = np.array([n.inp for n in self.nodes.values()])
 #        self.nodes = []
         self.inserts = 0
+        self.winners = []
+        self.predict = self.test
 #        self.nodes= {}
 #        self.nodes = np.zeros # Try storing all nodes in one nparray that needs to be reshaped
         
         
+    def train(self, node):
+        self.update(node.wIn, node.wOut)
         
     def update(self, x, y, etaIn=0.0, etaOut=0.0, etaA=0.0):
         #Get winners:
@@ -78,10 +94,15 @@ class ITM(object):
 #                vals.append(v.inp)
 #                ids.append(v.id)
 #            numpyVals = np.array([n.inp for n in self.nodes.values()])-x
-            numpyVals = self.valAr -x
+            numpyVals = self.valAr - x 
+#            numpyVals = self.valAr - np.concatenate((x,y)) 
 #            numpyVals = np.array(vals)-x
 #            ids = [n.id for n in self.nodes.values()]
             sortedIndices = np.argsort(np.linalg.norm(numpyVals, axis=1))
+#            ds = sorted([(npdot(np.concatenate((n.inp,n.out))-np.concatenate((x,y)),np.concatenate((n.inp,n.out))-np.concatenate((x,y))), n) for n in self.nodes.values()], key=itemgetter(0))
+#            print "itm2: ", ds
+#            w = ds[0][1]
+#            s = ds[1][1]
 #            sortedIndices = np.argsort([npdot(n-x,n-x) for n in self.nodes.values()])
 #            ds = sorted([(np.linalg.norm(n.inp-x), n) for n in self.nodes.values()], key=itemgetter(0))
 #            w = ds[0][1]
@@ -90,19 +111,20 @@ class ITM(object):
             w = self.nodes[self.ids[sortedIndices[0]]]
 #            w = self.nodes[sortedIndices[0]]
             wI =  w.id
-            print "winner: ", w.inp
-            print "input: ", x
+            self.winners.append(w.id)
+#            print "winner: ", w.inp
+#            print "input: ", x
             s = self.nodes[self.ids[sortedIndices[1]]]
 #            s = self.nodes[sortedIndices[1]]
             sI = s.id
             wsdif = w.inp-s.inp
             #Adapt winner
             dif = x-w.inp
+            ndif = npdot(dif,dif)
             dwIn = etaIn*dif
             w.inp += dwIn
             cor = npdot(w.A,dif)
             w.out += etaOut*(y-w.out+cor) + np.dot(w.A,dwIn)
-            ndif = np.sqrt(npdot(dif,dif))
             if ndif > 0.0:
                 w.A += etaA*np.outer((y-w.out+cor), dif/ndif)
             #Add edge
@@ -110,8 +132,8 @@ class ITM(object):
             s.addNeighbour(wI,w)
 #            #Check neighbours
             for nI, n in w.neig.items():
-#                if n.id != s.id and npdot(wsdif,n.inp-s.inp) < 0:
-                if n.id != s.id and npdot(np.concatenate((w.inp,w.out))-np.concatenate((s.inp,s.out)),np.concatenate((n.inp,n.out))-np.concatenate((s.inp,s.out))) <0:
+                if n.id != s.id and npdot(wsdif,n.inp-s.inp) < 0:
+#                if nI != s.id and npdot(np.concatenate((w.inp,w.out))-np.concatenate((s.inp,s.out)),np.concatenate((n.inp,n.out))-np.concatenate((s.inp,s.out))) <0:
 #                if n.id != s.id and npdot(w-s,n-s) < 0:
                     n.remNeighbour(wI)
                        
@@ -120,29 +142,35 @@ class ITM(object):
                         self.deleteNode(nI)
                     w.remNeighbour(nI)
             #Check for new node
-            if npdot(np.concatenate((w.inp,w.out))-np.concatenate((x,y)),np.concatenate((s.inp,s.out))-np.concatenate((x,y))) > 0 and np.linalg.norm(np.concatenate((x,y))-np.concatenate((w.inp,w.out))) > EMAX:
-#            if npdot(dif,s.inp-x) > 0 and ndif > EMAX:
+#            if npdot(np.concatenate((w.inp,w.out))-np.concatenate((x,y)),np.concatenate((s.inp,s.out))-np.concatenate((x,y))) > 0 and np.linalg.norm(np.concatenate((x,y))-np.concatenate((w.inp,w.out))) > EMAX:
+            if npdot(w.inp-x,s.inp-x) > 0 and ndif > EMAX_2:
 #            if npdot(w-x,s-x) > 0 and np.linalg.norm(w-x) > EMAX:
-                nI = len(self.nodes)
-                n= Node2(x,nI,y)
+#                nI = len(self.nodes)
+                nI = self.idCounter
+                n= Node(x,nI,y)
                 self.nodes[nI] = n
 #                self.nodes.append(n)
                 self.inserts += 1
                 self.ids.append(nI)
+                self.idCounter += 1
                 self.valAr = np.array([node.inp for node in self.nodes.values()])
+#                self.valAr = np.array([np.concatenate((node.inp,node.out)) for node in self.nodes.values()])
                 w.addNeighbour(nI, n)
                 n.addNeighbour(wI, w)
 #            
             if npdot(wsdif,wsdif) < EMAX05_2:
+                print "rem node"
                 if len(self.nodes) > 2:
                     self.deleteNode(sI)             
         else:
 #            To few nodes
-            nI = len(self.nodes)
-            self.nodes[nI] = Node2(x,nI,y)
-#            self.nodes.append(Node2(x,nI,y))
+#            nI = len(self.nodes)
+            nI = self.idCounter
+            self.nodes[nI] = Node(x,nI,y)
             self.ids.append(nI)
+            self.idCounter += 1
             self.valAr = np.array([n.inp for n in self.nodes.values()])
+#            self.valAr = np.array([np.concatenate((node.inp,node.out)) for node in self.nodes.values()])
             self.inserts += 1
         pass
     
@@ -153,15 +181,35 @@ class ITM(object):
                 self.deleteNode(nI)
         del self.nodes[nodeId]
         self.valAr = np.array([n.inp for n in self.nodes.values()])
+#        self.valAr = np.array([np.concatenate((node.inp,node.out)) for node in self.nodes.values()])
 #        self.ids = [n.id for n in self.nodes.values()]
         self.ids.remove(nodeId)
     
     def test(self, x):
 #        numpyVals = np.array([n.inp for n in self.nodes.values()])-x
-        numpyVals = self.valAr -x
+        numpyVals = self.valAr - x
         sortedIndices = np.argsort(np.linalg.norm(numpyVals, axis=1))
-#        ids = [n.id for n in self.nodes.values()]
-        return self.nodes[self.ids[sortedIndices[0]]].out
+        if TESTMODE == WINNER:
+    #        ids = [n.id for n in self.nodes.values()]
+            w =  self.nodes[self.ids[sortedIndices[0]]]
+            return w.out+npdot(w.A,x-w.inp)
+        elif TESTMODE == BESTTWO:
+            if len(self.nodes) > 1:
+                
+                w = self.nodes[self.ids[sortedIndices[0]]]            
+                s = self.nodes[self.ids[sortedIndices[1]]]
+                norm = np.exp(-np.linalg.norm(x-w.inp)**2/(SIGMAE**2))
+                res = norm*(w.out+npdot(w.A,x-w.inp))
+                wc = np.exp(-np.linalg.norm(x-s.inp)**2/(SIGMAE**2))
+                res += wc*(s.out+npdot(s.A,x-s.inp))
+                norm += wc
+                if norm != 0:
+                    return res/norm
+                else:
+                    return res
+            else:
+                return self.nodes[self.ids[sortedIndices[0]]].out
+                
 #        return self.nodes[sortedIndices[0]].out
 #        ds = sorted([(npdot(n.inp-x,n.inp-x), n) for n in self.nodes.values()], key=itemgetter(0))
 #        return ds[0][1].out

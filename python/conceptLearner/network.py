@@ -83,7 +83,8 @@ class Node(object):
         return np.concatenate((self.wIn, self.action))
         
     def __repr__(self):
-        return "Nodename: {} \n wIn: {} \n action: {} \n wOut: {}".format(self.name, self.wIn, self.action, self.wOut)
+#        return "Nodename: {} \n wIn: {} \n action: {} \n wOut: {}".format(self.name, self.wIn, self.action, self.wOut)
+        return str(self.name)
 
 class Network(object):
     def __init__(self):

@@ -247,6 +247,7 @@ def globalPosVelChange(ang, pdif, vdif):
                       [0.0,0.0,1.0]])
     newPDif = npdot(trans,pdif)
     newVDif = npdot(trans,vdif)
+#    return newPDif, newVDif
     return np.round(newPDif, NUMDEC), np.round(newVDif, NUMDEC)
     
 def globalPosVel(p1, ang, relPos, relVel):
@@ -262,7 +263,8 @@ def globalPosVel(p1, ang, relPos, relVel):
     tmpVel = np.zeros(4)
     tmpVel[:3] = relVel
     newVel = npdot(trans, tmpVel)[:3]
-    return np.round(newPos, NUMDEC), np.round(newVel, NUMDEC)
+    return newPos, newVel
+#    return np.round(newPos, NUMDEC), np.round(newVel, NUMDEC)
     
 
 #    

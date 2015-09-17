@@ -52,24 +52,24 @@ class Node(object):
     def removeNeighbour(self, name):
         del self.neighbours[name]
     
-    def adapt(self, x, eta):
-        if eta == 0.0:
+    def adapt(self, x, etaIn, etaOut, etaA):
+        if etaIn == 0.0 and etaOut == 0.0 and etaA == 0.0:
             return
-        dwIn = eta*(x.wIn - self.wIn)
+        dwIn = etaIn*(x.wIn - self.wIn)
         self.wIn += dwIn
-        da = eta*(x.action - self.action)
+        da = etaIn*(x.action - self.action)
         self.action[1:] += da[1:]
         dwInA = np.concatenate((dwIn,da))
         
         er = x.wOut-(self.wOut + self.A.dot(x.vecInA()-self.vecInA()))
-        dwOut =  eta*er + self.A.dot(dwInA)
+        dwOut =  etaOut*er + self.A.dot(dwInA)
 #        print "wOut before adapting: ", self.wOut
         self.wOut += dwOut
 #        print "wOut after adapting: ", self.wOut
         d = x.vecInA()-self.vecInA()
         norm = np.linalg.norm(d)
         if norm > 0.0001:
-            self.A += eta*np.outer(er,d/(norm**2))
+            self.A += etaA*np.outer(er,d/(norm**2))
 #        else:
 #            self.A += eta*np.outer(er,d/(0.0001**2))
         

@@ -21,31 +21,6 @@ SIGMAE = 0.05
 WINNER = 0
 BESTTWO = 1
 TESTMODE = BESTTWO
-#
-#class Node(np.ndarray):
-#    __slots__=('out','id','neig','A')
-#    def __new__(cls, input_array, id=-1, output = np.zeros(1)):
-#        obj = np.asarray(input_array).view(cls)
-#        obj.out = output
-#        obj.A = np.zeros((len(output),len(input_array)))
-#        obj.neig = {}
-#        obj.id = id
-#        return obj
-#        
-#    def addNeighbour(self, nId, n):
-#        self.neig[nId] = n
-#        
-#    def remNeighbour(self,nId):
-#        del self.neig[nId]
-#        
-#    def __array_finalize__(self, obj):
-##        pass
-##        print "finalize"
-#        if obj is None: return
-#        self.out = getattr(obj, 'out', None)
-#        self.A = getattr(obj, 'A', None)
-#        self.neig = getattr(obj, 'neig', {})
-#        self.id = getattr(obj,'id', -1)
         
 class Node(object):
     __slots__=('inp','out','id','neig','A')
@@ -87,35 +62,12 @@ class ITM(object):
     def update(self, x, y, etaIn=0.0, etaOut=0.0, etaA=0.0):
         #Get winners:
         if len(self.nodes) > 1:
-#            numpyVals = Node(self.nodes.values())-x
-#            vals = []
-#            ids = []
-#            for v in self.nodes.values():
-#                vals.append(v.inp)
-#                ids.append(v.id)
-#            numpyVals = np.array([n.inp for n in self.nodes.values()])-x
             numpyVals = self.valAr - x 
-#            numpyVals = self.valAr - np.concatenate((x,y)) 
-#            numpyVals = np.array(vals)-x
-#            ids = [n.id for n in self.nodes.values()]
             sortedIndices = np.argsort(np.linalg.norm(numpyVals, axis=1))
-#            ds = sorted([(npdot(np.concatenate((n.inp,n.out))-np.concatenate((x,y)),np.concatenate((n.inp,n.out))-np.concatenate((x,y))), n) for n in self.nodes.values()], key=itemgetter(0))
-#            print "itm2: ", ds
-#            w = ds[0][1]
-#            s = ds[1][1]
-#            sortedIndices = np.argsort([npdot(n-x,n-x) for n in self.nodes.values()])
-#            ds = sorted([(np.linalg.norm(n.inp-x), n) for n in self.nodes.values()], key=itemgetter(0))
-#            w = ds[0][1]
-#            s = ds[1][1]
-#            print self.nodes.keys()
             w = self.nodes[self.ids[sortedIndices[0]]]
-#            w = self.nodes[sortedIndices[0]]
             wI =  w.id
             self.winners.append(w.id)
-#            print "winner: ", w.inp
-#            print "input: ", x
             s = self.nodes[self.ids[sortedIndices[1]]]
-#            s = self.nodes[sortedIndices[1]]
             sI = s.id
             wsdif = w.inp-s.inp
             #Adapt winner
@@ -130,6 +82,8 @@ class ITM(object):
             #Add edge
             w.addNeighbour(sI,s)
             s.addNeighbour(wI,w)
+            #Get expected output according to currently used prediction scheme
+            expOut = self.test(x, sortedIndices)
 #            #Check neighbours
             for nI, n in w.neig.items():
                 if n.id != s.id and npdot(wsdif,n.inp-s.inp) < 0:
@@ -143,7 +97,18 @@ class ITM(object):
                     w.remNeighbour(nI)
             #Check for new node
 #            if npdot(np.concatenate((w.inp,w.out))-np.concatenate((x,y)),np.concatenate((s.inp,s.out))-np.concatenate((x,y))) > 0 and np.linalg.norm(np.concatenate((x,y))-np.concatenate((w.inp,w.out))) > EMAX:
-            if npdot(w.inp-x,s.inp-x) > 0 and ndif > EMAX_2:
+#            print "ndif: ", ndif
+#            print "thales: ", npdot(w.inp-x,s.inp-x)
+            outNorm = np.linalg.norm(y)
+#            outNorm = npdot(y,y)
+            if outNorm != 0:
+                outputDim = np.floor(np.log10(outNorm))-1
+            else:
+                outputDim = -3
+#            print "outputDim: ", outputDim
+#            if npdot(expOut-y,expOut-y) > 10**outputDim:
+            if np.linalg.norm(expOut-y) > 10**outputDim:
+#            if npdot(w.inp-x,s.inp-x) > 0 and ndif > EMAX_2:
 #            if npdot(w-x,s-x) > 0 and np.linalg.norm(w-x) > EMAX:
 #                nI = len(self.nodes)
                 nI = self.idCounter
@@ -159,7 +124,6 @@ class ITM(object):
                 n.addNeighbour(wI, w)
 #            
             if npdot(wsdif,wsdif) < EMAX05_2:
-                print "rem node"
                 if len(self.nodes) > 2:
                     self.deleteNode(sI)             
         else:
@@ -185,15 +149,19 @@ class ITM(object):
 #        self.ids = [n.id for n in self.nodes.values()]
         self.ids.remove(nodeId)
     
-    def test(self, x):
+    def test(self, x, sortedIndices = None, testMode=None):
 #        numpyVals = np.array([n.inp for n in self.nodes.values()])-x
-        numpyVals = self.valAr - x
-        sortedIndices = np.argsort(np.linalg.norm(numpyVals, axis=1))
-        if TESTMODE == WINNER:
+        if sortedIndices == None:
+            numpyVals = self.valAr - x
+            sortedIndices = np.argsort(np.linalg.norm(numpyVals, axis=1))
+        if testMode == None:
+            testMode = TESTMODE
+        
+        if testMode == WINNER:
     #        ids = [n.id for n in self.nodes.values()]
             w =  self.nodes[self.ids[sortedIndices[0]]]
             return w.out+npdot(w.A,x-w.inp)
-        elif TESTMODE == BESTTWO:
+        elif testMode == BESTTWO:
             if len(self.nodes) > 1:
                 
                 w = self.nodes[self.ids[sortedIndices[0]]]            

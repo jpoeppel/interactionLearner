@@ -36,9 +36,9 @@ import modelGate as model
 #from sklearn.externals.six import StringIO
 #import pydot
 
-trainRuns = [20]
+trainRuns = [3]
 RECORD_SIMULATION = False
-SIMULATION_FILENAME = "gateModel{}Runs_Gate_Act_NoDynsITMOld"
+SIMULATION_FILENAME = "gateModel{}Runs_Gate_Act_NoDynsITMNew2_2"
 
 logging.basicConfig()
 
@@ -50,10 +50,10 @@ PUSHTASKSIMULATION = 2
 MOVE_TO_TARGET = 3
 MODE = PUSHTASKSIMULATION
 #MODE = FREE_EXPLORATION
-#MODE = MOVE_TO_TARGET
+MODE = MOVE_TO_TARGET
 
 
-NUM_TRAIN_RUNS = 3
+NUM_TRAIN_RUNS = 8
 NUM_TEST_RUNS = 20
 
 class GazeboInterface():
@@ -175,9 +175,9 @@ class GazeboInterface():
         """
         names = {15:"blockA"}
         msg = pygazebo.msg.modelState_v_pb2.ModelState_V()
-        msg.models.extend([self.getModelState("gripperShadow", self.lastPrediction.actuator.vec[1:4], self.lastPrediction.actuator.vec[4])])
+        msg.models.extend([self.getModelState("gripperShadow", self.lastPrediction.actuator.vec[0:3], self.lastPrediction.actuator.vec[3])])
         for objectState in self.lastPrediction.objectStates.values():
-            tmp = self.getModelState(names[objectState.id]+"Shadow", objectState.vec[1:4], objectState.vec[4])
+            tmp = self.getModelState(names[objectState.id]+"Shadow", objectState.vec[0:3], objectState.vec[3])
             msg.models.extend([tmp])
         self.posePublisher.publish(msg)
  
@@ -484,6 +484,7 @@ class GazeboInterface():
             return
             
         if self.trainRun < NUM_TRAIN_RUNS:
+            print "trainrun : ", self.trainRun
             if self.runStarted:
                 self.updateModel(worldState, resultState, self.direction)
             else:
@@ -493,22 +494,27 @@ class GazeboInterface():
                     self.pauseWorld()
         elif self.testRun < NUM_TEST_RUNS:
             if self.lastAction != None and resultState != None:
-                print "updating with last action: ", self.lastAction
+#                print "updating with last action: ", self.lastAction
                 self.worldModel.update(worldState, self.lastAction)
             else:
                 self.worldModel.resetObjects(worldState)
             self.lastAction = self.worldModel.getAction()
+#            print "sending action: ", self.lastAction
             self.sendCommand(self.lastAction)
 #            self.lastPrediction = self.worldModel.predict(worldState, self.lastAction)
 #            self.sendPrediction()
-            self.sendPose("blockAShadow", np.array([0.5,-0.2,0.05]), -1.8)
+            if self.worldModel.target != None:
+                self.sendPose("blockAShadow", self.worldModel.target.vec[0:3], self.worldModel.target.vec[3])
             
         
 
     def setTarget(self):
         target = model.Object()
         target.id = 15
-        target.vec = np.array([15, 0.5, -0.2, 0.05, -1.8])#, 0.0,0.0,0.0, 0.0])
+        if model.USE_DYNS:
+            target.vec = np.array([-0.5, 0.4, 0.05, 1.8 ,0.0,0.0,0.0])
+        else:
+            target.vec = np.array([-0.5, 0.4, 0.05, -1.8])#, 0.0,0.0,0.0, 0.0])
         self.worldModel.setTarget(target)
     
     def stop(self):

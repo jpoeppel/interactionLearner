@@ -21,7 +21,7 @@ WINNER = 0
 NEIGHBOURS = 1
 BESTTWO = 2
 LINEAR = 3
-PREDICTIONMODE = WINNER
+PREDICTIONMODE = BESTTWO
 
 
 class ITM(Network):
@@ -30,6 +30,7 @@ class ITM(Network):
         super(ITM, self).__init__()
         self.inserts = 0
         self.winners = []
+        self.test = self.predict
         pass
         
     def getWinners(self, x):
@@ -40,8 +41,11 @@ class ITM(Network):
 #            print "itm: ", ds
 #            ds = sorted([(npdot(n.wIn-x,n.wIn-x), n) for n in self.nodes.values()], key=itemgetter(0))
             return ds[0][1], ds[1][1]
+
+    def update(self, x, y, etaIn=0.0, etaOut= 0.0, etaA=0.0):
+        self.train(Node("", wIn=x, wOut=y), etaIn, etaOut, etaA)            
             
-    def train(self, x):
+    def train(self, x, etaIn=0.0, etaOut= 0.0, etaA=0.0):
         """
         Parameters
         ==========
@@ -60,7 +64,7 @@ class ITM(Network):
 #            print "input: ", x.wIn
 #            print "nearest id: ", nearest.name
             self.winners.append(nearest.name)
-            nearest.adapt(x, ETA)
+            nearest.adapt(x, etaIn, etaOut, etaA)
             self.addEdge(nearest.name, second.name)
             for n in nearest.neighbours.values():
                 if n != second and npdot(nearest.vec()-second.vec(), n.vec()-second.vec()) < 0:
@@ -178,7 +182,7 @@ class ITM(Network):
             elif PREDICTIONMODE == LINEAR:
                 return minNode.action #TODO make real linear
                 
-    def predict(self, wIn):
+    def predict(self, wIn, testMode = None):
 #        print "num Nodes predict: ", len(self.nodes)
 #        for n in self.nodes.values():
 #            print "Nodes predict: ", n.wOut
@@ -186,6 +190,9 @@ class ITM(Network):
 #        secDist = float('inf')
         minNode = None
         secNode = None
+        
+        if testMode == None:
+            testMode = PREDICTIONMODE
         
 #        for n in self.nodes.values():
 #            d = np.linalg.norm(n.vecInA()-wIn)
@@ -200,14 +207,14 @@ class ITM(Network):
             minNode = ds[0][1]
         
         if minNode != None:
-            if PREDICTIONMODE == WINNER:
+            if testMode == WINNER:
 #                print "minNode win: ", minNode.vecInA()
 #                print "number of nodes: ", len(self.nodes)
                 return minNode.wOut
-            elif PREDICTIONMODE == LINEAR:
+            elif testMode == LINEAR:
 #                print "MinNode: ", minNode
                 return minNode.wOut + minNode.A.dot(wIn-minNode.vecInA())
-            elif PREDICTIONMODE == NEIGHBOURS:                    
+            elif testMode == NEIGHBOURS:                    
                 norm = math.exp(-np.linalg.norm(wIn-minNode.vecInA())**2/(SIGMAE**2))
                 res = norm*minNode.wOut
                 for n in minNode.neighbours.values():
@@ -216,7 +223,7 @@ class ITM(Network):
                     res += wc * n.wOut
                     
                 return res/norm
-            elif PREDICTIONMODE == BESTTWO:
+            elif testMode == BESTTWO:
                 
                 
                 if len(self.nodes) > 1:

@@ -27,9 +27,9 @@ from sklearn.naive_bayes import MultinomialNB
 
 import common
 from common import NUMDEC
-from topoMaps import ITM
+#from topoMaps import ITM
 from network import Node
-#from itm import ITM
+from itm import ITM
 import copy
 
 GREEDY_TARGET = True
@@ -61,42 +61,42 @@ class Object(object):
         vec[0] = self.id
         vec[1] = other.id
         if USE_DYNS:
-            vec[2], vec[3] = common.computeDistanceClosing(self.id, self.vec[1:4],self.vec[5:8], 
-                        self.vec[4], other.id, other.vec[1:4], other.vec[5:8], other.vec[4])
-            vec[4:7], vec[7:10], vec[10:13] = common.relPosVel(self.vec[1:4], self.vec[5:8], self.vec[4], other.vec[1:4], other.vec[5:8])
+            vec[2], vec[3] = common.computeDistanceClosing(self.id, self.vec[0:3],self.vec[4:7], 
+                        self.vec[3], other.id, other.vec[0:3], other.vec[4:7], other.vec[3])
+            vec[4:7], vec[7:10], vec[10:13] = common.relPosVel(self.vec[0:3], self.vec[4:7], self.vec[3], other.vec[0:3], other.vec[4:7])
         else:
-            vec[2], vec[3] = common.computeDistanceClosing(self.id, self.vec[1:4],self.vec[1:4]-self.lastVec[1:4], 
-                        self.vec[4], other.id, other.vec[1:4], other.vec[1:4]-other.lastVec[1:4], other.vec[4])
-            vec[4:7], vec[7:10], vec[10:13] = common.relPosVel(self.vec[1:4], self.vec[1:4]-self.lastVec[1:4], self.vec[4], other.vec[1:4], other.vec[1:4]-other.lastVec[1:4])
+            vec[2], vec[3] = common.computeDistanceClosing(self.id, self.vec[0:3],self.vec[0:3]-self.lastVec[0:3], 
+                        self.vec[3], other.id, other.vec[0:3], other.vec[0:3]-other.lastVec[0:3], other.vec[3])
+            vec[4:7], vec[7:10], vec[10:13] = common.relPosVel(self.vec[0:3], self.vec[0:3]-self.lastVec[0:3], self.vec[3], other.vec[0:3], other.vec[0:3]-other.lastVec[0:3])
         
 #        vec[10] = np.dot(np.linalg.norm(vec[4:7]), np.linalg.norm(vec[7:10]))
         return vec
         
     def getGlobalPosVel(self, localPos, localVel):
-        return common.globalPosVel(self.vec[1:4], self.vec[4], localPos, localVel)
+        return common.globalPosVel(self.vec[0:3], self.vec[3], localPos, localVel)
                 
                 
     def getLocalChangeVec(self, post):
         res = np.copy(post.vec)
         res -= self.vec
         if USE_DYNS:
-            res[1:4], res[5:8] = common.relPosVelChange(self.vec[4], res[1:4], res[5:8])
+            res[0:3], res[4:7] = common.relPosVelChange(self.vec[3], res[0:3], res[4:7])
         else:
-            res[1:4], v =  common.relPosVelChange(self.vec[4], res[1:4], np.zeros(3))
+            res[0:3], v =  common.relPosVelChange(self.vec[3], res[0:3], np.zeros(3))
         return res
 
     def predict(self, predictor, other):
         resO = copy.deepcopy(self)
 #        print "object before: ", resO.vec[1:4]
-#        print "relVec: ", self.getRelVec(other)
+#        print "relVec: ", self.getRelVec(other)[4:7]
         pred = predictor.predict(self.getRelVec(other)[mask])
 #        pred = predictor.test(self.getRelVec(other))
         if USE_DYNS:
-            pred[1:4], pred[5:8] = common.globalPosVelChange(self.vec[4], pred[1:4], pred[5:8])
+            pred[0:3], pred[4:7] = common.globalPosVelChange(self.vec[3], pred[0:3], pred[4:7])
         else:
-            pred[1:4], v = common.globalPosVelChange(self.vec[4], pred[1:4], np.zeros(3))
+            pred[0:3], v = common.globalPosVelChange(self.vec[3], pred[0:3], np.zeros(3))
 #        print "prediction for o: {}: {}".format(self.id, pred)
-        self.predVec = self.vec + pred*1.5 #interestingly enough, *1.5 improves prediction accuracy quite a lot
+        self.predVec = self.vec + pred#*1.5 #interestingly enough, *1.5 improves prediction accuracy quite a lot
         resO.vec = np.round(self.predVec, common.NUMDEC)
         resO.lastVec = np.copy(self.vec)
 #        print "resulting object: ", resO.vec[1:4]
@@ -123,7 +123,8 @@ class Object(object):
         
         relVec = self.getRelVec(otherObject)
         dist = relVec[2]
-        relPos = otherObject.vec[1:4] - self.vec[1:4]
+        relPos = otherObject.vec[0:3] - self.vec[0:3]
+        relPos[2] = 0
         if dist < 0.03:
             return 0.5*relPos/np.linalg.norm(relPos)
         elif dist > 0.05:
@@ -144,14 +145,14 @@ class Object(object):
         p2x = -p1x
         p1y = DEPTH[self.id]
         p2y = -p1y
-        ang = self.vec[4]
+        ang = self.vec[3]
         c = np.cos(ang)
         s = np.sin(ang)
         p1xn = p1x*c -p1y*s + self.vec[1]
         p1yn = p1x*s + p1y*c + self.vec[2]
         p2xn = p2x*c - p2y*s + self.vec[1]
         p2yn = p2x*s + p2y*c + self.vec[2]
-        return np.array([np.copy(self.vec[1:4]), np.array([p1xn,p1yn,self.vec[3]]), np.array([p2xn,p2yn,self.vec[3]])])
+        return np.array([np.copy(self.vec[0:3]), np.array([p1xn,p1yn,self.vec[2]]), np.array([p2xn,p2yn,self.vec[2]])])
         
     def compare(self, other):
         assert self.id == other.id, "Should only compare the same objects not {} and {}".format(self.id, othe.id)
@@ -164,25 +165,25 @@ class Object(object):
         res = cls()
         res.id = m.id 
         if USE_DYNS:
-            res.vec = np.zeros(8)
-            res.vec[0] = m.id
-            res.vec[1] = npround(m.pose.position.x, NUMDEC) #posX
-            res.vec[2] = npround(m.pose.position.y, NUMDEC) #posY
-            res.vec[3] = npround(m.pose.position.z, 2) #posZ
-            res.vec[4] = npround(common.quaternionToEuler(np.array([m.pose.orientation.x,m.pose.orientation.y,
+            res.vec = np.zeros(7)
+#            res.vec[0] = m.id
+            res.vec[0] = npround(m.pose.position.x, NUMDEC) #posX
+            res.vec[1] = npround(m.pose.position.y, NUMDEC) #posY
+            res.vec[2] = npround(m.pose.position.z, 2) #posZ
+            res.vec[3] = npround(common.quaternionToEuler(np.array([m.pose.orientation.x,m.pose.orientation.y,
                                                 m.pose.orientation.z,m.pose.orientation.w])), NUMDEC)[2] #ori
-            res.vec[5] = npround(m.linVel.x, NUMDEC) #linVelX
-            res.vec[6] = npround(m.linVel.y, NUMDEC) #linVelY
-            res.vec[7] = 0.0 #linVelZ
+            res.vec[4] = npround(m.linVel.x, NUMDEC) #linVelX
+            res.vec[5] = npround(m.linVel.y, NUMDEC) #linVelY
+            res.vec[6] = 0.0 #linVelZ
         
 #            res.vec[8] = npround(m.angVel.z, NUMDEC) #angVel
         else:
-            res.vec = np.zeros(5)
-            res.vec[0] = m.id
-            res.vec[1] = npround(m.pose.position.x, NUMDEC) #posX
-            res.vec[2] = npround(m.pose.position.y, NUMDEC) #posY
-            res.vec[3] = npround(m.pose.position.z, 2) #posZ
-            res.vec[4] = npround(common.quaternionToEuler(np.array([m.pose.orientation.x,m.pose.orientation.y,
+            res.vec = np.zeros(4)
+#            res.vec[0] = m.id
+            res.vec[0] = npround(m.pose.position.x, NUMDEC) #posX
+            res.vec[1] = npround(m.pose.position.y, NUMDEC) #posY
+            res.vec[2] = npround(m.pose.position.z, 2) #posZ
+            res.vec[3] = npround(common.quaternionToEuler(np.array([m.pose.orientation.x,m.pose.orientation.y,
                                                 m.pose.orientation.z,m.pose.orientation.w])), NUMDEC)[2] #ori
         res.lastVec = np.copy(res.vec)
         return res
@@ -205,17 +206,17 @@ class Actuator(Object):
         self.predVec = np.copy(self.vec)
 #        res.vec[5:8] = action #Set velocity
         if USE_DYNS:
-            self.predVec[5:8] = action
+            self.predVec[4:7] = action
         else:
             pass
         #Hardcorded version
         if HARDCODEDACTUATOR:
 #            res.vec[1:4] += 0.01*action
-            self.predVec[1:4] += 0.01*action
+            self.predVec[0:3] += 0.01*action
         else:
             #Only predict position
             p = self.predictor.predict(action)
-            self.predVec[1:4] += p
+            self.predVec[0:3] += p
 #            res.vec[1:4] += p
         res.lastVec = np.copy(self.vec)
         res.vec = np.round(self.predVec, common.NUMDEC)
@@ -228,8 +229,9 @@ class Actuator(Object):
             if HARDCODEDACTUATOR:
                 pass
             else:
-                pdif = newAc.vec[1:4]-self.vec[1:4]
-                self.predictor.train(Node(0, wIn=action, wOut=pdif))
+                pdif = newAc.vec[0:3]-self.vec[0:3]
+#                self.predictor.train(Node(0, wIn=action, wOut=pdif))
+                self.predictor.update(action, pdif, etaOut=0.0)
         self.vec = np.copy(newAc.vec)
         
     @classmethod
@@ -266,7 +268,8 @@ class Classifier(object):
 #        self.clas = svm.SVC()
 #        self.clas = Perceptron()
 #        self.clas = SGDClassifier()
-        self.clas = PassiveAggressiveClassifier()
+#        self.clas = PassiveAggressiveClassifier()
+        self.clas = ITM()
         self.isTrained = False
 #        self.inputs = []
 #        self.targets = []
@@ -279,7 +282,8 @@ class Classifier(object):
 #            self.targets.append(label)
 #            if max(self.targets) > 0:
 #            self.clas.partial_fit(np.concatenate((o1vec,avec)), np.array([label]), np.array([0,1]))
-            self.clas.partial_fit(o1vec[[2,3,7,8,9]], np.array([label]), np.array([0,1])) #Test to ignore action, since it is applied to object2 calculating ovec
+#            self.clas.partial_fit(o1vec[[2,3,7,8,9]], np.array([label]), np.array([0,1])) #Test to ignore action, since it is applied to object2 calculating ovec
+            self.clas.update(o1vec[[2,3,7,8,9]], np.array([label]))
             self.isTrained = True
     
     def test(self, ovec, avec):
@@ -299,7 +303,9 @@ class Classifier(object):
 #            if len(self.targets) > 0 and max(self.targets) > 0:
             if self.isTrained:
 #                return self.clas.predict(np.concatenate((ovec,avec)))[0]
-                return self.clas.predict(ovec[[2,3,7,8,9]])[0] #Same as above in training
+#                return self.clas.predict(ovec[[2,3,7,8,9]])[0] #Same as above in training
+                pred = self.clas.test(ovec[[2,3,7,8,9]], testMode=0)
+                return pred
             else:
                 return 0
     
@@ -317,7 +323,7 @@ class GateFunction(object):
         
     def checkChange(self, pre, post):
         dif = pre.getLocalChangeVec(post)
-        if np.linalg.norm(dif[1:4]) > 0.0 or abs(dif[4]) > 0.0:
+        if np.linalg.norm(dif[0:3]) > 0.0 or abs(dif[3]) > 0.0:
             return True, dif
         return False, dif
         
@@ -354,6 +360,7 @@ class MetaNode(object):
         self.posSum = None
         self.negSum = None
         self.prev = None
+        self.signCombinations= {}
         pass
 
     def train(self, pre, dif):
@@ -366,7 +373,6 @@ class MetaNode(object):
             Absolut difference value of the feature
         """
         #Compare incoming pres and find the things they have in common/are relevant for a given dif
-        print "node trained with dif: ", dif
         lPre = len(pre)
         if self.zeroPass == None:
             self.zeroPass = [False]*lPre
@@ -375,7 +381,10 @@ class MetaNode(object):
             self.posWeights = np.zeros(lPre)
             self.negWeights = np.zeros(lPre)
             self.prev = np.zeros(lPre)
+        curSigCom = ";".join("{}".format(n) for n in np.sign(pre[[4,5,10,11]]))
         for i in xrange(lPre):
+#            curSigCom += str(np.sign(pre[i]))
+            
             if not self.zeroPass[i]:
                 if USE_DYNS:
                     if abs(pre[1]) < 0.01:
@@ -386,69 +395,171 @@ class MetaNode(object):
             if pre[i] < 0:
                 self.negSum[i] += dif*pre[i]
                 self.negWeights[i] += dif
-            else:
+            elif pre[i] > 0:
                 self.posSum[i] += dif*pre[i]
                 self.posWeights[i] += dif
+            else:
+                self.negSum[i] += dif*pre[i]
+                self.posSum[i] += dif*pre[i]
+                self.negWeights[i] += dif
+                self.posWeights[i] += dif
+                
             if self.posWeights[i] == self.negWeights[i]:
                 self.prev[i] = np.sign(pre[i])
+        print "pos weights: ", self.posWeights[[4,5,10,11]]
+        print "neg weights: ", self.negWeights[[4,5,10,11]]
+        if curSigCom in self.signCombinations:
+            self.signCombinations[curSigCom] += 1
+        else:
+            self.signCombinations[curSigCom] = 1
                     
         
     def getPreconditions(self):
         res = np.zeros(len(self.zeroPass))
+        res2 = np.zeros(len(self.zeroPass))
+        res2valid = False
+        print "signCombinations: ", self.signCombinations
         for i in xrange(len(self.zeroPass)):
+            if i in [4,5,10,11]:
+                print "i: {}, posSum: {}, negSum: {}, posW: {}, negW: {} zero: {}".format(i, self.posSum[i], self.negSum[i], self.posWeights[i], self.negWeights[i], self.zeroPass[i])
             if self.zeroPass[i]:
                 res[i] = (self.posSum[i]+self.negSum[i])/(self.posWeights[i]+self.negWeights[i])
+                res2[i] =(self.posSum[i]+self.negSum[i])/(self.posWeights[i]+self.negWeights[i])
             else:
 #                print "index: {}, pos weights: {}, neg weights: {}".format(i, self.posWeights[i], self.negWeights[i])
                 if self.posWeights[i] > self.negWeights[i]:
                     res[i] = self.posSum[i]/self.posWeights[i]
+                    if self.negWeights[i] > 0.2:
+                        res2[i] = self.negSum[i]/self.negWeights[i]
+                        res2valid = True
+                    else:
+                        res2[i] = self.posSum[i]/self.posWeights[i]
                 elif self.posWeights[i] == self.negWeights[i]:
+                    res2valid = True
                     if self.prev[i] < 0:
                         res[i] = self.negSum[i]/self.negWeights[i]
+                        res2[i] = self.posSum[i]/self.posWeights[i]
                     else:
                         res[i] = self.posSum[i]/self.posWeights[i]
+                        res2[i] = self.negSum[i]/self.negWeights[i]
                 else:
                     res[i] = self.negSum[i]/self.negWeights[i]
-        return res
+                    if self.posWeights[i] > 0.2:
+                        res2[i] = self.posSum[i]/self.posWeights[i]
+                        res2valid =True
+                    else:
+                        res2[i] = self.negSum[i]/self.negWeights[i]
+        if res2valid:
+            return res, res2
+        else:
+            return res, None
             
 class MetaNetwork(object):
     
     def __init__(self):
         self.nodes = {}
         self.curIndex = None
+        self.curSecIndex = None
+        self.preConsSize = None
+        self.difSize = None
         pass
     
     def train(self, pre, difs):
+        if self.preConsSize == None:
+            self.preConsSize = len(pre)
+        if self.difSize == None:
+            self.difSize = len(difs)
+#        print "difs: ", difs
 #        print "training network with pre: ", pre
         for i in xrange(len(difs)):
-            if abs(difs[i]) > 0.003:
-                index = i*np.sign(difs[i])
+            #It appears smaller values break inverse model since the weights can 
+            #get swapped for point symmetric preconditions
+            if abs(difs[i]) > 0.002: 
+                index = str(i*np.sign(difs[i]))
                 if not index in self.nodes:
                     self.nodes[index] = MetaNode()
+                print "training index: {} with dif: {}".format(index, difs[i])
+                print "precons: ",pre[[4,5,10,11]]
                 self.nodes[index].train(pre,abs(difs[i]))
-            
+                
+    def tobeNamed(self):
+        """
+            Function that tries to find preconditions that might increase its knowledge
+            about the obejct interaction.
+        """
+        curKeys = self.nodes.keys()
+        for i in xrange(self.difSize):
+            if i in curKeys and not -i in curKeys:
+                return self.nodes[i].getPreconditions()
+            if -i in curKeys and not i in curKeys:
+                return self.nodes[-i].getPreconditions()
+                
                 
     def getPreconditions(self, targetDifs):
-        res = np.zeros(14)
+        res = self.preConsSize
         norm = 0.0
         if GREEDY_TARGET:
             if self.curIndex != None:
-                if np.sign(self.curIndex) == np.sign(targetDifs[abs(self.curIndex)]) and abs(targetDifs[abs(self.curIndex)]) > 0.02:
+                ind = float(self.curIndex)
+                #Consider making this a ratio of maximum/total difs so that it avoids jumping back and forth when it is already quite close to target
+                if np.sign(ind) == np.sign(targetDifs[abs(ind)]) and abs(targetDifs[abs(ind)]) > 0.02: 
                     print "working on curIndex: ", self.curIndex
-                    return self.nodes[self.curIndex].getPreconditions()
+                    preCons1, preCons2 = self.nodes[self.curIndex].getPreconditions()
                 else:
                     self.curIndex = None
                     
-            maxDif = np.argmax(abs(targetDifs))
-            index = maxDif*np.sign(targetDifs[maxDif])
-            print "maxindex: ", index
-            if not index in self.nodes:
-                print "index i {} for targetDif {}, not known".format(index, targetDifs[i])
-                print "nodes: ", self.nodes.keys()
+            
+            if self.curIndex == None:
+                sortedDifs = np.argsort(abs(targetDifs))                
+                maxDif = sortedDifs[-1]
+                index = str(maxDif*np.sign(targetDifs[maxDif]))
+                self.curSecIndex =str(sortedDifs[-2]*np.sign(targetDifs[sortedDifs[-2]]))
                 print "targetDifs: ", targetDifs
+                print "maxindex: ", index
+                if not index in self.nodes:
+                    print "index i {} for targetDif {}, not known".format(index, targetDifs[i])
+                    print "nodes: ", self.nodes.keys()
+                    print "targetDifs: ", targetDifs
+                else:
+                    self.curIndex = index
+                    print "precons for index: ", index
+                    preCons1, preCons2 = self.nodes[index].getPreconditions()
+                    
+            if preCons2 == None:
+                print "no alternative"
+                return preCons1
             else:
-                self.curIndex = index
-                return self.nodes[index].getPreconditions()
+                index2 = self.curSecIndex
+                if not index2 in self.nodes:
+                    print "using pre1"
+                    return preCons1
+                else:
+                    print "precons for index: ", index2
+                    secCons1, secCons2 = self.nodes[index2].getPreconditions()
+                    o1 = np.linalg.norm(secCons1-preCons1)
+                    o2 = np.linalg.norm(secCons1-preCons2)
+#                    print "dist1: ", o1
+#                    print "dist2: ", o2
+#                    print "preCons1: ", preCons1
+#                    print "preCons2: ", preCons2
+#                    print "secCons1: ", secCons1
+                    if secCons2 == None:
+                        if o1 <= o2:
+                            print "using pre1"
+                            return preCons1
+                        else:
+                            print "using pre2"
+                            return preCons2
+                    else:
+                        o3 = np.linalg.norm(secCons2-preCons1)
+                        o4 = np.linalg.norm(secCons2-preCons2)
+                        if min(o1,o3) < min(o2,o4):
+                            print "using pre1"
+                            return preCons1
+                        else:
+                            print "using pre2"
+                            return preCons2
+                
 
         else:
             for i in xrange(len(targetDifs)):
@@ -479,14 +590,7 @@ class Predictor(object):
         else:
             return o1
             
-    def getAction(self, targetId, dif):
-        if targetId in self.predictors:
-            return self.predictors[targetId].getAction(dif)
-        else:
-            print "Target not found"
-            return None, None, None
-            
-    def getAction2(self,targetId, dif):
+    def getAction(self,targetId, dif):
         if targetId in self.inverseModel:
             return self.inverseModel[targetId].getPreconditions(dif)
         else:
@@ -498,10 +602,11 @@ class Predictor(object):
             #TODO check for close ones that can be used
             self.predictors[intState[0]] = ITM()
             self.inverseModel[intState[0]] = MetaNetwork()
-        with open("../../trainDataPush20.txt", "a") as f:
-            f.write(";".join(["{:.4f}".format(x) for x in np.concatenate((intState, dif))]))
-            f.write("\n")
-        self.predictors[intState[0]].train(Node(0, wIn = intState[mask], wOut=dif))
+#        with open("../../trainDataPush20.txt", "a") as f:
+#            f.write(";".join(["{:.4f}".format(x) for x in np.concatenate((intState, dif))]))
+#            f.write("\n")
+#        self.predictors[intState[0]].train(Node(0, wIn = intState[mask], wOut=dif))
+        self.predictors[intState[0]].update(intState[mask], dif, etaIn=0.1)
         self.inverseModel[intState[0]].train(intState, dif)
 
 
@@ -529,7 +634,7 @@ class ModelGate(object):
         
     def isTargetReached(self):
         targetO = self.curObjects[self.target.id]
-        difVec = targetO.vec[:5]-self.target.vec[:5]
+        difVec = targetO.vec[:4]-self.target.vec[:4]
         norm = np.linalg.norm(difVec)
         print "dif norm: ", norm
         if norm < 0.01:
@@ -567,19 +672,21 @@ class ModelGate(object):
 #                print "global dif vec: ", self.target.vec-targetO.vec
                 difVec = targetO.getLocalChangeVec(self.target)
 #                print "difVec: ", difVec[:5]
-                pre = self.predictor.getAction2(self.target.id, difVec[:5])
+                pre = self.predictor.getAction(self.target.id, difVec[:4])
                 relTargetPos = pre[4:7]
-#                print "rel target pos: ", relTargetPos
+                print "rel target pos: ", relTargetPos
                 relTargetVel = pre[10:13]
+                print "relTargetVel: ", relTargetVel
                 
                 pos, vel = targetO.getGlobalPosVel(relTargetPos, relTargetVel)
-#                print "target pos: ", pos
-                difPos = pos-self.actuator.vec[1:4]
+                print "target vel: ", vel
+                print "target pos: ", pos
+                print "cur pos: ", self.actuator.vec[0:3]
+                difPos = pos-self.actuator.vec[0:3]
 #                print "difpos norm: ", np.linalg.norm(difPos)
                 relVec = targetO.getRelVec(self.actuator)
                 relPos = relVec[4:7]
-#                print "relPos actuator: ", relPos
-#                print "relPos*relTargetPos: ", relPos*relTargetPos
+                # Determine Actuator position that allows action in good direction
                 wrongSides = relPos*relTargetPos < 0
                 if np.any(wrongSides):
                     if max(abs(relTargetPos[wrongSides]-relPos[wrongSides])) > 0.05:
@@ -588,7 +695,7 @@ class ModelGate(object):
                         return targetO.circle(self.actuator)
                         
                 if np.linalg.norm(difPos) > 0.02:
-                    action = 0.3*difPos/np.linalg.norm(difPos)
+                    action = 0.5*difPos/np.linalg.norm(difPos)
                     tmpAc = self.actuator.predict(action)
                     if not self.gate.test(targetO, tmpAc, action):
                         print "doing difpos"
@@ -599,11 +706,11 @@ class ModelGate(object):
 #                else:
                 print "using vel"
                 normVel = np.linalg.norm(vel)
-                if normVel > 0.01 and normVel < 0.2:
+                if normVel == 0.0 or (normVel > 0.01 and normVel < 0.2):
                     return vel
                 else:
                     return 0.3*vel/normVel
-#                # Determine Actuator position that allows action in good direction
+#                
 
 #                #TODO!
 #                # Work in open loop: Compare result of previous action with expected result
@@ -621,26 +728,10 @@ class ModelGate(object):
                 newWS.objectStates[o.id] = newO
                 
             else:
-                o.vec[5:] = 0.0
+                o.vec[4:] = 0.0
                 newWS.objectStates[o.id] = o
         return newWS
         
-#   Does not work like this without dynamics since lastVec is not properly set to estimate velocities!!   
-#    def predict(self, ws, action):
-#        newWS = WorldState()
-#        newWS.actuator.predictor = self.actuator.predictor #Do not really like this -.-
-#        newWS.actuator = ws.actuator.predict(action)
-#        for o in ws.objectStates.values():
-#            if self.gate.test(o, newWS.actuator, action): #TODO Check of newWS.actuator is correct here and if action can be removed!
-#                #TODO that depends on how the gate/classifier is trained. if it is trained on pre1,pre2+action, then this should be o, self.actuator, action
-##                print "predicted change"
-#                newO = self.predictor.predict(o, newWS.actuator, action)
-#                newWS.objectStates[o.id] = newO
-#            else:
-##                print "predicted no change"
-#                o.vec[5:] = 0.0
-#                newWS.objectStates[o.id] = o
-#        return newWS
         
     def resetObjects(self, curWS):
         for o in curWS.objectStates.values():

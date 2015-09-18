@@ -16,13 +16,6 @@ objects that are changed to have a potential influence on other objects.
 
 import numpy as np
 from numpy import round as npround
-#from sklearn import neighbors
-from sklearn import svm
-from sklearn.linear_model import Perceptron
-from sklearn.linear_model import SGDClassifier
-from sklearn.linear_model import PassiveAggressiveClassifier
-from sklearn.naive_bayes import MultinomialNB
-
 
 
 import common
@@ -31,6 +24,8 @@ from common import NUMDEC
 from network import Node
 from itm import ITM
 import copy
+
+from operator import itemgetter
 
 GREEDY_TARGET = True
 
@@ -70,6 +65,14 @@ class Object(object):
             vec[4:7], vec[7:10], vec[10:13] = common.relPosVel(self.vec[0:3], self.vec[0:3]-self.lastVec[0:3], self.vec[3], other.vec[0:3], other.vec[0:3]-other.lastVec[0:3])
         
 #        vec[10] = np.dot(np.linalg.norm(vec[4:7]), np.linalg.norm(vec[7:10]))
+#        if vec[6] != -0.02:
+#            raise NotImplementedError(vec)
+        return vec
+        
+    def getRelObjectVec(self, other):
+        vec = np.zeros(len(self.vec))
+        vec[0:3] = common.relPos(self.vec[0:3], self.vec[3], other.vec[0:3])
+        vec[3] = other.vec[3]-self.vec[3]
         return vec
         
     def getGlobalPosVel(self, localPos, localVel):
@@ -108,7 +111,7 @@ class Object(object):
         self.lastVec = np.copy(self.vec)
         self.vec = np.copy(newO.vec)
         
-    def circle(self, otherObject):
+    def circle(self, otherObject, direction = None):
         """
             Function to return an action that would circle the other object around 
             itself.
@@ -125,13 +128,16 @@ class Object(object):
         dist = relVec[2]
         relPos = otherObject.vec[0:3] - self.vec[0:3]
         relPos[2] = 0
-        if dist < 0.03:
-            return 0.5*relPos/np.linalg.norm(relPos)
-        elif dist > 0.05:
-            return -0.5*relPos/np.linalg.norm(relPos)
+        if dist < 0.04:
+            return 0.4*relPos/np.linalg.norm(relPos)
+        elif dist > 0.06:
+            return -0.4*relPos/np.linalg.norm(relPos)
         else:
             tangent = np.array([-relPos[1], relPos[0], 0.0])
-            return 0.5*tangent/np.linalg.norm(tangent)
+            if direction != None and np.any(tanged*direction < 0):
+                return -0.4*tangent/np.linalg.norm(tangent)
+            else:
+                return 0.4*tangent/np.linalg.norm(tangent)
         
         return np.array([0.0,0.0,0.0])
         
@@ -287,10 +293,10 @@ class Classifier(object):
             self.isTrained = True
     
     def test(self, ovec, avec):
-#        print "closing: {}, dist: {}".format(ovec[3], ovec[2])
+        print "Change: closing: {}, dist: {}, relVel: {}".format(ovec[3], ovec[2], ovec[7:10])
         if HARDCODEDGATE:
-            if ovec[3] <= -100*ovec[2]:
-#                print "Change: closing: {}, dist: {}, relVel: {}".format(ovec[3], ovec[2], ovec[7:10])
+            if ovec[3] <= -ovec[2]:
+                
                 return 1
             else:
                 if ovec[3] == 0 and np.linalg.norm(ovec[7:10]) < 0.001 and ovec[2] < 0.05: #Todo remove distance from this
@@ -361,6 +367,8 @@ class MetaNode(object):
         self.negSum = None
         self.prev = None
         self.signCombinations= {}
+        self.signCombinationSums= {}
+        self.signCombinationNumbers = {}
         pass
 
     def train(self, pre, dif):
@@ -381,47 +389,85 @@ class MetaNode(object):
             self.posWeights = np.zeros(lPre)
             self.negWeights = np.zeros(lPre)
             self.prev = np.zeros(lPre)
-        curSigCom = ";".join("{}".format(n) for n in np.sign(pre[[4,5,10,11]]))
+#        curSigCom = ";".join("{}".format(n) for n in np.sign(pre[[4,5,10,11]]))
+        curSigCom = []
         for i in xrange(lPre):
 #            curSigCom += str(np.sign(pre[i]))
-            
-            if not self.zeroPass[i]:
-                if USE_DYNS:
-                    if abs(pre[1]) < 0.01:
-                        self.zeroPass[i] = True
-                else:
-                    if abs(pre[i]) < 0.001:
-                        self.zeroPass[i] = True
-            if pre[i] < 0:
-                self.negSum[i] += dif*pre[i]
-                self.negWeights[i] += dif
-            elif pre[i] > 0:
-                self.posSum[i] += dif*pre[i]
-                self.posWeights[i] += dif
+            if pre[i] < -0.001:
+                curSigCom.append('-1')
+            elif pre[i] > 0.001:
+                curSigCom.append('1')
             else:
-                self.negSum[i] += dif*pre[i]
-                self.posSum[i] += dif*pre[i]
-                self.negWeights[i] += dif
-                self.posWeights[i] += dif
-                
-            if self.posWeights[i] == self.negWeights[i]:
-                self.prev[i] = np.sign(pre[i])
-        print "pos weights: ", self.posWeights[[4,5,10,11]]
-        print "neg weights: ", self.negWeights[[4,5,10,11]]
+                curSigCom.append('0')
+#            if not self.zeroPass[i]:
+#                if USE_DYNS:
+#                    if abs(pre[1]) < 0.01:
+#                        self.zeroPass[i] = True
+#                else:
+#                    if abs(pre[i]) < 0.001:
+#                        self.zeroPass[i] = True
+#            if pre[i] < 0:
+#                self.negSum[i] += dif*pre[i]
+#                self.negWeights[i] += dif
+#            elif pre[i] > 0:
+#                self.posSum[i] += dif*pre[i]
+#                self.posWeights[i] += dif
+#            else:
+#                self.negSum[i] += dif*pre[i]
+#                self.posSum[i] += dif*pre[i]
+#                self.negWeights[i] += dif
+#                self.posWeights[i] += dif
+#                
+#            if self.posWeights[i] == self.negWeights[i]:
+#                self.prev[i] = np.sign(pre[i])
+#        print "pos weights: ", self.posWeights[[4,5,10,11]]
+#        print "neg weights: ", self.negWeights[[4,5,10,11]]
+        curSigCom = ";".join(curSigCom)
         if curSigCom in self.signCombinations:
-            self.signCombinations[curSigCom] += 1
+            self.signCombinations[curSigCom] += dif
+            self.signCombinationSums[curSigCom] += dif*pre
+            self.signCombinationNumbers[curSigCom] += 1
         else:
-            self.signCombinations[curSigCom] = 1
-                    
-        
+            self.signCombinations[curSigCom] = dif
+            self.signCombinationSums[curSigCom] = dif*pre
+            self.signCombinationNumbers[curSigCom] = 1
+            
     def getPreconditions(self):
         res = np.zeros(len(self.zeroPass))
         res2 = np.zeros(len(self.zeroPass))
+        l = sorted([(k, v) for k,v in self.signCombinations.items()], key=itemgetter(1), reverse=True)
+#        print "sorted list: ", l
+        if len(l) > 1:
+            comb1 = l[0][0].split(";")
+            comb2 = l[1][0].split(";")
+            pre1 = self.signCombinationSums[l[0][0]]
+            pre2 = self.signCombinationSums[l[1][0]]
+            w1 = self.signCombinations[l[0][0]]
+            w2 = self.signCombinations[l[1][0]]
+#            print "comb1: ", comb1
+#            print "comb2: ", comb2
+            for i in xrange(len(comb1)):
+                if comb1[i] == comb2[i] or comb1[i] == '0' or comb2[i] == '0':
+                    res[i] = (pre1[i]+pre2[i])/(w1+w2)
+                    res2[i] = res[i]
+                else:
+                    res[i] = pre1[i]/w1
+                    res2[i] = pre2[i]/w2
+            return res, res2
+        else:
+            return self.signCombinationSums[l[0][0]]/self.signCombinations[l[0][0]], None
+                
+#        print "sorted list: ", l
+                    
+        
+    def getPreconditions2(self):
+        res = np.zeros(len(self.zeroPass))
+        res2 = np.zeros(len(self.zeroPass))
         res2valid = False
-        print "signCombinations: ", self.signCombinations
+#        print "signCombinations: ", self.signCombinations
         for i in xrange(len(self.zeroPass)):
-            if i in [4,5,10,11]:
-                print "i: {}, posSum: {}, negSum: {}, posW: {}, negW: {} zero: {}".format(i, self.posSum[i], self.negSum[i], self.posWeights[i], self.negWeights[i], self.zeroPass[i])
+#            if i in [4,5,10,11]:
+#                print "i: {}, posSum: {}, negSum: {}, posW: {}, negW: {} zero: {}".format(i, self.posSum[i], self.negSum[i], self.posWeights[i], self.negWeights[i], self.zeroPass[i])
             if self.zeroPass[i]:
                 res[i] = (self.posSum[i]+self.negSum[i])/(self.posWeights[i]+self.negWeights[i])
                 res2[i] =(self.posSum[i]+self.negSum[i])/(self.posWeights[i]+self.negWeights[i])
@@ -462,6 +508,9 @@ class MetaNetwork(object):
         self.curSecIndex = None
         self.preConsSize = None
         self.difSize = None
+        self.targetIndex = None
+        self.preConsToCheck = None
+        self.preConIndex = 0
         pass
     
     def train(self, pre, difs):
@@ -478,31 +527,49 @@ class MetaNetwork(object):
                 index = str(i*np.sign(difs[i]))
                 if not index in self.nodes:
                     self.nodes[index] = MetaNode()
-                print "training index: {} with dif: {}".format(index, difs[i])
-                print "precons: ",pre[[4,5,10,11]]
+#                print "training index: {} with dif: {}".format(index, difs[i])
+#                print "precons: ",pre[[4,5,6,10,11]]
                 self.nodes[index].train(pre,abs(difs[i]))
+                if self.targetIndex != None and index == self.targetIndex:
+                    print "target: {} successfully found.".format(index)
+                    self.targetIndex =None
+                    self.preConIndex = 0
                 
     def tobeNamed(self):
         """
             Function that tries to find preconditions that might increase its knowledge
             about the obejct interaction.
         """
-        curKeys = self.nodes.keys()
-        for i in xrange(self.difSize):
-            if i in curKeys and not -i in curKeys:
-                return self.nodes[i].getPreconditions()
-            if -i in curKeys and not i in curKeys:
-                return self.nodes[-i].getPreconditions()
+        if self.targetIndex == None:
+            curKeys = self.nodes.keys()
+            for i in xrange(self.difSize):
+                if str(i) in curKeys and not str(-i) in curKeys:
+                    self.targetIndex = str(-i)
+                    self.preConsToCheck = self.nodes[str(i)].getPreconditions()
+                if str(-i) in curKeys and not str(i) in curKeys:
+                    self.targetIndex = str(i)
+                    self.preConsToCheck = self.nodes[str(-i)].getPreconditions()
+                    
+        preConstoTry = np.copy(self.preConsToCheck)
+        preConstoTry[self.preConIndex] *= -1
+        self.preConIndex += 1
+        if self.preConIndex == len(self.preConsToCheck):
+            print "Last Try"
+            self.targetIndex = None
+            self.preConIndex = 0
+        return preConstoTry
+        
+            
                 
                 
     def getPreconditions(self, targetDifs):
         res = self.preConsSize
-        norm = 0.0
         if GREEDY_TARGET:
             if self.curIndex != None:
                 ind = float(self.curIndex)
+                indSign = -1 if '-'in self.curIndex else 1
                 #Consider making this a ratio of maximum/total difs so that it avoids jumping back and forth when it is already quite close to target
-                if np.sign(ind) == np.sign(targetDifs[abs(ind)]) and abs(targetDifs[abs(ind)]) > 0.02: 
+                if indSign == np.sign(targetDifs[abs(ind)]) and abs(targetDifs[abs(ind)]) > 0.01: 
                     print "working on curIndex: ", self.curIndex
                     preCons1, preCons2 = self.nodes[self.curIndex].getPreconditions()
                 else:
@@ -514,8 +581,8 @@ class MetaNetwork(object):
                 maxDif = sortedDifs[-1]
                 index = str(maxDif*np.sign(targetDifs[maxDif]))
                 self.curSecIndex =str(sortedDifs[-2]*np.sign(targetDifs[sortedDifs[-2]]))
-                print "targetDifs: ", targetDifs
-                print "maxindex: ", index
+#                print "targetDifs: ", targetDifs
+#                print "maxindex: ", index
                 if not index in self.nodes:
                     print "index i {} for targetDif {}, not known".format(index, targetDifs[i])
                     print "nodes: ", self.nodes.keys()
@@ -553,29 +620,16 @@ class MetaNetwork(object):
                     else:
                         o3 = np.linalg.norm(secCons2-preCons1)
                         o4 = np.linalg.norm(secCons2-preCons2)
-                        if min(o1,o3) < min(o2,o4):
-                            print "using pre1"
+                        if min(o1,o3) <= min(o2,o4):
+                            print "using pre1 sec"
                             return preCons1
                         else:
-                            print "using pre2"
+                            print "using pre2 sec"
                             return preCons2
                 
 
         else:
-            for i in xrange(len(targetDifs)):
-              if abs(targetDifs[i]) > 0.001:
-                  index = i*np.sign(targetDifs[i])
-                  if not index in self.nodes:
-                      print "index i {} for targetDif {}, not known".format(index, targetDifs[i])
-                      print "nodes: ", self.nodes.keys()
-                      print "targetDifs: ", targetDifs
-                  else:
-                      res += abs(targetDifs[i])*self.nodes[index].getPreconditions()
-                      norm += abs(targetDifs[i])
-            if norm > 0:    
-                return res/norm
-            else:
-                return res
+            raise NotImplementedError("Currently only greedy is possible")
         
             
 class Predictor(object):
@@ -596,6 +650,12 @@ class Predictor(object):
         else:
             print "target not found"
             return None
+            
+    def getExplorationPreconditions(self, objectId):
+        if objectId in self.inverseModel:
+            return self.inverseModel[objectId].tobeNamed()
+        else:
+            print "No inverse model for objectId {}".format(objectId)
     
     def update(self, intState, action, dif):
         if not intState[0] in self.predictors:
@@ -634,7 +694,7 @@ class ModelGate(object):
         
     def isTargetReached(self):
         targetO = self.curObjects[self.target.id]
-        difVec = targetO.vec[:4]-self.target.vec[:4]
+        difVec = targetO.vec-self.target.vec
         norm = np.linalg.norm(difVec)
         print "dif norm: ", norm
         if norm < 0.01:
@@ -648,8 +708,15 @@ class ModelGate(object):
             Returns: np.ndarray
                 Action vector for the actuator
         """
+        for oId in self.curObjects.keys():
+            preCons = self.predictor.getExplorationConditions(oId)
+                
+        # Get promising pre conditions
+        # Fullfilly pre conditions
+        # Perform action from precondtions (idially if it triggers gate/find action that triggers gate)
+        # (If successfull ->) get next set of preconditions for different attribute?
         
-        pass
+        
         
         
     def getAction(self):
@@ -671,8 +738,9 @@ class ModelGate(object):
                 # Determine difference vector, the object should follow
 #                print "global dif vec: ", self.target.vec-targetO.vec
                 difVec = targetO.getLocalChangeVec(self.target)
+                difNorm = np.linalg.norm(difVec)
 #                print "difVec: ", difVec[:5]
-                pre = self.predictor.getAction(self.target.id, difVec[:4])
+                pre = self.predictor.getAction(self.target.id, difVec)
                 relTargetPos = pre[4:7]
                 print "rel target pos: ", relTargetPos
                 relTargetVel = pre[10:13]
@@ -685,6 +753,7 @@ class ModelGate(object):
                 difPos = pos-self.actuator.vec[0:3]
 #                print "difpos norm: ", np.linalg.norm(difPos)
                 relVec = targetO.getRelVec(self.actuator)
+#                relVec = targetO.getRelObjectVec(self.actuator)
                 relPos = relVec[4:7]
                 # Determine Actuator position that allows action in good direction
                 wrongSides = relPos*relTargetPos < 0
@@ -694,16 +763,22 @@ class ModelGate(object):
                         print "try circlying"
                         return targetO.circle(self.actuator)
                         
-                if np.linalg.norm(difPos) > 0.02:
-                    action = 0.5*difPos/np.linalg.norm(difPos)
+                if np.linalg.norm(difPos) > 0.01:
+                    action = 0.3*difPos/np.linalg.norm(difPos)
+                    print "difpos action: ", action
                     tmpAc = self.actuator.predict(action)
                     if not self.gate.test(targetO, tmpAc, action):
                         print "doing difpos"
                         return action
                     else:
-                        print "circlying since can't do difpos"
-                        return targetO.circle(self.actuator)
-#                else:
+                        predRes = self.predictor.predict(targetO, tmpAc, action)
+                        if np.linalg.norm(predRes.vec-self.target.vec) > np.linalg.norm(targetO.vec-self.target.vec):
+                            print "circlying since can't do difpos"
+                            return targetO.circle(self.actuator, action)
+                        else:
+                            print "doing difpos anyways"
+                            return action
+
                 print "using vel"
                 normVel = np.linalg.norm(vel)
                 if normVel == 0.0 or (normVel > 0.01 and normVel < 0.2):
@@ -711,7 +786,6 @@ class ModelGate(object):
                 else:
                     return 0.3*vel/normVel
 #                
-
 #                #TODO!
 #                # Work in open loop: Compare result of previous action with expected result
 #                pass

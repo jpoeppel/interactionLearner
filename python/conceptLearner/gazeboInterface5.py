@@ -36,7 +36,7 @@ import modelGate as model
 #from sklearn.externals.six import StringIO
 #import pydot
 
-trainRuns = [3]
+trainRuns = [30]
 RECORD_SIMULATION = False
 SIMULATION_FILENAME = "gateModel{}Runs_Gate_Act_NoDynsITMNew2_2"
 
@@ -50,7 +50,7 @@ PUSHTASKSIMULATION = 2
 MOVE_TO_TARGET = 3
 MODE = PUSHTASKSIMULATION
 #MODE = FREE_EXPLORATION
-MODE = MOVE_TO_TARGET
+#MODE = MOVE_TO_TARGET
 
 
 NUM_TRAIN_RUNS = 8
@@ -514,7 +514,7 @@ class GazeboInterface():
         if model.USE_DYNS:
             target.vec = np.array([-0.5, 0.4, 0.05, 1.8 ,0.0,0.0,0.0])
         else:
-            target.vec = np.array([-0.5, 0.4, 0.05, -1.8])#, 0.0,0.0,0.0, 0.0])
+            target.vec = np.array([0.75, -0.4, 0.05, -1.0])#, 0.0,0.0,0.0, 0.0])
         self.worldModel.setTarget(target)
     
     def stop(self):

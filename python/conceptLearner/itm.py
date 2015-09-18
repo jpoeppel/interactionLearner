@@ -57,7 +57,7 @@ class ITM(object):
         
         
     def train(self, node):
-        self.update(node.wIn, node.wOut)
+        self.update(np.concatenate((node.wIn,node.action)), node.wOut)
         
     def update(self, x, y, etaIn=0.0, etaOut=0.0, etaA=0.0):
         #Get winners:

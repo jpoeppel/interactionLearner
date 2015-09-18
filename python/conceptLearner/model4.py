@@ -23,6 +23,7 @@ import common
 
 from sklearn.gaussian_process import GaussianProcess
 from topoMaps import ITM
+#from itm import ITM
 from network import Node, Tree
 from network import LVQNeuron, LVQNeuralNet
 import copy
@@ -39,16 +40,16 @@ from sklearn import tree
 from config import SINGLE_INTSTATE
 
 
-#if SINGLE_INTSTATE:
-#    from state3 import State, ObjectState, Action, InteractionState, WorldState
-#else:
-#    from state2 import State, ObjectState, Action, InteractionState, WorldState
-#MAXSTATESCORE = 12-5 #state2/3
-#PREDICTIONTHRESHOLD = MAXSTATESCORE - 0.001 #state2/3
+if SINGLE_INTSTATE:
+    from state3 import State, ObjectState, Action, InteractionState, WorldState
+else:
+    from state2 import State, ObjectState, Action, InteractionState, WorldState
+MAXSTATESCORE = 12-5 #state2/3
+PREDICTIONTHRESHOLD = MAXSTATESCORE - 0.001 #state2/3
 
-from state4 import State, Action, ObjectState, InteractionState, WorldState
-MAXSTATESCORE = 1 #state 4
-PREDICTIONTHRESHOLD = MAXSTATESCORE - 0.01 #state4
+#from state4 import State, Action, ObjectState, InteractionState, WorldState
+#MAXSTATESCORE = 1 #state 4
+#PREDICTIONTHRESHOLD = MAXSTATESCORE - 0.01 #state4
 
 
 
@@ -169,7 +170,7 @@ class AbstractCase(object):
                 else:
                     prediction = self.predictors[k].predict(np.concatenate((state.getVec(),action.getVec())))
 #                if state["sname"] == "blockA":
-#                print "variable: {}, prediction: {}".format(k, prediction)
+                print "variable: {}, prediction: {}".format(k, prediction)
                 if prediction != None:
                     resultState[k] = state[k] + prediction
                 else:
@@ -995,7 +996,7 @@ class ModelCBR(object):
 #            print "X after scaling: ", x
             caseID = int(self.aCClassifier.predict(x)[0])
 #            print "CLASS PROBABILITIES: ", self.aCClassifier.predict_proba(x)
-#            print "CaseID: ", caseID
+            print "CaseID: ", caseID
 #            print "Case prob: ", self.aCClassifier.predict_proba(x)
             bestCase = self.abstractCases[caseID]
         else:

@@ -203,8 +203,8 @@ def relPos(p1, ang,  p2):
     sa = math.sin(ang)
     trans = np.array([[ca, -sa, 0.0, p1[0]],
                  [sa, ca, 0.0, p1[1]],
-                 [0.0, 0.0, 1.0, p1[2],
-                 [0.0,0.0,0.0,1.0]]])
+                 [0.0, 0.0, 1.0, p1[2]],
+                 [0.0,0.0,0.0,1.0]])
     invTrans = invertTransMatrix(trans)
     tmpPos = np.ones(4)
     tmpPos[:3] = np.copy(p2)
@@ -295,7 +295,7 @@ def computeDistanceClosing(id1, p1, v1, ang1, id2, p2, v2, ang2):
     norm = np.linalg.norm(normal)
     if norm > 0.0:
         normal /= np.linalg.norm(normal)
-    return np.round(sortedL[0][0]-0.025, NUMDEC), np.round(npdot(normal, vel), NUMDEC)
+    return np.round(max(sortedL[0][0]-0.025,0.0), NUMDEC), np.round(npdot(normal, vel), NUMDEC)
     
 if __name__=="__main__":
     

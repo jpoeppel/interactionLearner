@@ -63,7 +63,6 @@ class State(dict):
         
     def __ne__(self, other):
         return not self.__eq__(other)
-            
         
 class Action(State):
     
@@ -74,6 +73,7 @@ class Action(State):
         self.relKeys = self.keys()
         self.mask = np.array(range(len(self.vec)))
         self.selMask = self.mask
+        self.relSelKeys = ["mvDir"]
         
     def transform(self, matrix):
         tmpMVDir = np.zeros(4)
@@ -90,6 +90,8 @@ class Action(State):
         res["cmd"] = cmd
         res["mvDir"] = direction
         return res
+        
+    
     
 class ObjectState(State):
     
@@ -118,7 +120,8 @@ class ObjectState(State):
         o2["name"] = intState["oname"]
         o2["id"] = intState["oid"]
         if DIFFERENCES:
-            o2["pos"][:3], o2["linVel"][:3] = common.globalPosVel(o1["pos"], o1["ori"], intState["dir"], intState["dori"])
+#            o2["pos"][:3], o2["linVel"][:3] = common.globalPosVel(o1["pos"], o1["ori"], intState["dir"], intState["dori"])
+            o2["pos"][:3], o2["linVel"][:3] = o1["pos"]+intState["dir"], o1["ori"]+ intState["dori"]
             o2["angVel"][0] = o1["angVel"] + intState["dangVel"]
             o2["ori"][0] = o1["ori"] + intState["dori"]
         else:
@@ -175,6 +178,10 @@ class ObjectState(State):
 #        tmpaV[:3] = np.copy(self["angVel"])
 #        res["angVel"] = np.round(np.array((np.dot(matrix,tmpaV))[:3]), NUMDEC)
 #        print "res pos:", res["pos"]
+#        print "transforming: ", res["name"]
+#        print "transforming with: ", euler
+#        print "ori before transform: ", self["ori"]
+#        print "ori after transform: ", res["ori"]
         return res
 
         
@@ -205,6 +212,7 @@ class InteractionState(State):
             self.relKeys = list(self.features)
             self.mask = np.array(range(len(self.vec)))
             self.selMask = self.mask
+            self.selMask = [10,11,12,16,17]
         else:
             self.vec = np.zeros(16)
             self.update({"name": "", "sname":"", "oname": "", "sid": self.vec[0:1], "oid":self.vec[1:2],
@@ -219,6 +227,7 @@ class InteractionState(State):
                                       "closingDivDist", "closing1", "closing2", "closing1DivDist", "closing2DivDist"])
             self.mask = np.array(range(len(self.vec)))
             self.selMask = self.mask
+            self.selMask = [2,3,5,6,8,9,11]
 #        if CLOSING_REFERAL:
 #            self.mask=[0,1,2,5,6,8,9,12,13]
 #        else:            
@@ -226,6 +235,15 @@ class InteractionState(State):
 #            self.mask = np.array([0,1,4,5,6,8,9,12,13,14,15])
 #        self.relKeys = ["sid", "oid", "dist", "closing", "contact", "relPosX", "relPosY", "relPosZ", "closingDivDist", "closing2"]
         
+
+    @classmethod
+    def clone(cls, other):
+        res = cls()
+        np.copyto(res.vec, other.vec)
+        res["name"] = other["name"]
+        res["sname"] = other["sname"]
+        res["oname"] = other["oname"]
+        return res        
         
     @classmethod
     def parseInteraction(cls, os1, os2):
@@ -405,13 +423,13 @@ class InteractionState(State):
         
 class WorldState(object):
     
-    def __init__(self, transM = np.identity(4), invTrans = np.identity(4), ori = 0.0):
+    def __init__(self, transM = None, invTrans = np.identity(4), ori = 0.0):
         self.objectStates = {}
         self.interactionStates = {}
         self.predictionCases = {}
         self.transM = transM
         self.invTrans = invTrans
-        self.ori = 0.0
+        self.ori = ori
         pass        
             
 
@@ -441,8 +459,10 @@ class WorldState(object):
                     tmp["linVelZ"][0] = 0.0
                 if m.name == "blockA":
                     tmp["angVel"][0] = np.round(m.angVel.z, NUMDEC)
+                    print "block ori: ", tmp["ori"]
                     if self.transM == None:
                         if INTERACTION_STATES:
+                            print "calc trans"
                             self.transM = common.eulerPosToTransformation(tmp["ori"],tmp["pos"])
                             self.invTrans = common.invertTransMatrix(self.transM)
                             self.ori = np.copy(tmp["ori"])
@@ -471,13 +491,13 @@ class WorldState(object):
                 if n1 != "gripper":
                     for n2, os2 in self.objectStates.items():
                         if n1 != n2:
-                            intState = InteractionState.parseInteraction(os1,os2.transform(self.invTrans, -self.ori))
+                            intState = InteractionState.parseInteraction(os1.transform(self.invTrans, -self.ori),os2.transform(self.invTrans, -self.ori))
                             self.interactionStates[intState["name"]] = intState
         else:
             for n1, os1 in self.objectStates.items():
                 for n2, os2 in self.objectStates.items():
                     if n1 != n2:
-                        intState = InteractionState.parseInteraction(os1,os2.transform(self.invTrans, -self.ori))
+                        intState = InteractionState.parseInteraction(os1.transform(self.invTrans, -self.ori),os2.transform(self.invTrans, -self.ori))
                         self.interactionStates[intState["name"]] = intState
                     
                     

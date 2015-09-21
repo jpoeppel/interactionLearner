@@ -12,7 +12,7 @@ from conceptLearner.network import Node
 import time
 
 mask = [3,4,5,9,10]
-mask = range(13)[4:]
+mask = range(13)
 #mask = [3,4,5,7,8,10,11]
 
 def trainITM(net, inputs, outputs):
@@ -38,8 +38,8 @@ if __name__ == "__main__":
     inputs = trainDataPush[inputMask,:13]
     outputs = trainDataPush[inputMask,13:]
     
-    testinputs = trainDataPush[:,:13]
-    testoutputs = trainDataPush[:,13:]
+    testinputs = trainDataPush[:700,:13]
+    testoutputs = trainDataPush[:700,13:]
 
     print "means: ", np.mean(inputs, axis=0)
     print "std: ", np.std(inputs, axis=0)

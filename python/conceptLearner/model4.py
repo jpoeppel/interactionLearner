@@ -21,9 +21,9 @@ from common import GAZEBOCMDS as GZCMD
 from common import NUMDEC
 import common
 
-from sklearn.gaussian_process import GaussianProcess
-from topoMaps import ITM
-#from itm import ITM
+#from sklearn.gaussian_process import GaussianProcess
+#from topoMaps import ITM
+from itm import ITM
 from network import Node, Tree
 from network import LVQNeuron, LVQNeuralNet
 import copy
@@ -40,16 +40,16 @@ from sklearn import tree
 from config import SINGLE_INTSTATE
 
 
-if SINGLE_INTSTATE:
-    from state3 import State, ObjectState, Action, InteractionState, WorldState
-else:
-    from state2 import State, ObjectState, Action, InteractionState, WorldState
-MAXSTATESCORE = 12-5 #state2/3
-PREDICTIONTHRESHOLD = MAXSTATESCORE - 0.001 #state2/3
+#if SINGLE_INTSTATE:
+#    from state3 import State, ObjectState, Action, InteractionState, WorldState
+#else:
+#    from state2 import State, ObjectState, Action, InteractionState, WorldState
+#MAXSTATESCORE = 12-5 #state2/3
+#PREDICTIONTHRESHOLD = MAXSTATESCORE - 0.001 #state2/3
 
-#from state4 import State, Action, ObjectState, InteractionState, WorldState
-#MAXSTATESCORE = 1 #state 4
-#PREDICTIONTHRESHOLD = MAXSTATESCORE - 0.01 #state4
+from state4 import State, Action, ObjectState, InteractionState, WorldState
+MAXSTATESCORE = 1 #state 4
+PREDICTIONTHRESHOLD = MAXSTATESCORE - 0.01 #state4
 
 
 
@@ -159,8 +159,10 @@ class AbstractCase(object):
             self.predictors[k] = ITM()
         self.addRef(case)
         
+
     def predict(self, state, action):
-        resultState = copy.deepcopy(state)
+#        resultState = copy.deepcopy(state)
+        resultState = InteractionState.clone(state)
         if len(self.refCases) > 1:
 #            print "resultState intId: ", resultState["intId"]
             for k in self.variables:
@@ -172,9 +174,9 @@ class AbstractCase(object):
 #                if state["sname"] == "blockA":
                 print "variable: {}, prediction: {}".format(k, prediction)
                 if prediction != None:
-                    resultState[k] = state[k] + prediction
+                    resultState[k][:] = state[k] + prediction
                 else:
-                    resultState[k] = state[k] + self.refCases[0].predict(state, action, k)
+                    resultState[k][:] = state[k] + self.refCases[0].predict(state, action, k)
                     
                 assert not np.any(np.isnan(resultState[k])), "prediction caused nan. k: {}, prediction: {}, state: {}, action: {}".format(k, prediction, state, action)
 
@@ -542,6 +544,7 @@ class ModelCBR(object):
         self.avgCorrectPrediction = 0.0
         self.correctPredictions = 0
         self.aCClassifier = None
+        self.aCClassifier2 = None
         self.lvq = None
         self.scaler = None
         
@@ -999,6 +1002,10 @@ class ModelCBR(object):
             print "CaseID: ", caseID
 #            print "Case prob: ", self.aCClassifier.predict_proba(x)
             bestCase = self.abstractCases[caseID]
+        elif self.aCClassifier2 != None:
+            x = np.concatenate((state.toSelVec(),action.toSelVec()))
+            caseID = int(self.aCClassifier2.test(x))
+            bestCase = self.abstractCases[caseID]
         else:
             scoreList = [(c.abstCase,c.score(state,action)) for c in self.cases]
             sortedList = sorted(scoreList, key=itemgetter(1), reverse=True) 
@@ -1081,6 +1088,7 @@ class ModelCBR(object):
             if ac.variables == attribSet:
                 abstractCase = ac
 #                print "Correct AC_ID: ", abstractCase.id
+                
                 #TODO consider search for all of them in case we distinguish by certain features
                 break
             
@@ -1093,6 +1101,7 @@ class ModelCBR(object):
 #            self.avgCorrectPrediction += (sum(correctRating.values())-self.avgCorrectPrediction)/(float(self.correctPredictions))
             self.avgCorrectPrediction += (correctScore-self.avgCorrectPrediction)/(float(self.correctPredictions))
 #            print "Prediction Score of correctCase prediction: {}, worst attrib: {} ({})".format(sum(correctRating.values()), worstRating[0], worstRating[1]) 
+#            self.retrainACClassifier2((np.concatenate((state.toSelVec(),action.toSelVec()))), abstractCase.id)
         if usedCase != None:
             if usedCase.variables == attribSet:
 #                print "correct case selected!!!!!!!!!!!!!!!!!"
@@ -1122,6 +1131,7 @@ class ModelCBR(object):
                 self.abstractCases[newAC.id] = newAC
                 self.addBaseCase(newCase)
                 retrain = True
+#                self.retrainACClassifier2((np.concatenate((state.toSelVec(),action.toSelVec()))), newAC.id)
         if retrain:
             self.retrainACClassifier()
 #            self.retrainLVQ()
@@ -1139,6 +1149,11 @@ class ModelCBR(object):
                 self.lvq.train(c.toSelVec(), c.abstCase.id)
                     
 
+    def retrainACClassifier2(self, x, y):
+        if self.aCClassifier2 == None:
+            self.aCClassifier2 = ITM()
+        self.aCClassifier2.update(x,np.array([y]))
+        
 
     def retrainACClassifier(self):
         print "Retraining!"
@@ -1154,7 +1169,7 @@ class ModelCBR(object):
 #            self.scaler = preprocessing.Normalizer().fit(X)
 #            self.aCClassifier = svm.SVC(kernel='rbf', C=1, gamma=0.1)
 #            self.aCClassifier = SGDClassifier(loss='log', penalty="l2")
-            self.aCClassifier = tree.DecisionTreeClassifier(criterion="gini", class_weight='auto')#, min_samples_leaf=5) max_leaf_nodes=len(self.abstractCases))#, max_features='auto')
+            self.aCClassifier = tree.DecisionTreeClassifier(criterion="gini", class_weight='auto')#, max_depth=4)#, min_samples_leaf=5) max_leaf_nodes=len(self.abstractCases))#, max_features='auto')
 #            self.aCClassifier = RandomForestClassifier()
 #            self.aCClassifier = AdaBoostClassifier(tree.DecisionTreeClassifier(max_depth=4), n_estimators=50)
 #            self.aCClassifier.fit(self.scaler.transform(X),Y)
@@ -1162,20 +1177,21 @@ class ModelCBR(object):
             
     def getGraphViz(self, dot_data):
         if self.aCClassifier != None:
-            feature_names = []
-            for k in self.cases[0].preState.relSelKeys:
-                if hasattr(self.cases[0].preState[k], "__len__"):
-                    for i in range(len(self.cases[0].preState[k])):
-                        feature_names.append(k+"_"+["x","y","z"][i])
-                else:
-                    feature_names.append(k)
-            for k in self.cases[0].action.relSelKeys:
-                if hasattr(self.cases[0].action[k], "__len__"):
-                    for i in range(len(self.cases[0].action[k])):
-                        feature_names.append(k+"_"+["x","y","z"][i])
-                else:
-                    feature_names.append(k)
-            tree.export_graphviz(self.aCClassifier, out_file=dot_data, feature_names=feature_names)
+#            feature_names = []
+#            for k in self.cases[0].preState.relSelKeys:
+#                if hasattr(self.cases[0].preState[k], "__len__"):
+#                    for i in range(len(self.cases[0].preState[k])):
+#                        feature_names.append(k+"_"+["x","y","z"][i])
+#                else:
+#                    feature_names.append(k)
+#            for k in self.cases[0].action.relSelKeys:
+#                if hasattr(self.cases[0].action[k], "__len__"):
+#                    for i in range(len(self.cases[0].action[k])):
+#                        feature_names.append(k+"_"+["x","y","z"][i])
+#                else:
+#                    feature_names.append(k)
+#            tree.export_graphviz(self.aCClassifier, out_file=dot_data, feature_names=feature_names)
+            tree.export_graphviz(self.aCClassifier, out_file=dot_data)
 
     def addBaseCase(self, newCase):
         self.cases.append(newCase)

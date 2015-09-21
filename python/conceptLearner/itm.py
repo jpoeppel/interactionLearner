@@ -87,6 +87,7 @@ class ITM(object):
 #            #Check neighbours
             for nI, n in w.neig.items():
                 if n.id != s.id and npdot(wsdif,n.inp-s.inp) < 0:
+                    print "remove neighbour"
 #                if nI != s.id and npdot(np.concatenate((w.inp,w.out))-np.concatenate((s.inp,s.out)),np.concatenate((n.inp,n.out))-np.concatenate((s.inp,s.out))) <0:
 #                if n.id != s.id and npdot(w-s,n-s) < 0:
                     n.remNeighbour(wI)

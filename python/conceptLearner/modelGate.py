@@ -530,10 +530,12 @@ class MetaNetwork(object):
 #                print "training index: {} with dif: {}".format(index, difs[i])
 #                print "precons: ",pre[[4,5,6,10,11]]
                 self.nodes[index].train(pre,abs(difs[i]))
+
                 if self.targetIndex != None and index == self.targetIndex:
                     print "target: {} successfully found.".format(index)
                     self.targetIndex =None
                     self.preConIndex = 0
+
                 
     def tobeNamed(self):
         """

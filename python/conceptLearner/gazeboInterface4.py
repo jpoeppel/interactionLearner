@@ -63,7 +63,7 @@ DIFFERENTBLOCKORIENTATION = False
 DIRECTIONGENERALISATION = True
 DIRECTIONGENERALISATION = False
 
-NUM_TRAIN_RUNS = 6
+NUM_TRAIN_RUNS = 10
 NUM_TEST_RUNS = 20
 
 RECORD_SIMULATION = False
@@ -360,7 +360,9 @@ class GazeboInterface():
             worldState = worldState_pb2.WorldState.FromString(data)
         
             if self.lastPrediction != None:
+                print "last prediction ori: ", self.lastPrediction.ori
                 resultWS = model.WorldState(self.lastPrediction.transM, self.lastPrediction.invTrans, self.lastPrediction.ori)
+                print "parse result"
                 resultWS.parse(worldState)
             else:
                 resultWS = None
@@ -586,9 +588,8 @@ class GazeboInterface():
 #                    self.worldModel.getGraphViz(dot_data)
 #                    graph = pydot.graph_from_dot_data(dot_data.getvalue())
 #                    if graph != None:
-#                        graph.write_pdf("../../data/ActionTree20.pdf")
+#                        graph.write_pdf("../../data/TestTree.pdf")
 #                    print "ACs: ", [(ac.id, ac.variables) for ac in self.worldModel.abstractCases.values() ]
-#                    np.random.seed(1234)
         elif self.testRun < NUM_TEST_RUNS:
             print "Test run #: ", self.testRun
             if self.runStarted:

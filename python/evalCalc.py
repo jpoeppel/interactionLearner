@@ -9,6 +9,6 @@ Created on Fri Sep  4 19:15:35 2015
 import numpy as np
 
 
-data = np.loadtxt("../data/gateModel10Runs_Gate_Act_NoDynsITMOld.txt", delimiter=";")
+data = np.loadtxt("../data/gateModel10Runs_Gate_Act_NoDynsITMNewWinner.txt", delimiter=";")
 
 print np.mean(data,axis = 0)

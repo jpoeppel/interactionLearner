@@ -36,9 +36,9 @@ import modelGate as model
 #from sklearn.externals.six import StringIO
 #import pydot
 
-trainRuns = [30]
-RECORD_SIMULATION = False
-SIMULATION_FILENAME = "gateModel{}Runs_Gate_Act_NoDynsITMNew2_2"
+trainRuns = [10]
+RECORD_SIMULATION = True
+SIMULATION_FILENAME = "gateModel{}Runs_Gate_Act_NoDynsITMNewNeighbour"
 
 logging.basicConfig()
 
@@ -50,10 +50,10 @@ PUSHTASKSIMULATION = 2
 MOVE_TO_TARGET = 3
 MODE = PUSHTASKSIMULATION
 #MODE = FREE_EXPLORATION
-#MODE = MOVE_TO_TARGET
+MODE = MOVE_TO_TARGET
 
 
-NUM_TRAIN_RUNS = 8
+NUM_TRAIN_RUNS = 1
 NUM_TEST_RUNS = 20
 
 class GazeboInterface():
@@ -490,7 +490,7 @@ class GazeboInterface():
             else:
                 self.trainRun += 1
                 if self.trainRun == NUM_TRAIN_RUNS:
-                    self.setTarget()
+#                    self.setTarget()
                     self.pauseWorld()
         elif self.testRun < NUM_TEST_RUNS:
             if self.lastAction != None and resultState != None:

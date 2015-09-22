@@ -20,6 +20,7 @@ SIGMAE = 0.05
 
 WINNER = 0
 BESTTWO = 1
+NEIGHBOUR = 2
 TESTMODE = BESTTWO
         
 class Node(object):
@@ -76,7 +77,8 @@ class ITM(object):
             dwIn = etaIn*dif
             w.inp += dwIn
             cor = npdot(w.A,dif)
-            w.out += etaOut*(y-w.out+cor) + np.dot(w.A,dwIn)
+            dwout = etaOut*(y-w.out+cor) + np.dot(w.A,dwIn)
+            w.out += dwout
             if ndif > 0.0:
                 w.A += etaA*np.outer((y-w.out+cor), dif/ndif)
             #Add edge
@@ -87,7 +89,6 @@ class ITM(object):
 #            #Check neighbours
             for nI, n in w.neig.items():
                 if n.id != s.id and npdot(wsdif,n.inp-s.inp) < 0:
-                    print "remove neighbour"
 #                if nI != s.id and npdot(np.concatenate((w.inp,w.out))-np.concatenate((s.inp,s.out)),np.concatenate((n.inp,n.out))-np.concatenate((s.inp,s.out))) <0:
 #                if n.id != s.id and npdot(w-s,n-s) < 0:
                     n.remNeighbour(wI)
@@ -110,7 +111,6 @@ class ITM(object):
 #            if npdot(expOut-y,expOut-y) > 10**outputDim:
             if np.linalg.norm(expOut-y) > 10**outputDim:
 #            if npdot(w.inp-x,s.inp-x) > 0 and ndif > EMAX_2:
-#            if npdot(w-x,s-x) > 0 and np.linalg.norm(w-x) > EMAX:
 #                nI = len(self.nodes)
                 nI = self.idCounter
                 n= Node(x,nI,y)
@@ -165,7 +165,7 @@ class ITM(object):
         elif testMode == BESTTWO:
             if len(self.nodes) > 1:
                 
-                w = self.nodes[self.ids[sortedIndices[0]]]            
+                w = self.nodes[self.ids[sortedIndices[0]]]           
                 s = self.nodes[self.ids[sortedIndices[1]]]
                 norm = np.exp(-np.linalg.norm(x-w.inp)**2/(SIGMAE**2))
                 res = norm*(w.out+npdot(w.A,x-w.inp))
@@ -178,6 +178,19 @@ class ITM(object):
                     return res
             else:
                 return self.nodes[self.ids[sortedIndices[0]]].out
+        elif testMode == NEIGHBOUR:
+            w = self.nodes[self.ids[sortedIndices[0]]]    
+            norm = np.exp(-np.linalg.norm(x-w.inp)**2/(SIGMAE**2))
+            res = norm*(w.out+npdot(w.A,x-w.inp))
+            for nI, n in w.neig.items():
+                wc = np.exp(-np.linalg.norm(x-n.inp)**2/(SIGMAE**2))
+                res += wc*(n.out+npdot(n.A,x-n.inp))
+                norm += wc
+            if norm != 0:
+                return res/norm
+            else:
+                return res
+            
                 
 #        return self.nodes[sortedIndices[0]].out
 #        ds = sorted([(npdot(n.inp-x,n.inp-x), n) for n in self.nodes.values()], key=itemgetter(0))

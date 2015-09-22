@@ -67,6 +67,8 @@ class Object(object):
 #        vec[10] = np.dot(np.linalg.norm(vec[4:7]), np.linalg.norm(vec[7:10]))
 #        if vec[6] != -0.02:
 #            raise NotImplementedError(vec)
+        print "relVel: ", vec[10:13]
+        
         return vec
         
     def getRelObjectVec(self, other):
@@ -98,7 +100,7 @@ class Object(object):
             pred[0:3], pred[4:7] = common.globalPosVelChange(self.vec[3], pred[0:3], pred[4:7])
         else:
             pred[0:3], v = common.globalPosVelChange(self.vec[3], pred[0:3], np.zeros(3))
-#        print "prediction for o: {}: {}".format(self.id, pred)
+        print "prediction for o: {}: {}".format(self.id, pred)
         self.predVec = self.vec + pred#*1.5 #interestingly enough, *1.5 improves prediction accuracy quite a lot
         resO.vec = np.round(self.predVec, common.NUMDEC)
         resO.lastVec = np.copy(self.vec)
@@ -293,17 +295,17 @@ class Classifier(object):
             self.isTrained = True
     
     def test(self, ovec, avec):
-        print "Change: closing: {}, dist: {}, relVel: {}".format(ovec[3], ovec[2], ovec[7:10])
+        
         if HARDCODEDGATE:
             if ovec[3] <= -ovec[2]:
-                
+                print "Change: closing: {}, dist: {}, relVel: {}".format(ovec[3], ovec[2], ovec[7:10])
                 return 1
             else:
                 if ovec[3] == 0 and np.linalg.norm(ovec[7:10]) < 0.001 and ovec[2] < 0.05: #Todo remove distance from this
-#                    print "Change: closing: {}, dist: {}, relVel: {}".format(ovec[3], ovec[2], ovec[7:10])
+                    print "Change: closing: {}, dist: {}, relVel: {}".format(ovec[3], ovec[2], ovec[7:10])
                     return 1    
                 else:
-#                    print "no Change: closing: {}, dist: {}, relVel: {}".format(ovec[3], ovec[2], ovec[7:10])
+                    print "no Change: closing: {}, dist: {}, relVel: {}".format(ovec[3], ovec[2], ovec[7:10])
                     return 0
         else:
 #            if len(self.targets) > 0 and max(self.targets) > 0:
@@ -510,7 +512,9 @@ class MetaNetwork(object):
         self.difSize = None
         self.targetIndex = None
         self.preConsToCheck = None
-        self.preConIndex = 0
+        self.preConsToTry = None
+        self.preConIndex = 4  #Currently hard coded to only look at position
+        self.tryNext = False
         pass
     
     def train(self, pre, difs):
@@ -518,6 +522,7 @@ class MetaNetwork(object):
             self.preConsSize = len(pre)
         if self.difSize == None:
             self.difSize = len(difs)
+        targetIndexFound = False
 #        print "difs: ", difs
 #        print "training network with pre: ", pre
         for i in xrange(len(difs)):
@@ -534,7 +539,19 @@ class MetaNetwork(object):
                 if self.targetIndex != None and index == self.targetIndex:
                     print "target: {} successfully found.".format(index)
                     self.targetIndex =None
-                    self.preConIndex = 0
+                    self.preConIndex = 4
+                    targetIndexFound = True
+        if self.preConsToTry != None:
+            print "precons similarity: ", np.linalg.norm(pre-self.preConsToTry)
+            print "given pres: ", pre
+            print "desired pres: ", self.preConsToTry
+        if self.preConsToTry != None and np.linalg.norm(pre-self.preConsToTry) < 0.01:
+            print "similar precons reached: ", np.linalg.norm(pre-self.preConsToTry)
+            if not targetIndexFound:
+                print "similar precons did not yield expected results."
+                print "targetIndex: ", self.targetIndex
+                print "actual difs: ", difs
+                self.tryNext = True
 
                 
     def tobeNamed(self):
@@ -544,22 +561,36 @@ class MetaNetwork(object):
         """
         if self.targetIndex == None:
             curKeys = self.nodes.keys()
+            print "curKeys: ", curKeys
             for i in xrange(self.difSize):
-                if str(i) in curKeys and not str(-i) in curKeys:
-                    self.targetIndex = str(-i)
-                    self.preConsToCheck = self.nodes[str(i)].getPreconditions()
-                if str(-i) in curKeys and not str(i) in curKeys:
-                    self.targetIndex = str(i)
-                    self.preConsToCheck = self.nodes[str(-i)].getPreconditions()
-                    
-        preConstoTry = np.copy(self.preConsToCheck)
-        preConstoTry[self.preConIndex] *= -1
-        self.preConIndex += 1
-        if self.preConIndex == len(self.preConsToCheck):
-            print "Last Try"
-            self.targetIndex = None
-            self.preConIndex = 0
-        return preConstoTry
+                if str(1.0*i) in curKeys and not str(-1.0*i) in curKeys:
+                    self.targetIndex = str(-1.0*i)
+                    self.preConsToCheck = self.nodes[str(1.0*i)].getPreconditions()[0]
+                    break
+                if str(-1.0*i) in curKeys and not str(1.0*i) in curKeys:
+                    self.targetIndex = str(1.0*i)
+                    self.preConsToCheck = self.nodes[str(-1.0*i)].getPreconditions()[0]
+                    break
+                #TODO if no unkown key is left, look at "worst" key and improve that
+                # figure out a way to measure which one is worst
+        else:
+            if self.tryNext:
+                self.preConIndex += 1
+            if self.preConIndex == 7:#len(self.preConsToCheck):
+                self.targetIndex = None
+                self.preConIndex = 4    
+                return self.tobeNamed()
+                
+        if self.targetIndex == None:
+            print "No key found to improve"
+            return None
+                
+        print "targetIndex: ", self.targetIndex
+        self.preConsToTry = np.copy(self.preConsToCheck)
+        self.preConsToTry[self.preConIndex] *= -1
+            
+
+        return self.preConsToTry
         
             
                 
@@ -586,9 +617,10 @@ class MetaNetwork(object):
 #                print "targetDifs: ", targetDifs
 #                print "maxindex: ", index
                 if not index in self.nodes:
-                    print "index i {} for targetDif {}, not known".format(index, targetDifs[i])
+                    print "index i {} for targetDif {}, not known".format(index, targetDifs[abs(float(index))])
                     print "nodes: ", self.nodes.keys()
                     print "targetDifs: ", targetDifs
+                    return None
                 else:
                     self.curIndex = index
                     print "precons for index: ", index
@@ -668,7 +700,9 @@ class Predictor(object):
 #            f.write(";".join(["{:.4f}".format(x) for x in np.concatenate((intState, dif))]))
 #            f.write("\n")
 #        self.predictors[intState[0]].train(Node(0, wIn = intState[mask], wOut=dif))
-        self.predictors[intState[0]].update(intState[mask], dif, etaIn=0.1)
+        if np.linalg.norm(dif) == 0.0:
+            print "training with zero dif: ", dif
+        self.predictors[intState[0]].update(intState[mask], dif, etaIn = 0.1)
         self.inverseModel[intState[0]].train(intState, dif)
 
 
@@ -710,13 +744,74 @@ class ModelGate(object):
             Returns: np.ndarray
                 Action vector for the actuator
         """
-        for oId in self.curObjects.keys():
-            preCons = self.predictor.getExplorationConditions(oId)
-                
         # Get promising pre conditions
         # Fullfilly pre conditions
         # Perform action from precondtions (idially if it triggers gate/find action that triggers gate)
         # (If successfull ->) get next set of preconditions for different attribute?
+        for oId in self.curObjects.keys():
+            preCons = self.predictor.getExplorationPreconditions(oId)
+            
+        if preCons == None:
+            print "No features found that need to be improved"
+            return np.zeros(3)
+        else:
+            targetO = self.curObjects[oId]
+            relTargetPos = preCons[4:7]
+            print "rel target pos: ", relTargetPos
+            relTargetVel = preCons[10:13]
+            print "relTargetVel: ", relTargetVel
+            
+            pos, vel = targetO.getGlobalPosVel(relTargetPos, relTargetVel)
+            print "target vel: ", vel
+            print "target pos: ", pos
+            print "cur pos: ", self.actuator.vec[0:3]
+            difPos = pos-self.actuator.vec[0:3]
+            print "difpos norm: ", np.linalg.norm(difPos)
+            relVec = targetO.getRelVec(self.actuator)
+            
+#                relVec = targetO.getRelObjectVec(self.actuator)
+            relPos = relVec[4:7]
+            # Determine Actuator position that allows action in good direction
+            wrongSides = relPos*relTargetPos < 0
+            if np.any(wrongSides):
+                if max(abs(relTargetPos[wrongSides]-relPos[wrongSides])) > 0.05:
+                 # Bring actuator into position so that it influences targetobject
+                    print "try circlying"
+                    return targetO.circle(self.actuator)
+                    
+            if np.linalg.norm(difPos) > 0.01:
+                action = 0.5*difPos/np.linalg.norm(difPos)
+                print "difpos action: ", action
+                tmpAc = self.actuator.predict(action)
+                return action
+
+            print "using vel"
+            normVel = np.linalg.norm(vel)
+            if normVel == 0.0:
+                pass
+            else:
+                vel = 0.5*vel/normVel
+            tmpAc = self.actuator.predict(vel)
+            if not self.gate.test(targetO, tmpAc, vel):
+                print "looking for different vel"
+                for i in xrange(len(vel)):
+                    tmpVel = relTargetVel
+                    tmpVel[i] *= -1
+                    pos, tmpVel = targetO.getGlobalPosVel(relTargetPos, relTargetVel)
+                    normVel = np.linalg.norm(tmpVel)
+                    if normVel == 0.0:
+                        pass
+                    else:
+                        tmpVel = 0.5*tmpVel/normVel
+                    tmpAc = self.actuator.predict(tmpVel)
+                    
+                    if self.gate.test(targetO, tmpAc, tmpVel):
+                        vel = tmpVel
+                        print "found new vel: ", vel
+                        break
+            return vel
+                
+
         
         
         
@@ -730,7 +825,7 @@ class ModelGate(object):
                 Action vector for the actuator
         """
         if self.target is None:
-            return np.array([0.0,0.0,0.0])
+            return self.explore()
         else:
             if self.isTargetReached():
                 print "target reached"
@@ -743,6 +838,8 @@ class ModelGate(object):
                 difNorm = np.linalg.norm(difVec)
 #                print "difVec: ", difVec[:5]
                 pre = self.predictor.getAction(self.target.id, difVec)
+                if pre == None:
+                    return self.explore()
                 relTargetPos = pre[4:7]
                 print "rel target pos: ", relTargetPos
                 relTargetVel = pre[10:13]

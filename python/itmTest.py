@@ -32,14 +32,14 @@ if __name__ == "__main__":
 #    inputs = data[:,:13]
 #    outputs = data[:,13:]
     
-    inputMask = np.arange(len(trainDataPush))[:]
+    inputMask = np.arange(len(trainDataPush))[:700]
 #    inputMask = np.array([0,57,114])
     
     inputs = trainDataPush[inputMask,:13]
     outputs = trainDataPush[inputMask,13:]
     
-    testinputs = trainDataPush[:700,:13]
-    testoutputs = trainDataPush[:700,13:]
+    testinputs = trainDataPush[:,:13]
+    testoutputs = trainDataPush[:,13:]
 
     print "means: ", np.mean(inputs, axis=0)
     print "std: ", np.std(inputs, axis=0)
@@ -48,7 +48,6 @@ if __name__ == "__main__":
 #    normedInputs = (inputs-np.mean(inputs)) / np.std(inputs, axis=0)
 #    normedInputs = (inputs-np.min(inputs, axis=0))/(np.max(inputs, axis=0)-np.min(inputs, axis=0))
     
-    print "normout: ", np.linalg.norm(outputs[100])
     itm = ITM.ITM()
     itm2 = ITM2.ITM()    
     

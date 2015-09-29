@@ -183,7 +183,6 @@ def dist(center, edge1, edge2, ang, ref):
     edge2N = npdot(r, edge2)
     v = (edge1N+center)
     w = (edge2N+center)
-    
     l2 = npdot(v-w, v-w)
     if l2 == 0.0:
         return np.sqrt(npdot(v-ref, v-ref)), v

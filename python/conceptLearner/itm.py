@@ -27,7 +27,7 @@ class Node(object):
     __slots__=('inp','out','id','neig','A')
     def __init__(self, input_array, id=-1, output=np.zeros(1)):
         self.id = id
-        self.inp =  np.asarray(input_array)
+        self.inp =  np.copy(input_array)
         self.out = np.copy(output)
         self.A = np.zeros((len(output),len(input_array)))
         self.neig = {}

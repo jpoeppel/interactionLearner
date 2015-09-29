@@ -46,7 +46,7 @@ class Object(object):
         self.predVec= np.array([])
         
         
-                
+    #TODO Test
     def getRelVec(self, other):
         """
             Computes the relative (interaction) vector of the other object with respect
@@ -71,6 +71,7 @@ class Object(object):
         
         return vec
         
+    #TODO Test
     def getRelObjectVec(self, other):
         vec = np.zeros(len(self.vec))
         vec[0:3] = common.relPos(self.vec[0:3], self.vec[3], other.vec[0:3])
@@ -80,7 +81,7 @@ class Object(object):
     def getGlobalPosVel(self, localPos, localVel):
         return common.globalPosVel(self.vec[0:3], self.vec[3], localPos, localVel)
                 
-                
+    #TODO Test
     def getLocalChangeVec(self, post):
         res = np.copy(post.vec)
         res -= self.vec
@@ -356,6 +357,7 @@ class GateFunction(object):
             self.classifier.train(vec,action, 0)
             return False, dif
 
+#TODO Test
 class MetaNode(object):
 
     def __init__(self):
@@ -462,46 +464,47 @@ class MetaNode(object):
 #        print "sorted list: ", l
                     
         
-    def getPreconditions2(self):
-        res = np.zeros(len(self.zeroPass))
-        res2 = np.zeros(len(self.zeroPass))
-        res2valid = False
-#        print "signCombinations: ", self.signCombinations
-        for i in xrange(len(self.zeroPass)):
-#            if i in [4,5,10,11]:
-#                print "i: {}, posSum: {}, negSum: {}, posW: {}, negW: {} zero: {}".format(i, self.posSum[i], self.negSum[i], self.posWeights[i], self.negWeights[i], self.zeroPass[i])
-            if self.zeroPass[i]:
-                res[i] = (self.posSum[i]+self.negSum[i])/(self.posWeights[i]+self.negWeights[i])
-                res2[i] =(self.posSum[i]+self.negSum[i])/(self.posWeights[i]+self.negWeights[i])
-            else:
-#                print "index: {}, pos weights: {}, neg weights: {}".format(i, self.posWeights[i], self.negWeights[i])
-                if self.posWeights[i] > self.negWeights[i]:
-                    res[i] = self.posSum[i]/self.posWeights[i]
-                    if self.negWeights[i] > 0.2:
-                        res2[i] = self.negSum[i]/self.negWeights[i]
-                        res2valid = True
-                    else:
-                        res2[i] = self.posSum[i]/self.posWeights[i]
-                elif self.posWeights[i] == self.negWeights[i]:
-                    res2valid = True
-                    if self.prev[i] < 0:
-                        res[i] = self.negSum[i]/self.negWeights[i]
-                        res2[i] = self.posSum[i]/self.posWeights[i]
-                    else:
-                        res[i] = self.posSum[i]/self.posWeights[i]
-                        res2[i] = self.negSum[i]/self.negWeights[i]
-                else:
-                    res[i] = self.negSum[i]/self.negWeights[i]
-                    if self.posWeights[i] > 0.2:
-                        res2[i] = self.posSum[i]/self.posWeights[i]
-                        res2valid =True
-                    else:
-                        res2[i] = self.negSum[i]/self.negWeights[i]
-        if res2valid:
-            return res, res2
-        else:
-            return res, None
+#    def getPreconditions2(self):
+#        res = np.zeros(len(self.zeroPass))
+#        res2 = np.zeros(len(self.zeroPass))
+#        res2valid = False
+##        print "signCombinations: ", self.signCombinations
+#        for i in xrange(len(self.zeroPass)):
+##            if i in [4,5,10,11]:
+##                print "i: {}, posSum: {}, negSum: {}, posW: {}, negW: {} zero: {}".format(i, self.posSum[i], self.negSum[i], self.posWeights[i], self.negWeights[i], self.zeroPass[i])
+#            if self.zeroPass[i]:
+#                res[i] = (self.posSum[i]+self.negSum[i])/(self.posWeights[i]+self.negWeights[i])
+#                res2[i] =(self.posSum[i]+self.negSum[i])/(self.posWeights[i]+self.negWeights[i])
+#            else:
+##                print "index: {}, pos weights: {}, neg weights: {}".format(i, self.posWeights[i], self.negWeights[i])
+#                if self.posWeights[i] > self.negWeights[i]:
+#                    res[i] = self.posSum[i]/self.posWeights[i]
+#                    if self.negWeights[i] > 0.2:
+#                        res2[i] = self.negSum[i]/self.negWeights[i]
+#                        res2valid = True
+#                    else:
+#                        res2[i] = self.posSum[i]/self.posWeights[i]
+#                elif self.posWeights[i] == self.negWeights[i]:
+#                    res2valid = True
+#                    if self.prev[i] < 0:
+#                        res[i] = self.negSum[i]/self.negWeights[i]
+#                        res2[i] = self.posSum[i]/self.posWeights[i]
+#                    else:
+#                        res[i] = self.posSum[i]/self.posWeights[i]
+#                        res2[i] = self.negSum[i]/self.negWeights[i]
+#                else:
+#                    res[i] = self.negSum[i]/self.negWeights[i]
+#                    if self.posWeights[i] > 0.2:
+#                        res2[i] = self.posSum[i]/self.posWeights[i]
+#                        res2valid =True
+#                    else:
+#                        res2[i] = self.negSum[i]/self.negWeights[i]
+#        if res2valid:
+#            return res, res2
+#        else:
+#            return res, None
             
+#TODO Test
 class MetaNetwork(object):
     
     def __init__(self):
@@ -592,8 +595,6 @@ class MetaNetwork(object):
 
         return self.preConsToTry
         
-            
-                
                 
     def getPreconditions(self, targetDifs):
         res = self.preConsSize

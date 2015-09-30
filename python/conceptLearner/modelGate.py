@@ -46,7 +46,6 @@ class Object(object):
         self.predVec= np.array([])
         
         
-    #TODO Test
     def getRelVec(self, other):
         """
             Computes the relative (interaction) vector of the other object with respect
@@ -67,11 +66,10 @@ class Object(object):
 #        vec[10] = np.dot(np.linalg.norm(vec[4:7]), np.linalg.norm(vec[7:10]))
 #        if vec[6] != -0.02:
 #            raise NotImplementedError(vec)
-        print "relVel: ", vec[10:13]
+#        print "relVel: ", vec[10:13]
         
         return vec
         
-    #TODO Test
     def getRelObjectVec(self, other):
         vec = np.zeros(len(self.vec))
         vec[0:3] = common.relPos(self.vec[0:3], self.vec[3], other.vec[0:3])
@@ -81,7 +79,6 @@ class Object(object):
     def getGlobalPosVel(self, localPos, localVel):
         return common.globalPosVel(self.vec[0:3], self.vec[3], localPos, localVel)
                 
-    #TODO Test
     def getLocalChangeVec(self, post):
         res = np.copy(post.vec)
         res -= self.vec
@@ -157,10 +154,10 @@ class Object(object):
         ang = self.vec[3]
         c = np.cos(ang)
         s = np.sin(ang)
-        p1xn = p1x*c -p1y*s + self.vec[1]
-        p1yn = p1x*s + p1y*c + self.vec[2]
-        p2xn = p2x*c - p2y*s + self.vec[1]
-        p2yn = p2x*s + p2y*c + self.vec[2]
+        p1xn = p1x*c -p1y*s + self.vec[0]
+        p1yn = p1x*s + p1y*c + self.vec[1]
+        p2xn = p2x*c - p2y*s + self.vec[0]
+        p2yn = p2x*s + p2y*c + self.vec[1]
         return np.array([np.copy(self.vec[0:3]), np.array([p1xn,p1yn,self.vec[2]]), np.array([p2xn,p2yn,self.vec[2]])])
         
     def compare(self, other):
@@ -273,25 +270,13 @@ class WorldState(object):
 class Classifier(object):
     
     def __init__(self):
-#        self.clas = neighbors.KNeighborsClassifier(n_neighbors=2, weights='uniform')
-#        self.clas = svm.SVC()
-#        self.clas = Perceptron()
-#        self.clas = SGDClassifier()
-#        self.clas = PassiveAggressiveClassifier()
         self.clas = ITM()
         self.isTrained = False
-#        self.inputs = []
-#        self.targets = []
         
     def train(self, o1vec, avec, label):
         if HARDCODEDGATE:
             pass
         else:
-#            self.inputs.append(np.concatenate((o1vec,avec)))
-#            self.targets.append(label)
-#            if max(self.targets) > 0:
-#            self.clas.partial_fit(np.concatenate((o1vec,avec)), np.array([label]), np.array([0,1]))
-#            self.clas.partial_fit(o1vec[[2,3,7,8,9]], np.array([label]), np.array([0,1])) #Test to ignore action, since it is applied to object2 calculating ovec
             self.clas.update(o1vec[[2,3,7,8,9]], np.array([label]))
             self.isTrained = True
     
@@ -309,10 +294,7 @@ class Classifier(object):
                     print "no Change: closing: {}, dist: {}, relVel: {}".format(ovec[3], ovec[2], ovec[7:10])
                     return 0
         else:
-#            if len(self.targets) > 0 and max(self.targets) > 0:
             if self.isTrained:
-#                return self.clas.predict(np.concatenate((ovec,avec)))[0]
-#                return self.clas.predict(ovec[[2,3,7,8,9]])[0] #Same as above in training
                 pred = self.clas.test(ovec[[2,3,7,8,9]], testMode=0)
                 return pred
             else:
@@ -357,22 +339,19 @@ class GateFunction(object):
             self.classifier.train(vec,action, 0)
             return False, dif
 
-#TODO Test
 class MetaNode(object):
 
     def __init__(self):
-        self.weights = 0.0
-        self.preSum = None
-        self.absMask = None
-        self.negWeights = 0.0
-        self.posWeights = 0.0
-        self.zeroPass = None
-        self.posSum = None
-        self.negSum = None
-        self.prev = None
+#        self.negWeights = 0.0
+#        self.posWeights = 0.0
+#        self.zeroPass = None
+#        self.posSum = None
+#        self.negSum = None
+#        self.prev = None
         self.signCombinations= {}
         self.signCombinationSums= {}
         self.signCombinationNumbers = {}
+        self.lenPreCons = 0
         pass
 
     def train(self, pre, dif):
@@ -386,13 +365,14 @@ class MetaNode(object):
         """
         #Compare incoming pres and find the things they have in common/are relevant for a given dif
         lPre = len(pre)
-        if self.zeroPass == None:
-            self.zeroPass = [False]*lPre
-            self.posSum = np.zeros(lPre)
-            self.negSum = np.zeros(lPre)
-            self.posWeights = np.zeros(lPre)
-            self.negWeights = np.zeros(lPre)
-            self.prev = np.zeros(lPre)
+        self.lenPreCons = lPre
+#        if self.zeroPass == None:
+#            self.zeroPass = [False]*lPre
+#            self.posSum = np.zeros(lPre)
+#            self.negSum = np.zeros(lPre)
+#            self.posWeights = np.zeros(lPre)
+#            self.negWeights = np.zeros(lPre)
+#            self.prev = np.zeros(lPre)
 #        curSigCom = ";".join("{}".format(n) for n in np.sign(pre[[4,5,10,11]]))
         curSigCom = []
         for i in xrange(lPre):
@@ -437,8 +417,8 @@ class MetaNode(object):
             self.signCombinationNumbers[curSigCom] = 1
             
     def getPreconditions(self):
-        res = np.zeros(len(self.zeroPass))
-        res2 = np.zeros(len(self.zeroPass))
+        res = np.zeros(self.lenPreCons)
+        res2 = np.zeros(self.lenPreCons)
         l = sorted([(k, v) for k,v in self.signCombinations.items()], key=itemgetter(1), reverse=True)
 #        print "sorted list: ", l
         if len(l) > 1:
@@ -448,8 +428,8 @@ class MetaNode(object):
             pre2 = self.signCombinationSums[l[1][0]]
             w1 = self.signCombinations[l[0][0]]
             w2 = self.signCombinations[l[1][0]]
-#            print "comb1: ", comb1
-#            print "comb2: ", comb2
+            print "comb1: ", comb1
+            print "comb2: ", comb2
             for i in xrange(len(comb1)):
                 if comb1[i] == comb2[i] or comb1[i] == '0' or comb2[i] == '0':
                     res[i] = (pre1[i]+pre2[i])/(w1+w2)
@@ -611,7 +591,9 @@ class MetaNetwork(object):
                     
             
             if self.curIndex == None:
-                sortedDifs = np.argsort(abs(targetDifs))                
+                print "target difs: ", targetDifs
+                sortedDifs = np.argsort(abs(targetDifs))     
+                print "sortedDifs: ", sortedDifs
                 maxDif = sortedDifs[-1]
                 index = str(maxDif*np.sign(targetDifs[maxDif]))
                 self.curSecIndex =str(sortedDifs[-2]*np.sign(targetDifs[sortedDifs[-2]]))

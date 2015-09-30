@@ -38,7 +38,10 @@ def quaternionToEuler(quat):
         
     """
     assert len(quat)== 4, "quat should be a x,y,z,w quaternion"
-    quat /= np.linalg.norm(quat)
+    norm = np.linalg.norm(quat)
+    if norm == 0.0:
+        return np.zeros(3)
+    quat /= norm
     x,y,z,w = quat
     squ = w**2
     sqx = x**2
@@ -57,6 +60,7 @@ def quaternionToEuler(quat):
     res[2] = math.atan2(2* (x*y + w*z), squ+sqx-sqy-sqz)
     
     return res
+    
     
 def eulerToQuat(euler):
     """
@@ -95,11 +99,6 @@ def eulerToQuat(euler):
     res /= np.linalg.norm(res)
     return res
     
-def quatPosToTransformation(quat, pos):
-    px,py,pz = pos
-    x,y,z,w = quat
-    return np.matrix([[1-2*y*y-2*z*z, 2*x*y + 2*w*z, 2*x*z - 2*w*y, px],[2*x*y-2*w*z, 1-2*x*x-2*z*z, 2*y*z+2*w*x, py],
-                      [2*x*z+2*w*y,2*y*z-2*w*x, 1-2*x*x-2*y*y, pz],[0.0,0.0,0.0,1.0]])
                       
 def eulerPosToTransformation(euler, pos):
     if hasattr(euler, "__len__"):
@@ -114,7 +113,6 @@ def eulerPosToTransformation(euler, pos):
         b = 0.0
         g = 0.0
         a = euler
-#    b,g,a = euler
     px,py,pz = pos
     ca = math.cos(a)
     cb = math.cos(b)
@@ -122,10 +120,6 @@ def eulerPosToTransformation(euler, pos):
     sa = math.sin(a)
     sg = math.sin(g)
     sb = math.sin(b)
-#    return np.matrix(np.round([[ca*cg-sa*cb*sg, sa*cg+ca*cb*sg, sb*sg, px], 
-#                      [-ca*sg-sa*cb*cg, -sa*sg+ca*cb*cg, sb*cg, py],
-#                      [sa*sb, -ca*sb, cb, pz],
-#                      [0.0, 0.0, 0.0, 1.0]],NUMDEC))
     return np.array([[cb*ca, sg*sb*ca-cg*sa, cg*sb*ca+sg*sa, px],
                                [cb*sa, sg*sb*sa+cg*ca, cg*sb*sa-sg*ca, py],
                                [-sb, sg*cb, cg*cb, pz],
@@ -137,10 +131,6 @@ def eulerPosToTransformation2d(euler, pos):
     px,py = pos
     ca = math.cos(a)
     sa = math.sin(a)
-#    return np.matrix(np.round([[ca*cg-sa*cb*sg, sa*cg+ca*cb*sg, sb*sg, px], 
-#                      [-ca*sg-sa*cb*cg, -sa*sg+ca*cb*cg, sb*cg, py],
-#                      [sa*sb, -ca*sb, cb, pz],
-#                      [0.0, 0.0, 0.0, 1.0]],NUMDEC))
     return np.matrix([[ca, -sa, px],
                       [sa, ca, py],
                       [0.0,0.0,1.0]])
@@ -157,15 +147,7 @@ def invertTransMatrix(matrix):
     invTrans[:r,c] = npdot(-matrixRot.T,matrix[:r,c])
     invTrans[r,c] = 1.0
     return invTrans                      
-                      
-#def invertTransMatrix2(matrix):
-#    invTrans = np.matrix(np.zeros((4,4)))
-#    invTrans[:3,:3] = matrix[:3,:3].T
-#    invTrans[:3,3] = -matrix[:3,:3].T*matrix[:3,3]
-#    invTrans[3,3] = 1.0
-#    return invTrans
-                      
-                      
+                                          
                      
 def dist(center, edge1, edge2, ang, ref):
 #    if len(edge1) == 2 and len(ref) == 3:
@@ -193,6 +175,7 @@ def dist(center, edge1, edge2, ang, ref):
         return np.sqrt(npdot(w-ref,w-ref)), w
     projection = v + t * (w - v)
     return np.sqrt(npdot(ref-projection, ref-projection)), projection
+    
     
 def relPos(p1, ang,  p2):
     """
@@ -266,7 +249,6 @@ def globalPosVel(p1, ang, relPos, relVel):
 #    return np.round(newPos, NUMDEC), np.round(newVel, NUMDEC)
     
 
-#    
 
 def computeDistanceClosing(id1, p1, v1, ang1, id2, p2, v2, ang2):
     edges  = {15: [(-0.25,0.05),(-0.25,-0.05),(0.25,-0.05),(0.25,0.05)], 8: [(0.0,0.0)]}

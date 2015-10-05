@@ -484,7 +484,6 @@ class MetaNode(object):
 #        else:
 #            return res, None
             
-#TODO Test
 class MetaNetwork(object):
     
     def __init__(self):
@@ -796,9 +795,6 @@ class ModelGate(object):
                 
 
         
-        
-        
-        
     def getAction(self):
         """
             Returns an action, that is to be performed, trying to get closer to the
@@ -808,10 +804,13 @@ class ModelGate(object):
                 Action vector for the actuator
         """
         if self.target is None:
-            return self.explore()
+#            return self.explore()
+            return np.array([0.0,0.0,0.0])
+            pass
         else:
             if self.isTargetReached():
                 print "target reached"
+                self.target = None
                 return np.array([0.0,0.0,0.0])
             else:
                 targetO = self.curObjects[self.target.id]

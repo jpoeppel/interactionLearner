@@ -53,7 +53,7 @@ MODE = PUSHTASKSIMULATION
 MODE = MOVE_TO_TARGET
 
 
-NUM_TRAIN_RUNS = 1
+NUM_TRAIN_RUNS = 8
 NUM_TEST_RUNS = 20
 
 class GazeboInterface():
@@ -493,6 +493,8 @@ class GazeboInterface():
 #                    self.setTarget()
                     self.pauseWorld()
         elif self.testRun < NUM_TEST_RUNS:
+            if self.worldModel.target ==  None:
+                self.setRandomTarget()
             if self.lastAction != None and resultState != None:
 #                print "updating with last action: ", self.lastAction
                 self.worldModel.update(worldState, self.lastAction)
@@ -507,6 +509,14 @@ class GazeboInterface():
                 self.sendPose("blockAShadow", self.worldModel.target.vec[0:3], self.worldModel.target.vec[3])
             
         
+    def setRandomTarget(self):
+        target = model.Object()
+        target.id = 15
+        target.vec = np.zeros(4)
+        target.vec[0:2] = (np.random.rand(2)-0.5)*2.0
+        target.vec[2] = 0.05
+        target.vec[3] = (np.random.rand()-0.5)*2*np.pi
+        self.worldModel.setTarget(target)
 
     def setTarget(self):
         target = model.Object()

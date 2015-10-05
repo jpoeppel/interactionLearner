@@ -40,6 +40,8 @@ from sklearn import tree
 from config import SINGLE_INTSTATE
 
 
+
+
 #if SINGLE_INTSTATE:
 #    from state3 import State, ObjectState, Action, InteractionState, WorldState
 #else:
@@ -61,7 +63,7 @@ BLOCK_BIAS = 0.4
 NUM_SAMPLES = 10
 
 USE_CONSTANTS = False
-
+SINGLE_PRED = True
 NUM_PROTOTYPES = 5
 
 #
@@ -144,6 +146,7 @@ class AbstractCase(object):
         self.variables = Set() #List of attributes that changed 
         self.attribs = {} # Dictionary holding the attributs:[values,] pairs for the not changing attribs of the references
         self.predictors = {}
+        self.predictor = ITM()
         self.variables.update(case.getSetOfAttribs())
         self.preCons = {}
         self.constants = {}
@@ -165,20 +168,24 @@ class AbstractCase(object):
         resultState = InteractionState.clone(state)
         if len(self.refCases) > 1:
 #            print "resultState intId: ", resultState["intId"]
-            for k in self.variables:
-                if USE_CONSTANTS:
-#                    prediction = self.predictors[k].predict(np.concatenate((state.toVec(self.constants),action.toVec(self.constants))))
-                    prediction = self.predictors[k].predict(np.concatenate((state.toVec(self.unusedFeatures[k]),action.toVec(self.unusedFeatures[k]))))
-                else:
-                    prediction = self.predictors[k].predict(np.concatenate((state.getVec(),action.getVec())))
-#                if state["sname"] == "blockA":
-                print "variable: {}, prediction: {}".format(k, prediction)
-                if prediction != None:
-                    resultState[k][:] = state[k] + prediction
-                else:
-                    resultState[k][:] = state[k] + self.refCases[0].predict(state, action, k)
-                    
-                assert not np.any(np.isnan(resultState[k])), "prediction caused nan. k: {}, prediction: {}, state: {}, action: {}".format(k, prediction, state, action)
+            if SINGLE_PRED:
+                prediction = self.predictor.test(np.concatenate((state.getVec(),action.getVec())))
+                resultState.vec += prediction
+            else:
+                for k in self.variables:
+                    if USE_CONSTANTS:
+    #                    prediction = self.predictors[k].predict(np.concatenate((state.toVec(self.constants),action.toVec(self.constants))))
+                        prediction = self.predictors[k].predict(np.concatenate((state.toVec(self.unusedFeatures[k]),action.toVec(self.unusedFeatures[k]))))
+                    else:
+                        prediction = self.predictors[k].predict(np.concatenate((state.getVec(),action.getVec())))
+    #                if state["sname"] == "blockA":
+                    print "variable: {}, prediction: {}".format(k, prediction)
+                    if prediction != None:
+                        resultState[k][:] = state[k] + prediction
+                    else:
+                        resultState[k][:] = state[k] + self.refCases[0].predict(state, action, k)
+                        
+                    assert not np.any(np.isnan(resultState[k])), "prediction caused nan. k: {}, prediction: {}, state: {}, action: {}".format(k, prediction, state, action)
 
         else:
 #            print "predicting with only one ref"
@@ -460,8 +467,13 @@ class AbstractCase(object):
 #        self.updatePredictorsGP()
         
     def updatePredictorsITM(self, case):
-        for k in self.variables:
-            self.predictors[k].train(self.toNode(case, k))
+        if SINGLE_PRED:
+            difVec = case.postState.getVec()-case.preState.getVec()
+#            print "training with difvec: ", difVec
+            self.predictor.update(np.concatenate((case.preState.getVec(),case.action.getVec())),difVec, etaOut=0.1)
+        else:
+            for k in self.variables:
+                self.predictors[k].train(self.toNode(case, k))
             
     def toNode(self, case, attrib, unusedFeatures=None):
         if USE_CONSTANTS:
@@ -1005,6 +1017,7 @@ class ModelCBR(object):
         elif self.aCClassifier2 != None:
             x = np.concatenate((state.toSelVec(),action.toSelVec()))
             caseID = int(self.aCClassifier2.test(x))
+            print "CaseID: ", caseID
             bestCase = self.abstractCases[caseID]
         else:
             scoreList = [(c.abstCase,c.score(state,action)) for c in self.cases]
@@ -1101,7 +1114,7 @@ class ModelCBR(object):
 #            self.avgCorrectPrediction += (sum(correctRating.values())-self.avgCorrectPrediction)/(float(self.correctPredictions))
             self.avgCorrectPrediction += (correctScore-self.avgCorrectPrediction)/(float(self.correctPredictions))
 #            print "Prediction Score of correctCase prediction: {}, worst attrib: {} ({})".format(sum(correctRating.values()), worstRating[0], worstRating[1]) 
-#            self.retrainACClassifier2((np.concatenate((state.toSelVec(),action.toSelVec()))), abstractCase.id)
+            self.retrainACClassifier2((np.concatenate((state.toSelVec(),action.toSelVec()))), abstractCase.id)
         if usedCase != None:
             if usedCase.variables == attribSet:
 #                print "correct case selected!!!!!!!!!!!!!!!!!"
@@ -1131,9 +1144,9 @@ class ModelCBR(object):
                 self.abstractCases[newAC.id] = newAC
                 self.addBaseCase(newCase)
                 retrain = True
-#                self.retrainACClassifier2((np.concatenate((state.toSelVec(),action.toSelVec()))), newAC.id)
-        if retrain:
-            self.retrainACClassifier()
+                self.retrainACClassifier2((np.concatenate((state.toSelVec(),action.toSelVec()))), newAC.id)
+#        if retrain:
+#            self.retrainACClassifier()
 #            self.retrainLVQ()
 #        if attribSet == Set(["spos"]) and state["contact"] == 1:
 #            raise NotImplementedError

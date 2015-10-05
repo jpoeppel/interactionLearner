@@ -49,8 +49,6 @@ class State(dict):
     def toSelVec(self):
         return self.getVec(self.selMask)
         
-        
-        
     def __eq__(self, other):
         if not isinstance(other, State):
             return False

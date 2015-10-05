@@ -63,7 +63,7 @@ DIFFERENTBLOCKORIENTATION = False
 DIRECTIONGENERALISATION = True
 DIRECTIONGENERALISATION = False
 
-NUM_TRAIN_RUNS = 10
+NUM_TRAIN_RUNS = 1
 NUM_TEST_RUNS = 20
 
 RECORD_SIMULATION = False
@@ -416,6 +416,7 @@ class GazeboInterface():
             posX = 0.25
         elif self.trainRun == 2:
             posX = 0
+        posX = 0
         self.startPositions.append(posX)
 
             

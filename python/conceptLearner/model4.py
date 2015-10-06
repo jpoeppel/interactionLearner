@@ -1087,8 +1087,9 @@ class ModelCBR(object):
 #        if state["sid"] != 8:
 #            raise TypeError("Wrong sID: ", state["sid"])
         newCase = BaseCase(state, action, result)
-#        print "New case difs: ", newCase.dif
+        print "New case difs: ", newCase.dif
         attribSet = newCase.getSetOfAttribs()
+        print "attrib set: ", attribSet
         
 #        predictionRating = result.rate(prediction)#, self.weights)
 #        predictionScore = sum(predictionRating.values())

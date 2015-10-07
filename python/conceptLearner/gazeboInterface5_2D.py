@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Created on Wed Aug 12 14:45:17 2015
-Testinterface for modelActions2
+Created on Wed Oct  7 18:32:53 2015
+Adaption from interface5 in order to work with 2D coordinates
 @author: jpoeppel
 """
 
@@ -37,8 +37,8 @@ import modelInteractions as model
 #from sklearn.externals.six import StringIO
 #import pydot
 
-trainRuns = [10]
-RECORD_SIMULATION = True
+trainRuns = [3]
+RECORD_SIMULATION = False
 SIMULATION_FILENAME = "gateModel{}Runs_Gate_Act_NoDynsITMNewNeighbour"
 
 logging.basicConfig()
@@ -51,10 +51,10 @@ PUSHTASKSIMULATION = 2
 MOVE_TO_TARGET = 3
 MODE = PUSHTASKSIMULATION
 #MODE = FREE_EXPLORATION
-MODE = MOVE_TO_TARGET
+#MODE = MOVE_TO_TARGET
 
 
-NUM_TRAIN_RUNS = 8
+NUM_TRAIN_RUNS = 3
 NUM_TEST_RUNS = 20
 
 class GazeboInterface():
@@ -175,11 +175,10 @@ class GazeboInterface():
         Function to send the last prediction to gazebo. This will move the shadow model
         positions.
         """
-        names = {15:"blockA"}
+        names = {15:"blockA", 8: "gripper"}
         msg = pygazebo.msg.modelState_v_pb2.ModelState_V()
-        msg.models.extend([self.getModelState("gripperShadow", self.lastPrediction.actuator.vec[0:3], self.lastPrediction.actuator.vec[3])])
         for objectState in self.lastPrediction.objectStates.values():
-            tmp = self.getModelState(names[objectState.id]+"Shadow", objectState.vec[0:3], objectState.vec[3])
+            tmp = self.getModelState(names[objectState.id]+"Shadow", objectState.vec[0:2], objectState.vec[2])
             msg.models.extend([tmp])
         self.posePublisher.publish(msg)
  
@@ -209,7 +208,7 @@ class GazeboInterface():
         msg.id = 99
         msg.pose.position.x = pos[0]
         msg.pose.position.y = pos[1] 
-        msg.pose.position.z = pos[2] 
+        msg.pose.position.z =  0.03 if name == "gripperShadow" else 0.05
 
         ori= common.eulerToQuat(euler)
         msg.pose.orientation.x = ori[0]
@@ -352,10 +351,10 @@ class GazeboInterface():
         else:
             if self.testRun > 0:
                 self.startRun(0.7)
-                self.direction = np.array([0.0,0.5,0.0])
+                self.direction = np.array([0.0,0.5])
             else:
                 self.startRun(0.7)
-                self.direction = np.array([0.0,0.5,0.0])
+                self.direction = np.array([0.0,0.5])
             return
             
         if self.trainRun < trainRuns[self.runNumber]: #NUM_TRAIN_RUNS:
@@ -376,9 +375,9 @@ class GazeboInterface():
                 if self.lastPrediction != None:
                     predictedWorldState = self.lastPrediction
 #                    self.worldModel.actuator.vec = self.lastPrediction.actuator.vec
-                    curDifBlock, curDifActuator = self.compare(worldState, self.lastPrediction)
-                    self.accDifBlock += curDifBlock
-                    self.accDifActuator += curDifActuator
+#                    curDifBlock, curDifActuator = self.compare(worldState, self.lastPrediction)
+#                    self.accDifBlock += curDifBlock
+#                    self.accDifActuator += curDifActuator
                     self.numSteps +=1
                 else:
                     print "lastPrediction None"
@@ -427,7 +426,7 @@ class GazeboInterface():
         return blockOSReal.compare(blockOSPrediction), gripperOSReal.compare(gripperOSPrediction)
         
             
-    def updateModel(self, worldState, resultState, direction=np.array([0.0,0.5,0.0])):
+    def updateModel(self, worldState, resultState, direction=np.array([0.0,0.5])):
         """
         Function to perform the world update and get the next prediction.
         Currently action NOTHING is performed in here.
@@ -466,9 +465,9 @@ class GazeboInterface():
                           2: np.array([0.24, 0.5, 0.03]), 3: np.array([0.0,0.5,0.03]), 
                           4: np.array([-0.24,0.5,0.03]), 5: np.array([-0.3,0.25,0.03]), 
                           6: np.array([-0.24,0.0,0.03]), 7: np.array([0.0,0.0,0.03]), 8: np.array([0.0,0.0,0.03])}
-        directions = {0: np.array([0.0,0.5,0.0]), 1: np.array([-0.5, 0.0,0.0]),
-                      2: np.array([0.0, -0.5, 0.0]), 3: np.array([0.0,-0.5,0.0]), 4: np.array([0.0,-0.5,0.0]),
-                      5: np.array([0.5,0.0,0.0]), 6: np.array([0.0,0.5,0.0]), 7:np.array([0.0,0.5,0.0]), 8:np.array([0.0,0.5,0.0]) }
+        directions = {0: np.array([0.0,0.5]), 1: np.array([-0.5, 0.0]),
+                      2: np.array([0.0, -0.5]), 3: np.array([0.0,-0.5]), 4: np.array([0.0,-0.5]),
+                      5: np.array([0.5,0.0]), 6: np.array([0.0,0.5]), 7:np.array([0.0,0.5]), 8:np.array([0.0,0.5]) }
         self.runStarted = True
         self.sendPose("gripper", startPositions[run], 0.0)
         self.stepCounter = 0

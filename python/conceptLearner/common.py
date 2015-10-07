@@ -113,6 +113,8 @@ def eulerPosToTransformation(euler, pos):
         b = 0.0
         g = 0.0
         a = euler
+    if len(pos) == 2:
+        return eulerPosToTransformation2d(a, pos)
     px,py,pz = pos
     ca = math.cos(a)
     cb = math.cos(b)
@@ -131,7 +133,7 @@ def eulerPosToTransformation2d(euler, pos):
     px,py = pos
     ca = math.cos(a)
     sa = math.sin(a)
-    return np.matrix([[ca, -sa, px],
+    return np.array([[ca, -sa, px],
                       [sa, ca, py],
                       [0.0,0.0,1.0]])
 
@@ -141,7 +143,6 @@ def invertTransMatrix(matrix):
     r -= 1
     c -= 1
     matrixRot = matrix[:r,:c]
-    
     invTransRot = invTrans[:r,:c]
     invTransRot[:,:] = np.copy(matrixRot.T)
     invTrans[:r,c] = npdot(-matrixRot.T,matrix[:r,c])
@@ -181,16 +182,22 @@ def relPos(p1, ang,  p2):
     """
         Calculates the position of p2 relativ to the relevance frame of p1
     """
+    l = len(p1)
     ca = math.cos(ang)
     sa = math.sin(ang)
-    trans = np.array([[ca, -sa, 0.0, p1[0]],
+    if l == 3:
+        trans = np.array([[ca, -sa, 0.0, p1[0]],
                  [sa, ca, 0.0, p1[1]],
                  [0.0, 0.0, 1.0, p1[2]],
                  [0.0,0.0,0.0,1.0]])
+    else:
+        trans = np.array([[ca, -sa, p1[0]],
+                          [sa,ca,p1[1]],
+                          [0.0,0.0,1.0]])
     invTrans = invertTransMatrix(trans)
-    tmpPos = np.ones(4)
-    tmpPos[:3] = np.copy(p2)
-    newPos = npdot(invTrans, tmpPos)[:3]
+    tmpPos = np.ones(l+1)
+    tmpPos[:l] = np.copy(p2)
+    newPos = npdot(invTrans, tmpPos)[:l]
     return np.round(newPos, NUMDEC)
     
 def relPosVel(p1,v1, ang, p2,v2):

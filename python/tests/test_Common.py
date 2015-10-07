@@ -91,6 +91,14 @@ class TestCommons:
         testTrans = np.array([[0.0,-1.0,0.0,0.0],[1.0,0.0,0.0,0.5],[0.0,0.0,1.0,0.0],[0.0,0.0,0.0,1.0]])
         assert np.linalg.norm(trans-testTrans) < 0.0001
         
+        testPos = np.array([1.0,0.5])
+        trans = eulerPosToTransformation(np.pi/2.0, testPos)
+        testTrans = np.array([[0.0,-1.0,1.0],
+                              [1.0,0.0,0.5],
+                              [0.0,0.0,1.0]])
+        assert np.linalg.norm(trans-testTrans) < 0.0001
+                              
+        
     def test_eulerPosToTransformation2d(self):
         testEuler = 0.0
         testPos = np.array([0.0,0.0])
@@ -110,6 +118,11 @@ class TestCommons:
         trans = eulerPosToTransformation(0.5,[0.0,0.5,0.2])
         inv = invertTransMatrix(trans)
         assert np.linalg.norm(inv-np.linalg.inv(trans)) < 0.0001
+        trans = np.array([[1.0,0.0,1.0],
+                          [0.0,1.0,-0.5],
+                          [0.0,0.0,1.0]])
+        inv = invertTransMatrix(trans)
+        assert np.linalg.norm(inv- np.linalg.inv(trans)) < 0.0001        
         
     def test_relPos(self):
         p1 = np.array([0.0,0.5,0.0])

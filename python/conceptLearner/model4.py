@@ -40,8 +40,6 @@ from sklearn import tree
 from config import SINGLE_INTSTATE
 
 
-
-
 #if SINGLE_INTSTATE:
 #    from state3 import State, ObjectState, Action, InteractionState, WorldState
 #else:
@@ -52,7 +50,6 @@ from config import SINGLE_INTSTATE
 from state4 import State, Action, ObjectState, InteractionState, WorldState
 MAXSTATESCORE = 1 #state 4
 PREDICTIONTHRESHOLD = MAXSTATESCORE - 0.01 #state4
-
 
 
 FEATURE_SELECTION_THRESHOLD =5

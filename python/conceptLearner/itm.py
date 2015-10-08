@@ -61,7 +61,6 @@ class ITM(object):
         self.update(np.concatenate((node.wIn,node.action)), node.wOut)
         
     def update(self, x, y, etaIn=0.0, etaOut=0.0, etaA=0.0):
-        print "update itm"
         #Get winners:
         if len(self.nodes) > 1:
             numpyVals = self.valAr - x 

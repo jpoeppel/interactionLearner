@@ -37,7 +37,7 @@ import modelInteractions as model
 #from sklearn.externals.six import StringIO
 #import pydot
 
-trainRuns = [3]
+trainRuns = [30]
 RECORD_SIMULATION = False
 SIMULATION_FILENAME = "gateModel{}Runs_Gate_Act_NoDynsITMNewNeighbour"
 
@@ -364,7 +364,7 @@ class GazeboInterface():
             else:
                 self.trainRun += 1
                 if self.trainRun == trainRuns[self.runNumber]: # NUM_TRAIN_RUNS:
-#                    self.pauseWorld()
+                    self.pauseWorld()
                     np.random.seed(4321) # Set new seed so that all test runs start identically, independent of the number of training runs
                     self.worldModel.training = False
                     
@@ -404,19 +404,20 @@ class GazeboInterface():
                     self.numSteps = 0
         else:
 #            self.pauseWorld()
-            with open("../../data/"+ SIMULATION_FILENAME.format(trainRuns[self.runNumber]) + "startPos.txt", "w") as f:
-                f.write("; ".join(["{:.4f}".format(x) for x in self.startPositions]))
-            if self.runNumber < len(trainRuns)-1:
-                self.runNumber += 1
-                self.testRun = 0
-                self.trainRun = 0
-                np.random.seed(1234)
-                self.worldModel = model.ModelAction()
-                self.resetWorld()
-                self.finalPrediction = None
-                self.startPositions = []
-            else:
-                self.pauseWorld()
+            if RECORD_SIMULATION:
+                with open("../../data/"+ SIMULATION_FILENAME.format(trainRuns[self.runNumber]) + "startPos.txt", "w") as f:
+                    f.write("; ".join(["{:.4f}".format(x) for x in self.startPositions]))
+                if self.runNumber < len(trainRuns)-1:
+                    self.runNumber += 1
+                    self.testRun = 0
+                    self.trainRun = 0
+                    np.random.seed(1234)
+                    self.worldModel = model.ModelAction()
+                    self.resetWorld()
+                    self.finalPrediction = None
+                    self.startPositions = []
+                else:
+                    self.pauseWorld()
             
     def compare(self, worldState, prediction):
         blockOSReal = worldState.objectStates[15]

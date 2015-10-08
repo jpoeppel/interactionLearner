@@ -191,7 +191,6 @@ class AbstractCollection(object):
         self.storedEpisodes = []
     
     def update(self, episode):
-        print "updating AC ", self.id
         #Translation can be ignored since we are dealing with velocity
         transAction = np.dot(episode.preState.invTrans[:-1,:-1], episode.action) 
         vec = np.concatenate((episode.preState.vec, transAction))
@@ -202,7 +201,6 @@ class AbstractCollection(object):
         """
             Action needs to be transformed to local coordinate system!
         """
-        print "predicting in AC ", self.id
         res = InteractionState()
         res.id = intState.id
         res.trans = np.copy(intState.trans)
@@ -258,17 +256,17 @@ class ModelInteraction(object):
                     featuresString = ",".join(map(str,changingFeatures))
 #                    print "feature String: ", featuresString
                     #Create AC if not already known
-#                    if not featuresString in self.featuresACMapping:
-#                        newAC = AbstractCollection(len(self.abstractCollections),changingFeatures)
-#                        self.abstractCollections[newAC.id] = newAC
-#                        self.featuresACMapping[featuresString] = newAC.id
-#                        
-#                    self.abstractCollections[self.featuresACMapping[featuresString]].update(newEpisode)
-#                    self.acSelector.update(self.curInteractionStates[intId], usedAction, self.featuresACMapping[featuresString])
+                    if not featuresString in self.featuresACMapping:
+                        newAC = AbstractCollection(len(self.abstractCollections),changingFeatures)
+                        self.abstractCollections[newAC.id] = newAC
+                        self.featuresACMapping[featuresString] = newAC.id
+                        
+                    self.abstractCollections[self.featuresACMapping[featuresString]].update(newEpisode)
+                    self.acSelector.update(self.curInteractionStates[intId], usedAction, self.featuresACMapping[featuresString])
                     
-                    if not 0 in self.abstractCollections:
-                        self.abstractCollections[0] = AbstractCollection(0, np.array([2,3,4,5,6,7]))
-                    self.abstractCollections[0].update(newEpisode)
+#                    if not 0 in self.abstractCollections:
+#                        self.abstractCollections[0] = AbstractCollection(0, np.array([2,3,4,5,6,7]))
+#                    self.abstractCollections[0].update(newEpisode)
                     
                 
                 self.curInteractionStates[intId].update(intState)
@@ -280,16 +278,16 @@ class ModelInteraction(object):
         #TODO is curWorldState even needed here?
         newWS = WorldState()
         for intId, intState in self.curInteractionStates.items():
-#            acID = self.acSelector.test(intState, curAction)
-            if 0 in self.abstractCollections:
-                acID = 0
-            else:
-                acID = None
-#            print "acID: ", acID
+            acID = self.acSelector.test(intState, curAction)
+#            if 0 in self.abstractCollections:
+#                acID = 0
+#            else:
+#                acID = None
+            print "acID: ", acID
             if acID == None:
                 newIntState = copy.deepcopy(intState)
             else:
-#                print "changing features: ", self.abstractCollections[acID].changingFeatures
+                print "changing features: ", self.abstractCollections[acID].changingFeatures
                 newIntState = self.abstractCollections[acID].predict(intState, curAction)
             newWS.interactionStates[intId] = newIntState
         

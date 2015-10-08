@@ -61,6 +61,7 @@ class ITM(object):
         self.update(np.concatenate((node.wIn,node.action)), node.wOut)
         
     def update(self, x, y, etaIn=0.0, etaOut=0.0, etaA=0.0):
+        print "update itm"
         #Get winners:
         if len(self.nodes) > 1:
             numpyVals = self.valAr - x 
@@ -137,12 +138,13 @@ class ITM(object):
             self.valAr = np.array([n.inp for n in self.nodes.values()])
 #            self.valAr = np.array([np.concatenate((node.inp,node.out)) for node in self.nodes.values()])
             self.inserts += 1
+            
         pass
     
     def deleteNode(self, nodeId):
         for nI, n in self.nodes[nodeId].neig.items():
             n.remNeighbour(nodeId)
-            if len(n.neig) == 0:
+            if len(n.neig) == 0 and len(self.nodes) > 2:
                 self.deleteNode(nI)
         del self.nodes[nodeId]
         self.valAr = np.array([n.inp for n in self.nodes.values()])
@@ -190,11 +192,7 @@ class ITM(object):
                 return res/norm
             else:
                 return res
-            
-                
-#        return self.nodes[sortedIndices[0]].out
-#        ds = sorted([(npdot(n.inp-x,n.inp-x), n) for n in self.nodes.values()], key=itemgetter(0))
-#        return ds[0][1].out
+
 
     
 if __name__ == "__main__":

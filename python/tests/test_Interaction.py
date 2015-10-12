@@ -65,8 +65,8 @@ class TestInteraction:
 #        assert np.linalg.norm(intState.lastVec-np.array([15,8,0.0,0.0,0.0,0.0,-0.5,0.0])) < 0.0001
         
                                                         # sId, oId, x,y,  thet,dx,dy
-        assert np.linalg.norm(intState.vec-np.array([15,8,0.0,0.0,0.0,0.0,-0.5])) < 0.0001
-        assert np.linalg.norm(intState.lastVec-np.array([15,8,0.0,0.0,0.0,0.0,-0.5])) < 0.0001
+        assert np.linalg.norm(intState.vec[:7]-np.array([15,8,0.0,0.0,0.0,0.0,-0.5])) < 0.0001
+        assert np.linalg.norm(intState.lastVec[:7]-np.array([15,8,0.0,0.0,0.0,0.0,-0.5])) < 0.0001
         
         assert np.linalg.norm(intState.trans-np.array([[1.0,0.0,0.0],
                                                        [0.0,1.0,0.5],
@@ -86,8 +86,8 @@ class TestInteraction:
 #        assert np.linalg.norm(intState.vec-np.array([15,8,0.0,0.0,0.0,-0.5,0.0,-np.pi/2.0])) < 0.0001
 #        assert np.linalg.norm(intState.lastVec-np.array([15,8,0.0,0.0,0.0,-0.5,0.0,-np.pi/2.0])) < 0.0001
                                                         # sId, oId, x,y,  thet,dx,dy
-        assert np.linalg.norm(intState.vec-np.array([15,8,0.0,0.0,0.0,-0.5,0.0])) < 0.0001
-        assert np.linalg.norm(intState.lastVec-np.array([15,8,0.0,0.0,0.0,-0.5,0.0])) < 0.0001
+        assert np.linalg.norm(intState.vec[:7]-np.array([15,8,0.0,0.0,0.0,-0.5,0.0])) < 0.0001
+        assert np.linalg.norm(intState.lastVec[:7]-np.array([15,8,0.0,0.0,0.0,-0.5,0.0])) < 0.0001
         
         assert np.linalg.norm(intState.trans-np.array([[0.0,-1.0,0.0],
                                                        [1.0,0.0,0.5],
@@ -96,20 +96,36 @@ class TestInteraction:
                                                        [-1.0,0.0,0.0],
                                                        [0.0,0.0,1.0]])) < 0.0001
         assert intState.ori == np.pi/2.0     
+        o1.vec = np.array([3.0,2.0,np.pi/3.0])
+        o2.vec = np.array([2.5, -1.1, 0.0])
+        intState = InteractionState.fromObjectStates(o1,o2)
+        assert intState.id == "15,8"
+        
+        assert np.linalg.norm(intState.vec[:7]-np.array([15,8,0.0,0.0,0.0,-2.935,-1.117])) < 0.0001
+        assert np.linalg.norm(intState.trans-np.array([[0.5,-np.sqrt(3)/2.0,3.0],
+                                                       [np.sqrt(3)/2.0,0.5,2],
+                                                       [0.0,0.0,1.0]])) < 0.0001
+        assert np.linalg.norm(intState.invTrans-np.array([[0.5,np.sqrt(3)/2.0,-3.232],
+                                                       [-np.sqrt(3)/2.0,0.5,1.598],
+                                                       [0.0,0.0,1.0]])) < 0.0001
         
 class TestEpisode:
     
     def setup(self):
-        int1 = InteractionState()
-        int1.id = "15,8"
-        int1.vec = np.array([15,8,0.0,0.0,0.0,0.0,-0.5,0.0])
-        int1.lastVec= np.array([15,8,0.0,0.0,0.0,0.0,-0.5,0.0])
-        int2 = InteractionState()
-        int2.id = "15,8"
-        int2.vec = np.array([15,8,0.0,0.0,0.0,0.0,-0.45,0.0])
-        int2.lastVec= np.array([15,8,0.0,0.0,0.0,0.0,-0.5,0.0])
-        self.int1 = int1
-        self.int2 = int2
+        o1 = Object()
+        o1.id = 15
+        o1.vec = np.array([0.0,0.5,0.0])
+        o1.lastVec = np.array([0.0,0.5,0.0])
+        o2 = Object()
+        o2.id = 8
+        o2.vec = np.array([0.0,0.0,0.0])
+        o2.lastVec = np.array([0.0,0.0,0.0])
+        self.int1 = InteractionState.fromObjectStates(o1,o2)
+        o2 = Object()
+        o2.id = 8
+        o2.vec = np.array([0.0,0.05,0.0])
+        o2.lastVec = np.array([0.0,0.0,0.0])
+        self.int2 = InteractionState.fromObjectStates(o1,o2)
     
     def test_constructor(self):
         episode = Episode(self.int1,np.array([0.0,0.5]),self.int2)

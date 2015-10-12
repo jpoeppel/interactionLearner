@@ -20,6 +20,7 @@ from pygazebo.msg import worldState_pb2
 from pygazebo.msg import world_control_pb2
 import logging
 import numpy as np
+np.set_printoptions(precision=3,suppress=True)
 #import math
 import copy
 from common import GAZEBOCMDS
@@ -37,7 +38,7 @@ import modelInteractions as model
 #from sklearn.externals.six import StringIO
 #import pydot
 
-trainRuns = [50]
+trainRuns = [10]
 RECORD_SIMULATION = False
 SIMULATION_FILENAME = "gateModel{}Runs_Gate_Act_NoDynsITMNewNeighbour"
 
@@ -418,6 +419,8 @@ class GazeboInterface():
                     self.startPositions = []
                 else:
                     self.pauseWorld()
+            else:
+                self.pauseWorld()
             
     def compare(self, worldState, prediction):
         blockOSReal = worldState.objectStates[15]

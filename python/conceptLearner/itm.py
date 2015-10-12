@@ -60,7 +60,7 @@ class ITM(object):
     def train(self, node):
         self.update(np.concatenate((node.wIn,node.action)), node.wOut)
         
-    def update(self, x, y, etaIn=0.0, etaOut=0.0, etaA=0.0):
+    def update(self, x, y, etaIn=0.0, etaOut=0.0, etaA=0.0, testMode=None):
         #Get winners:
         if len(self.nodes) > 1:
             numpyVals = self.valAr - x 
@@ -85,7 +85,7 @@ class ITM(object):
             w.addNeighbour(sI,s)
             s.addNeighbour(wI,w)
             #Get expected output according to currently used prediction scheme
-            expOut = self.test(x, sortedIndices)
+            expOut = self.test(x, sortedIndices, testMode)
 #            #Check neighbours
             for nI, n in w.neig.items():
                 if n.id != s.id and npdot(wsdif,n.inp-s.inp) < 0:
@@ -162,12 +162,20 @@ class ITM(object):
         if testMode == WINNER:
     #        ids = [n.id for n in self.nodes.values()]
             w =  self.nodes[self.ids[sortedIndices[0]]]
+            print "x in : ", x
+            print "winner in: ", w.inp
+            print "winner out: ", w.out
             return w.out+npdot(w.A,x-w.inp)
         elif testMode == BESTTWO:
             if len(self.nodes) > 1:
                 
                 w = self.nodes[self.ids[sortedIndices[0]]]           
                 s = self.nodes[self.ids[sortedIndices[1]]]
+                print "x in : ", x
+                print "winner in: ", w.inp
+                print "winner out: ", w.out
+                print "second in: ", s.inp
+                print "second out: ", s.out
                 norm = np.exp(-np.linalg.norm(x-w.inp)**2/(SIGMAE**2))
                 res = norm*(w.out+npdot(w.A,x-w.inp))
                 wc = np.exp(-np.linalg.norm(x-s.inp)**2/(SIGMAE**2))

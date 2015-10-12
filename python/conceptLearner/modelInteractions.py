@@ -83,6 +83,9 @@ class InteractionState(object):
         pass
     
     def update(self, newState):
+        print "updating interaction state"
+        print "oldvec: ", self.vec
+        print "newvec: ", newState.vec
         self.lastVec = np.copy(self.vec)
         self.vec = np.copy(newState.vec)
         self.ori = newState.ori
@@ -153,6 +156,7 @@ class WorldState(object):
             self.objectStates[o2.id] = o2
             
             
+            
         self.actuator = self.objectStates[8]
     
 class Action(object):
@@ -179,7 +183,7 @@ class Episode(object):
         self.difs = postVec-pre.vec
         
     def getChangingFeatures(self):
-        return np.where(abs(self.difs)>0.001)[0]
+        return np.where(abs(self.difs)>0.01)[0]
         
     
 class AbstractCollection(object):
@@ -194,7 +198,7 @@ class AbstractCollection(object):
         #Translation can be ignored since we are dealing with velocity
         transAction = np.dot(episode.preState.invTrans[:-1,:-1], episode.action) 
         vec = np.concatenate((episode.preState.vec, transAction))
-        self.predictor.update(vec, episode.difs[self.changingFeatures])
+        self.predictor.update(vec, episode.difs[self.changingFeatures], testMode=0)
         self.storedEpisodes.append(episode)
     
     def predict(self, intState, action):
@@ -210,8 +214,12 @@ class AbstractCollection(object):
         res.vec = np.copy(intState.vec)
         transAction = np.dot(intState.invTrans[:-1,:-1], action)
         vec = np.concatenate((intState.vec, transAction))
-        prediction = self.predictor.test(vec)
+        prediction = self.predictor.test(vec, testMode=0)
         res.vec[self.changingFeatures] += prediction
+        print "changing features: ", self.changingFeatures
+        print "prediction: ", prediction
+        print "givenState: ", intState.vec
+        print "prediction: ", res.vec
         return res
     
 class ACSelector(object):
@@ -221,15 +229,19 @@ class ACSelector(object):
         self.isTrained = False
         
     def update(self, intState, action, respACId):
-        vec = np.concatenate((intState.vec[5:7], action))
-        self.classifier.update(vec, np.array([respACId]))
+        transAction = np.dot(intState.invTrans[:-1,:-1], action) 
+        vec = np.concatenate((intState.vec[5:7], transAction))
+        self.classifier.update(vec, np.array([respACId]), testMode=0)
         self.isTrained = True
     
     def test(self, intState, action):
+        transAction = np.dot(intState.invTrans[:-1,:-1], action) 
         if self.isTrained:
-            vec = np.concatenate((intState.vec[5:7], action))
+            vec = np.concatenate((intState.vec[5:7], transAction))
 #            return int(self.classifier.test(vec))
-            return int(self.classifier.test(vec, testMode=0)) #Only use winner to make prediction
+            #Only use winner to make prediction, interpolation does not really
+            #make sense when having more then 2 classes
+            return int(self.classifier.test(vec, testMode=0)) 
         else:
             return None
 

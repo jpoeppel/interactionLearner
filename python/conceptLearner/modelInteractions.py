@@ -57,8 +57,8 @@ class Object(object):
         o1.vec = np.zeros(3)
         o2 = cls()
         o2.vec = np.zeros(3)
-        o1.id = intState.vec[0]
-        o2.id = intState.vec[1]
+        o1.id = int(intState.vec[0])
+        o2.id = int(intState.vec[1])
         p1 = np.ones(3)
         p1[:2] = intState.vec[2:4]
         p1 = np.dot(intState.trans, p1)
@@ -155,8 +155,8 @@ class WorldState(object):
             self.objectStates[o1.id] = o1
             self.objectStates[o2.id] = o2
             
-            
-            
+#        self.interactionStates = {}
+        self.parseInteractions()
         self.actuator = self.objectStates[8]
     
 class Action(object):
@@ -258,7 +258,9 @@ class ModelInteraction(object):
         pass    
     
     def update(self, curWorldState, usedAction):
+        print "update model"
         for intId, intState in curWorldState.interactionStates.items():
+            print "loop for intID: ", intId
             if intId in self.curInteractionStates:
                 #When training, update the ACs and the selector
                 if self.training:
@@ -290,6 +292,7 @@ class ModelInteraction(object):
         #TODO is curWorldState even needed here?
         newWS = WorldState()
         for intId, intState in self.curInteractionStates.items():
+            print "predicting intId: ", intId
             acID = self.acSelector.test(intState, curAction)
 #            if 0 in self.abstractCollections:
 #                acID = 0
@@ -309,6 +312,7 @@ class ModelInteraction(object):
         
         
     def resetObjects(self, curWS):
+        self.curInteractionStates = {}
         for i in curWS.interactionStates.values():
             if i.id in self.curInteractionStates:
                 self.curInteractionStates[i.id].update(i)

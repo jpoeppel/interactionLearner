@@ -38,7 +38,7 @@ import modelInteractions as model
 #from sklearn.externals.six import StringIO
 #import pydot
 
-trainRuns = [10]
+trainRuns = [30]
 RECORD_SIMULATION = False
 SIMULATION_FILENAME = "gateModel{}Runs_Gate_Act_NoDynsITMNewNeighbour"
 

@@ -31,14 +31,17 @@ import common
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
 
-#import modelGate as model
-import modelInteractions as model
-#import model6 as model
+GATE = True
+
+if GATE:
+    import modelGate_2D as model
+else:
+    import modelInteractions as model
 
 #from sklearn.externals.six import StringIO
 #import pydot
 
-trainRuns = [30]
+trainRuns = [10]
 RECORD_SIMULATION = False
 SIMULATION_FILENAME = "gateModel{}Runs_Gate_Act_NoDynsITMNewNeighbour"
 
@@ -67,9 +70,11 @@ class GazeboInterface():
          
         self.active = True
         self.lastState = None
-#        self.worldModel = model.ModelGate()
-        self.worldModel = model.ModelInteraction()
-        self.lastAction = np.zeros(3)
+        if GATE:
+            self.worldModel = model.ModelGate()
+        else:
+            self.worldModel = model.ModelInteraction()
+        self.lastAction = np.zeros(2)
         self.lastPrediction = None
         self.ignore = True
         self.target = None
@@ -178,6 +183,8 @@ class GazeboInterface():
         """
         names = {15:"blockA", 8: "gripper"}
         msg = pygazebo.msg.modelState_v_pb2.ModelState_V()
+        if GATE:
+            msg.models.extend([self.getModelState("gripperShadow", self.lastPrediction.actuator.vec[0:2], self.lastPrediction.actuator.vec[2])])
         for objectState in self.lastPrediction.objectStates.values():
             tmp = self.getModelState(names[objectState.id]+"Shadow", objectState.vec[0:2], objectState.vec[2])
             msg.models.extend([tmp])

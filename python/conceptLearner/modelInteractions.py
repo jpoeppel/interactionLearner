@@ -183,7 +183,7 @@ class Episode(object):
         self.difs = postVec-pre.vec
         
     def getChangingFeatures(self):
-        return np.where(abs(self.difs)>0.01)[0]
+        return np.where(abs(self.difs)>0.001)[0]
         
     
 class AbstractCollection(object):

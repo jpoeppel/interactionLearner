@@ -48,7 +48,8 @@ class TestCommons:
         v2 = np.array([0.2,0.1])
         d, c = computeDistanceClosing(id1,p1,v1,ang1,id2, p2,v2,ang2)
         assert np.linalg.norm(d-0.425) < 0.001
-        assert np.linalg.norm(c-(-0.1)) < 0.001
+        assert np.linalg.norm(c-(-0.1)) < 0.001        
+        
         
     def test_quaternionToEuler(self):
         testquat = np.array([0.0,0.0,0.0,0.0])
@@ -97,6 +98,7 @@ class TestCommons:
                               [1.0,0.0,0.5],
                               [0.0,0.0,1.0]])
         assert np.linalg.norm(trans-testTrans) < 0.0001
+        
                               
         
     def test_eulerPosToTransformation2d(self):
@@ -133,7 +135,7 @@ class TestCommons:
                            [0.0,0.0,1.0]])
         inv = invertTransMatrix(trans)
         assert np.linalg.norm(inv- np.linalg.inv(trans)) < 0.0001    
-
+        #2D
         trans = np.array([[0.5,np.sqrt(3)/2.0,2.0],[-np.sqrt(3)/2.0,0.5,1.5],[0.0,0.0,1.0]])                           
         inv = invertTransMatrix(trans)
         assert np.linalg.norm(inv- np.linalg.inv(trans)) < 0.0001    
@@ -146,6 +148,7 @@ class TestCommons:
         assert np.linalg.norm(rPos-np.array([0.0,-0.5,0.0])) < 0.0001
         rPos = relPos(p1,math.pi/2.0,p2)
         assert np.linalg.norm(rPos-np.array([-0.5,0.0,0.0])) < 0.0001
+        #2D
         p1 = np.array([3,2,0])
         p2 = np.array([2.5,-1.1,0])
         ang = np.pi/3.0
@@ -171,6 +174,15 @@ class TestCommons:
         assert np.linalg.norm(rPos-np.array([0.0,0.5,0.0])) < 0.0001
         assert np.linalg.norm(rVel-np.array([0.0,-0.3,0.0])) < 0.0001
         assert np.linalg.norm(rVel2-np.array([0.0,-0.5,0.0])) < 0.0001
+        #2D
+        p1 = np.array([0.0,0.5])
+        v1 = np.array([0.0,0.2])
+        p2 = np.zeros(2)
+        v2 = np.array([0.0,0.5])
+        rPos, rVel, rVel2 = relPosVel(p1,v1,math.pi,p2,v2)
+        assert np.linalg.norm(rPos-np.array([0.0,0.5])) < 0.0001
+        assert np.linalg.norm(rVel-np.array([0.0,-0.3])) < 0.0001
+        assert np.linalg.norm(rVel2-np.array([0.0,-0.5])) < 0.0001
         
     def test_globalPosVel(self):
         p1 = np.array([0.0,0.5,0.0])
@@ -184,6 +196,16 @@ class TestCommons:
         gpos, gvel = globalPosVel(p1,ang,rpos,rv)
         assert np.linalg.norm(gpos-np.array([0.5,0.5,0.0])) < 0.0001
         assert np.linalg.norm(gvel-np.array([-0.5,0.0,0.0])) < 0.0001
+        
+        #2D
+        
+        p1 = np.array([0.0,0.5])
+        ang = math.pi/2.0
+        rpos = np.array([0.0,-0.5])
+        rv = np.array([0.0,0.5])
+        gpos, gvel = globalPosVel(p1,ang,rpos,rv)
+        assert np.linalg.norm(gpos-np.array([0.5,0.5])) < 0.0001
+        assert np.linalg.norm(gvel-np.array([-0.5,0.0])) < 0.0001
 
         
     def test_relPosVelChange(self):
@@ -198,6 +220,14 @@ class TestCommons:
         assert np.linalg.norm(npdif-np.array([0.5,0.0,0.0])) < 0.0001
         assert np.linalg.norm(nvdif-np.array([0.5,0.0,0.0])) < 0.0001
         
+        #2D
+        
+        pdif = np.array([0.0,0.5])
+        vdif = np.array([0.0,0.5])
+        npdif, nvdif = relPosVelChange(ang, pdif, vdif)
+        assert np.linalg.norm(npdif-np.array([0.5,0.0])) < 0.0001
+        assert np.linalg.norm(nvdif-np.array([0.5,0.0])) < 0.0001
+        
     def test_globalPosVelChange(self):
         pdif = np.array([0.0,0.5,0.0])
         vdif = np.array([0.0,0.5,0.0])
@@ -209,3 +239,11 @@ class TestCommons:
         npdif, nvdif = globalPosVelChange(ang, pdif, vdif)
         assert np.linalg.norm(npdif-np.array([-0.5,0.0,0.0])) < 0.0001
         assert np.linalg.norm(nvdif-np.array([-0.5,0.0,0.0])) < 0.0001
+        
+        #2D 
+        
+        pdif = np.array([0.0,0.5])
+        vdif = np.array([0.0,0.5])
+        npdif, nvdif = globalPosVelChange(ang, pdif, vdif)
+        assert np.linalg.norm(npdif-np.array([-0.5,0.0])) < 0.0001
+        assert np.linalg.norm(nvdif-np.array([-0.5,0.0])) < 0.0001

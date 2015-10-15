@@ -16,6 +16,7 @@ from common import NUMDEC
 from itm import ITM
 from sets import Set
 import copy
+from config import SHORT_TS
 
 USE_DYNS = False
 
@@ -157,7 +158,6 @@ class WorldState(object):
             
 #        self.interactionStates = {}
         self.parseInteractions()
-        self.actuator = self.objectStates[8]
     
 class Action(object):
     
@@ -183,7 +183,10 @@ class Episode(object):
         self.difs = postVec-pre.vec
         
     def getChangingFeatures(self):
-        return np.where(abs(self.difs)>0.001)[0]
+        if SHORT_TS:
+            return np.where(abs(self.difs)>0.001)[0]
+        else:
+            return np.where(abs(self.difs)>0.01)[0]
         
     
 class AbstractCollection(object):
@@ -291,7 +294,8 @@ class ModelInteraction(object):
     def predict(self, curWorldState, curAction):
         #TODO is curWorldState even needed here?
         newWS = WorldState()
-        for intId, intState in self.curInteractionStates.items():
+        for intId, intState in curWorldState.interactionStates.items():
+#        for intId, intState in self.curInteractionStates.items():
             print "predicting intId: ", intId
             acID = self.acSelector.test(intState, curAction)
 #            if 0 in self.abstractCollections:

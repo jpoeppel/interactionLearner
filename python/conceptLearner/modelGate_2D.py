@@ -32,7 +32,7 @@ from operator import itemgetter
 
 GREEDY_TARGET = True
 
-HARDCODEDGATE = False
+HARDCODEDGATE = True
 HARDCODEDACTUATOR = True
 
 USE_DYNS = False
@@ -95,7 +95,8 @@ class Object(object):
         resO = copy.deepcopy(self)
 #        print "object before: ", resO.vec[1:4]
 #        print "relVec: ", self.getRelVec(other)[4:7]
-        pred = predictor.predict(self.getRelVec(other)[mask])
+        print "using itm for object prediction"
+        pred = predictor.test(self.getRelVec(other)[mask])
 #        pred = predictor.test(self.getRelVec(other))
         if USE_DYNS:
             pred[0:2], pred[3:5] = common.globalPosVelChange(self.vec[2], pred[0:2], pred[3:5])
@@ -225,6 +226,7 @@ class Actuator(Object):
 #            res.vec[1:4] += p
         res.lastVec = np.copy(self.vec)
         res.vec = np.round(self.predVec, common.NUMDEC)
+        res.predictor = self.predictor
         return res
             
     def update(self, newAc, action, training = True):
@@ -276,7 +278,7 @@ class Classifier(object):
         if HARDCODEDGATE:
             pass
         else:
-            self.clas.update(o1vec[[2,3,7,8,9]], np.array([label]))
+            self.clas.update(o1vec[[2,3,6,7]], np.array([label]), testMode=0)
             self.isTrained = True
     
     def test(self, ovec, avec):
@@ -293,8 +295,9 @@ class Classifier(object):
                     print "no Change: closing: {}, dist: {}, relVel: {}".format(ovec[3], ovec[2], ovec[6:8])
                     return 0
         else:
+            print "testing with gate itm"
             if self.isTrained:
-                pred = self.clas.test(ovec[[2,3,7,8,9]], testMode=0)
+                pred = self.clas.test(ovec[[2,3,6,7]], testMode=0)
                 return pred
             else:
                 return 0
@@ -876,8 +879,10 @@ class ModelGate(object):
     def predict(self, ws, action):
         #TODO Remove ws from here since it is not needed at all    
         newWS = WorldState()
-        newWS.actuator = self.actuator.predict(action)
-        for o in self.curObjects.values():
+#        newWS.actuator = self.actuator.predict(action)
+        newWS.actuator = ws.actuator.predict(action)
+        for o in ws.objectStates.values():
+#        for o in self.curObjects.values():
             if self.gate.test(o, newWS.actuator, action):
                 newO = self.predictor.predict(o, newWS.actuator, action)
                 newWS.objectStates[o.id] = newO
@@ -903,7 +908,7 @@ class ModelGate(object):
         self.actuator.update(curWS.actuator, np.array([0.0,0.0]))
         
     def update(self, curWS, action):
-        
+        print "updating model"
         for o in curWS.objectStates.values():
             #TODO extent to more objects
             if o.id in self.curObjects:

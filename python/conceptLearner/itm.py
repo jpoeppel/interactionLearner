@@ -52,7 +52,6 @@ class ITM(object):
 #        self.nodes = []
         self.inserts = 0
         self.winners = []
-        self.predict = self.test
 #        self.nodes= {}
 #        self.nodes = np.zeros # Try storing all nodes in one nparray that needs to be reshaped
         

@@ -203,27 +203,40 @@ def relPos(p1, ang,  p2):
 def relPosVel(p1,v1, ang, p2,v2):
     ca = math.cos(ang)
     sa = math.sin(ang)
-    trans = np.array([[ca, -sa, 0.0, p1[0]],
+    l = len(p1)
+    if l == 3:
+        trans = np.array([[ca, -sa, 0.0, p1[0]],
                  [sa, ca, 0.0, p1[1]],
                  [0.0, 0.0, 1.0, p1[2]],
                  [0.0,0.0,0.0,1.0]])
+    elif l == 2:
+        trans = np.array([[ca, -sa, p1[0]],
+                          [sa,ca,p1[1]],
+                          [0.0,0.0,1.0]])
     invTrans = invertTransMatrix(trans)
-    tmpPos = np.ones(4)
-    tmpPos[:3] = np.copy(p2)
-    newPos = npdot(invTrans, tmpPos)[:3]
-    tmpVel = np.zeros(4)
-    tmpVel[:3] = v2-v1
-    newRelVel = npdot(invTrans, tmpVel)[:3]
-    tmpVel[:3] = v2
-    newVel = npdot(invTrans, tmpVel)[:3]
+    tmpPos = np.ones(l+1)
+    tmpPos[:l] = np.copy(p2)
+    newPos = npdot(invTrans, tmpPos)[:l]
+    tmpVel = np.zeros(l+1)
+    tmpVel[:l] = v2-v1
+    newRelVel = npdot(invTrans, tmpVel)[:l]
+    tmpVel[:l] = v2
+    newVel = npdot(invTrans, tmpVel)[:l]
     return np.round(newPos, NUMDEC), np.round(newRelVel, NUMDEC), np.round(newVel, NUMDEC)
     
 def relPosVelChange(ang, pdif, vdif):
     ca = math.cos(ang)
     sa = math.sin(ang)
-    trans = np.array([[ca, sa, 0.0],
+    l = len(pdif)
+    if l == 3:
+        trans = np.array([[ca, sa, 0.0],
                       [-sa, ca, 0.0],
                       [0.0,0.0,1.0]])
+    elif l == 2:
+        trans = np.array([[ca,sa],
+                          [-sa,ca]])
+    else:
+        raise NotImplementedError("Only works for 2d or 3d positions differences. l: ", l)
     newPDif = npdot(trans,pdif)
     newVDif = npdot(trans,vdif)
     return np.round(newPDif, NUMDEC), np.round(newVDif, NUMDEC)
@@ -231,9 +244,17 @@ def relPosVelChange(ang, pdif, vdif):
 def globalPosVelChange(ang, pdif, vdif):
     ca = math.cos(ang)
     sa = math.sin(ang)
-    trans = np.array([[ca, -sa, 0.0],
+    l = len(pdif)
+    if l == 3:
+        trans = np.array([[ca, -sa, 0.0],
                       [sa, ca, 0.0],
                       [0.0,0.0,1.0]])
+    elif l == 2:
+        trans = np.array([[ca,-sa],
+                          [sa,ca]])
+    else:
+        raise NotImplementedError("Only works for 2d or 3d positions differences. l: ", l)
+                          
     newPDif = npdot(trans,pdif)
     newVDif = npdot(trans,vdif)
 #    return newPDif, newVDif
@@ -242,16 +263,24 @@ def globalPosVelChange(ang, pdif, vdif):
 def globalPosVel(p1, ang, relPos, relVel):
     ca = math.cos(ang)
     sa = math.sin(ang)
-    trans = np.array([[ca, -sa, 0.0, p1[0]],
+    l = len(p1)
+    if l == 3:
+        trans = np.array([[ca, -sa, 0.0, p1[0]],
                  [sa, ca, 0.0, p1[1]],
                  [0.0, 0.0, 1.0, p1[2]],
                  [0.0,0.0,0.0,1.0]])
-    tmpPos = np.ones(4)
-    tmpPos[:3] = np.copy(relPos)
-    newPos = npdot(trans, tmpPos)[:3]
-    tmpVel = np.zeros(4)
-    tmpVel[:3] = relVel
-    newVel = npdot(trans, tmpVel)[:3]
+    elif l == 2:
+        trans = np.array([[ca, -sa, p1[0]],
+                          [sa,ca,p1[1]],
+                          [0.0,0.0,1.0]])
+    else:
+        raise NotImplementedError("Only works for 2d or 3d positions. l: ", l)
+    tmpPos = np.ones(l+1)
+    tmpPos[:l] = np.copy(relPos)
+    newPos = npdot(trans, tmpPos)[:l]
+    tmpVel = np.zeros(l+1)
+    tmpVel[:l] = relVel
+    newVel = npdot(trans, tmpVel)[:l]
     return newPos, newVel
 #    return np.round(newPos, NUMDEC), np.round(newVel, NUMDEC)
     

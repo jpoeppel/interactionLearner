@@ -31,7 +31,8 @@ import common
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
 
-GATE = True
+#GATE = True
+GATE = False
 
 if GATE:
     import modelGate_2D as model
@@ -41,7 +42,7 @@ else:
 #from sklearn.externals.six import StringIO
 #import pydot
 
-trainRuns = [10]
+trainRuns = [3]
 RECORD_SIMULATION = False
 SIMULATION_FILENAME = "gateModel{}Runs_Gate_Act_NoDynsITMNewNeighbour"
 
@@ -53,7 +54,8 @@ FREE_EXPLORATION = 0
 PUSHTASK = 1
 PUSHTASKSIMULATION = 2
 MOVE_TO_TARGET = 3
-MODE = PUSHTASKSIMULATION
+PUSHTASKSIMULATION2 = 4
+MODE = PUSHTASKSIMULATION2
 #MODE = FREE_EXPLORATION
 #MODE = MOVE_TO_TARGET
 
@@ -264,13 +266,6 @@ class GazeboInterface():
             
         else:
             worldState = worldState_pb2.WorldState.FromString(data)
-    #        if self.lastPrediction != None:
-    ##            print "Parsing worldState with last coordinate system."
-    ##            resultWS = model.WorldState(self.lastPrediction.transM, self.lastPrediction.invTrans, self.lastPrediction.quat)
-    #            resultWS = model.WorldState(self.lastPrediction.transM, self.lastPrediction.invTrans, self.lastPrediction.ori)
-    #            resultWS.parse(worldState)
-    #        else:
-    #            resultWS = None
             print "parsing new WorldState"
             newWS = model.WorldState()
             newWS.parse(worldState)
@@ -281,6 +276,8 @@ class GazeboInterface():
                 self.pushTask(newWS)
             elif MODE == PUSHTASKSIMULATION:
                 self.pushTaskSimulation(newWS)
+            elif MODE == PUSHTASKSIMULATION2:
+                self.pushTaskSimulation2(newWS)
             elif MODE == MOVE_TO_TARGET:
 #                self.setTarget()
                 self.moveToTarget(newWS)
@@ -315,12 +312,12 @@ class GazeboInterface():
         self.runStarted = True
          #Set up Starting position
         posX = ((np.random.rand()-0.5)*randomRange) #* 0.5
-        if self.trainRun == 0:
-            posX = -0.25
-        elif self.trainRun == 1:
-            posX = 0.25
-        elif self.trainRun == 2:
-            posX = 0
+#        if self.trainRun == 0:
+#            posX = -0.25
+#        elif self.trainRun == 1:
+#            posX = 0.25
+#        elif self.trainRun == 2:
+#            posX = 0
         if self.trainRun == trainRuns[self.runNumber]:
             self.startPositions.append(posX)    
             
@@ -343,12 +340,43 @@ class GazeboInterface():
         self.stepCounter = 0
         self.ignore = True
 
-    def pushTask(self, worldState, resultState=None):
+    def pushTask(self, worldState):
         raise NotImplementedError
+        
+    def pushTaskSimulation2(self, worldState):
+        """
+            Method to perform pushTask simulation. This means that predictions are made
+            based on the previous prediction the model made.
+            The difference to the standard pushTaskSimulation is that the model is still
+            being updated after it made the prediction with what actually happened.
+        """
+        if self.runStarted:
+            if self.runEnded(worldState):
+                self.resetWorld()
+                self.runStarted = False
+        else:
+            self.startRun(0.7)
+            self.direction = np.array([0.0,0.5])
+            return
+        if self.testRun < NUM_TEST_RUNS:
+            if self.runStarted:
+                if self.lastPrediction == None:
+                    self.lastPrediction = self.worldModel.predict(worldState, self.direction)
+                    self.worldModel.resetObjects(worldState)
+                    self.lastAction = np.zeros(2)
+                else:
+                    self.lastPrediction = self.worldModel.predict(self.lastPrediction, self.direction)
+                self.worldModel.update(worldState, self.lastAction)
+                self.lastAction = self.direction
+                self.sendPrediction()
+                self.sendCommand(self.lastAction)
+            else:
+                self.testRun += 1
+        else:
+            self.pauseWorld()
             
-    def pushTaskSimulation(self, worldState, resultState=None):
+    def pushTaskSimulation(self, worldState):
         self.stepCounter += 1
-        resultState=copy.deepcopy(worldState)
 #        print "num cases: " + str(len(self.worldModel.cases))
 #        print "num abstract cases: " + str(len(self.worldModel.abstractCases))
         
@@ -368,7 +396,7 @@ class GazeboInterface():
         if self.trainRun < trainRuns[self.runNumber]: #NUM_TRAIN_RUNS:
             print "Train run #: ", self.trainRun
             if self.runStarted:
-                self.updateModel(worldState, resultState, self.direction)
+                self.updateModel(worldState, self.direction)
             else:
                 self.trainRun += 1
                 if self.trainRun == trainRuns[self.runNumber]: # NUM_TRAIN_RUNS:
@@ -437,7 +465,7 @@ class GazeboInterface():
         return blockOSReal.compare(blockOSPrediction), gripperOSReal.compare(gripperOSPrediction)
         
             
-    def updateModel(self, worldState, resultState, direction=np.array([0.0,0.5])):
+    def updateModel(self, worldState, direction=np.array([0.0,0.5])):
         """
         Function to perform the world update and get the next prediction.
         Currently action NOTHING is performed in here.
@@ -447,20 +475,14 @@ class GazeboInterface():
         worldState: mode.WorldState
             The current world state
         """
-        if self.lastState != None and resultState != None:
-            self.worldModel.update(resultState, self.lastAction)
+        if self.lastState != None and worldState != None:
+            self.worldModel.update(worldState, self.lastAction)
         else:
             print "reset objects"
             self.worldModel.resetObjects(worldState)
         
         self.lastState = worldState
-#        if self.stepCounter == 1:
-#        if self.trainRun < NUM_TRAIN_RUNS-1:
-#        self.lastAction = model.Action.getGripperAction(cmd = GAZEBOCMDS["MOVE"], direction=direction)
         self.lastAction = direction
-#        else:
-#            self.lastAction = model.Action(cmd=GAZEBOCMDS["NOTHING"])
-#        self.lastPrediction = self.worldModel.predict(worldState, self.lastAction)
         
         self.lastPrediction = self.worldModel.predict(worldState, self.lastAction)
         
@@ -468,7 +490,7 @@ class GazeboInterface():
         self.sendCommand(self.lastAction)
 
 
-    def randomExploration(self, worldState, resultState):
+    def randomExploration(self, worldState):
         raise NotImplementedError
         
     def startRunTarget(self, run):
@@ -484,8 +506,7 @@ class GazeboInterface():
         self.stepCounter = 0
         self.direction = directions[run]
         
-    def moveToTarget(self, worldState, resultState=None):
-        resultState=copy.deepcopy(worldState)
+    def moveToTarget(self, worldState):
         self.stepCounter += 1
         if self.runStarted:
             if self.trainRun < NUM_TRAIN_RUNS and self.runEnded(worldState):
@@ -498,7 +519,7 @@ class GazeboInterface():
         if self.trainRun < NUM_TRAIN_RUNS:
             print "trainrun : ", self.trainRun
             if self.runStarted:
-                self.updateModel(worldState, resultState, self.direction)
+                self.updateModel(worldState, self.direction)
             else:
                 self.trainRun += 1
                 if self.trainRun == NUM_TRAIN_RUNS:
@@ -507,7 +528,7 @@ class GazeboInterface():
         elif self.testRun < NUM_TEST_RUNS:
             if self.worldModel.target ==  None:
                 self.setRandomTarget()
-            if self.lastAction != None and resultState != None:
+            if self.lastAction != None and worldState != None:
 #                print "updating with last action: ", self.lastAction
                 self.worldModel.update(worldState, self.lastAction)
             else:

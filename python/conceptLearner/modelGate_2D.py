@@ -29,13 +29,13 @@ from itm import ITM
 import copy
 
 from operator import itemgetter
+from config import USE_DYNS
+
 
 GREEDY_TARGET = True
 
 HARDCODEDGATE = True
 HARDCODEDACTUATOR = True
-
-USE_DYNS = False
 
 #mask = np.array([3,4,5,7,8,10,11])
 mask = np.array([0,1,2,3,4,5,6,7,8,9])
@@ -163,11 +163,6 @@ class Object(object):
         p2yn = p2x*s + p2y*c + self.vec[1]
         return np.array([np.copy(self.vec[0:2]), np.array([p1xn,p1yn]), np.array([p2xn,p2yn])])
         
-    def compare(self, other):
-        assert self.id == other.id, "Should only compare the same objects not {} and {}".format(self.id, othe.id)
-        sKeyPoints = self.getKeyPoints()
-        oKeyPoints = other.getKeyPoints()
-        return sum(np.linalg.norm(sKeyPoints-oKeyPoints,axis=1))/3.0
         
     @classmethod
     def parse(cls, m):
@@ -345,12 +340,6 @@ class GateFunction(object):
 class MetaNode(object):
 
     def __init__(self):
-#        self.negWeights = 0.0
-#        self.posWeights = 0.0
-#        self.zeroPass = None
-#        self.posSum = None
-#        self.negSum = None
-#        self.prev = None
         self.signCombinations= {}
         self.signCombinationSums= {}
         self.signCombinationNumbers = {}
@@ -369,46 +358,14 @@ class MetaNode(object):
         #Compare incoming pres and find the things they have in common/are relevant for a given dif
         lPre = len(pre)
         self.lenPreCons = lPre
-#        if self.zeroPass == None:
-#            self.zeroPass = [False]*lPre
-#            self.posSum = np.zeros(lPre)
-#            self.negSum = np.zeros(lPre)
-#            self.posWeights = np.zeros(lPre)
-#            self.negWeights = np.zeros(lPre)
-#            self.prev = np.zeros(lPre)
-#        curSigCom = ";".join("{}".format(n) for n in np.sign(pre[[4,5,10,11]]))
         curSigCom = []
         for i in xrange(lPre):
-#            curSigCom += str(np.sign(pre[i]))
             if pre[i] < -0.001:
                 curSigCom.append('-1')
             elif pre[i] > 0.001:
                 curSigCom.append('1')
             else:
                 curSigCom.append('0')
-#            if not self.zeroPass[i]:
-#                if USE_DYNS:
-#                    if abs(pre[1]) < 0.01:
-#                        self.zeroPass[i] = True
-#                else:
-#                    if abs(pre[i]) < 0.001:
-#                        self.zeroPass[i] = True
-#            if pre[i] < 0:
-#                self.negSum[i] += dif*pre[i]
-#                self.negWeights[i] += dif
-#            elif pre[i] > 0:
-#                self.posSum[i] += dif*pre[i]
-#                self.posWeights[i] += dif
-#            else:
-#                self.negSum[i] += dif*pre[i]
-#                self.posSum[i] += dif*pre[i]
-#                self.negWeights[i] += dif
-#                self.posWeights[i] += dif
-#                
-#            if self.posWeights[i] == self.negWeights[i]:
-#                self.prev[i] = np.sign(pre[i])
-#        print "pos weights: ", self.posWeights[[4,5,10,11]]
-#        print "neg weights: ", self.negWeights[[4,5,10,11]]
         curSigCom = ";".join(curSigCom)
         if curSigCom in self.signCombinations:
             self.signCombinations[curSigCom] += dif
@@ -423,7 +380,6 @@ class MetaNode(object):
         res = np.zeros(self.lenPreCons)
         res2 = np.zeros(self.lenPreCons)
         l = sorted([(k, v) for k,v in self.signCombinations.items()], key=itemgetter(1), reverse=True)
-#        print "sorted list: ", l
         if len(l) > 1:
             comb1 = l[0][0].split(";")
             comb2 = l[1][0].split(";")
@@ -431,8 +387,6 @@ class MetaNode(object):
             pre2 = self.signCombinationSums[l[1][0]]
             w1 = self.signCombinations[l[0][0]]
             w2 = self.signCombinations[l[1][0]]
-            print "comb1: ", comb1
-            print "comb2: ", comb2
             for i in xrange(len(comb1)):
                 if comb1[i] == comb2[i] or comb1[i] == '0' or comb2[i] == '0':
                     res[i] = (pre1[i]+pre2[i])/(w1+w2)
@@ -443,49 +397,6 @@ class MetaNode(object):
             return res, res2
         else:
             return self.signCombinationSums[l[0][0]]/self.signCombinations[l[0][0]], None
-                
-#        print "sorted list: ", l
-                    
-        
-#    def getPreconditions2(self):
-#        res = np.zeros(len(self.zeroPass))
-#        res2 = np.zeros(len(self.zeroPass))
-#        res2valid = False
-##        print "signCombinations: ", self.signCombinations
-#        for i in xrange(len(self.zeroPass)):
-##            if i in [4,5,10,11]:
-##                print "i: {}, posSum: {}, negSum: {}, posW: {}, negW: {} zero: {}".format(i, self.posSum[i], self.negSum[i], self.posWeights[i], self.negWeights[i], self.zeroPass[i])
-#            if self.zeroPass[i]:
-#                res[i] = (self.posSum[i]+self.negSum[i])/(self.posWeights[i]+self.negWeights[i])
-#                res2[i] =(self.posSum[i]+self.negSum[i])/(self.posWeights[i]+self.negWeights[i])
-#            else:
-##                print "index: {}, pos weights: {}, neg weights: {}".format(i, self.posWeights[i], self.negWeights[i])
-#                if self.posWeights[i] > self.negWeights[i]:
-#                    res[i] = self.posSum[i]/self.posWeights[i]
-#                    if self.negWeights[i] > 0.2:
-#                        res2[i] = self.negSum[i]/self.negWeights[i]
-#                        res2valid = True
-#                    else:
-#                        res2[i] = self.posSum[i]/self.posWeights[i]
-#                elif self.posWeights[i] == self.negWeights[i]:
-#                    res2valid = True
-#                    if self.prev[i] < 0:
-#                        res[i] = self.negSum[i]/self.negWeights[i]
-#                        res2[i] = self.posSum[i]/self.posWeights[i]
-#                    else:
-#                        res[i] = self.posSum[i]/self.posWeights[i]
-#                        res2[i] = self.negSum[i]/self.negWeights[i]
-#                else:
-#                    res[i] = self.negSum[i]/self.negWeights[i]
-#                    if self.posWeights[i] > 0.2:
-#                        res2[i] = self.posSum[i]/self.posWeights[i]
-#                        res2valid =True
-#                    else:
-#                        res2[i] = self.negSum[i]/self.negWeights[i]
-#        if res2valid:
-#            return res, res2
-#        else:
-#            return res, None
             
 class MetaNetwork(object):
     
@@ -681,12 +592,9 @@ class Predictor(object):
             #TODO check for close ones that can be used
             self.predictors[intState[0]] = ITM()
             self.inverseModel[intState[0]] = MetaNetwork()
-#        with open("../../trainDataPush20.txt", "a") as f:
-#            f.write(";".join(["{:.4f}".format(x) for x in np.concatenate((intState, dif))]))
-#            f.write("\n")
-#        self.predictors[intState[0]].train(Node(0, wIn = intState[mask], wOut=dif))
         if np.linalg.norm(dif) == 0.0:
             print "training with zero dif: ", dif
+            raise NotImplementedError
         self.predictors[intState[0]].update(intState[mask], dif, etaIn = 0.1)
         self.inverseModel[intState[0]].train(intState, dif)
 
@@ -877,7 +785,7 @@ class ModelGate(object):
         pass
     
     def predict(self, ws, action):
-        #TODO Remove ws from here since it is not needed at all    
+        #TODO Remove ws from here since it is not needed at all. Not true if online learning is tested in new prediction task
         newWS = WorldState()
 #        newWS.actuator = self.actuator.predict(action)
         newWS.actuator = ws.actuator.predict(action)

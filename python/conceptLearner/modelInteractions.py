@@ -16,9 +16,9 @@ from common import NUMDEC
 from itm import ITM
 from sets import Set
 import copy
-from config import SHORT_TS
+from config import SHORT_TS, USE_DYNS
+from config import config
 
-USE_DYNS = False
 
 class Object(object):
     
@@ -71,6 +71,22 @@ class Object(object):
         o2.vec[:2] = p2[:2]
         o2.vec[2] = 0.0
         return o1, o2
+        
+    def getKeyPoints(self):
+        WIDTH = {15: 0.25, 8: 0.025} #Width from the middle point
+        DEPTH = {15: 0.05, 8: 0.025} #Height from the middle point
+        p1x = WIDTH[self.id]
+        p2x = -p1x
+        p1y = DEPTH[self.id]
+        p2y = -p1y
+        ang = self.vec[2]
+        c = np.cos(ang)
+        s = np.sin(ang)
+        p1xn = p1x*c -p1y*s + self.vec[0]
+        p1yn = p1x*s + p1y*c + self.vec[1]
+        p2xn = p2x*c - p2y*s + self.vec[0]
+        p2yn = p2x*s + p2y*c + self.vec[1]
+        return np.array([np.copy(self.vec[0:2]), np.array([p1xn,p1yn]), np.array([p2xn,p2yn])])
     
 class InteractionState(object):
     
@@ -84,9 +100,6 @@ class InteractionState(object):
         pass
     
     def update(self, newState):
-        print "updating interaction state"
-        print "oldvec: ", self.vec
-        print "newvec: ", newState.vec
         self.lastVec = np.copy(self.vec)
         self.vec = np.copy(newState.vec)
         self.ori = newState.ori
@@ -219,10 +232,6 @@ class AbstractCollection(object):
         vec = np.concatenate((intState.vec, transAction))
         prediction = self.predictor.test(vec, testMode=0)
         res.vec[self.changingFeatures] += prediction
-        print "changing features: ", self.changingFeatures
-        print "prediction: ", prediction
-        print "givenState: ", intState.vec
-        print "prediction: ", res.vec
         return res
     
 class ACSelector(object):

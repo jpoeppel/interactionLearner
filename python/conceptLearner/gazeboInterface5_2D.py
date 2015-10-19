@@ -312,6 +312,29 @@ class GazeboInterface():
         #Create the filename: Model_NrTrainRuns_
 #        if GATE:
 #            fileName = "gateModel_" + str(trainRuns[self.runNumber]) + 
+        if GATE:
+            s = "" #TODO Fold, run and timestep number
+            for o in newWorldState.objectStates.values():
+                keypoints = o.getKeyPoints()
+                s += "{}; {}; {}; {}; {}; {}; {}; {}".format(o.id, 
+                                    keypoints[0][0], keypoints[0][1], 
+                                    keypoints[1][0], keypoints[1][1], 
+                                    keypoints[2][0], keypoints[2][1], o.vec[2])
+                s += ";"
+            s += "{}; {};".format(newWorldState.actuator.vec[0], newWorldState.actuator.vec[1])
+            
+            for o in self.lastPrediction.objectStates.values():
+                keypoints = o.getKeyPoints()
+                s += "{}; {}; {}; {}; {}; {}; {}; {}".format(o.id, 
+                                    keypoints[0][0], keypoints[0][1], 
+                                    keypoints[1][0], keypoints[1][1], 
+                                    keypoints[2][0], keypoints[2][1], o.vec[2])
+                s += ";"
+            s += "{}; {}\n".format(self.lastPrediction..actuator.vec[0], self.lastPrediction..actuator.vec[1])
+        else:
+            pass
+        with open(fileName, "a") as f:
+            f.write(s)
         pass
     
     def writeConfig(self):

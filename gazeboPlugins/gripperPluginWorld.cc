@@ -34,6 +34,7 @@ namespace gazebo
     private: event::ConnectionPtr contactConnection;
     private: transport::SubscriberPtr msgSubscriber;
     private: transport::SubscriberPtr predictionSubscriber;
+    private: transport::SubscriberPtr sensorSubscriber;
     private: transport::PublisherPtr worldStatePub;
 
     private: bool hasTarget;
@@ -45,7 +46,7 @@ namespace gazebo
       // Dump the message contents to stdout.
       this->curCmd = _msg->cmd();
       this->curDir = math::Vector3(_msg->direction().x(),_msg->direction().y(),_msg->direction().z());
-      std::cout << gazeboPlugins::msgs::GripperCommand::Command_Name(_msg->cmd()) << ": " << curDir << std::endl;
+      //std::cout << gazeboPlugins::msgs::GripperCommand::Command_Name(_msg->cmd()) << ": " << curDir << std::endl;
     }
 
     typedef const boost::shared_ptr<const gazeboPlugins::msgs::ModelState_V> ModelSVPtr;
@@ -53,11 +54,18 @@ namespace gazebo
     {
 
         for (unsigned int i=0; i<_msg->models_size();i++) {
-            std::cout << "Moving " << _msg->models(i).name()<<" to " << msgs::Convert(_msg->models(i).pose())<< "\n";
+            //std::cout << "Moving " << _msg->models(i).name()<<" to " << msgs::Convert(_msg->models(i).pose())<< "\n";
             physics::ModelPtr m = this->world->GetModel(_msg->models(i).name());
             m->SetWorldPose(msgs::Convert(_msg->models(i).pose()));
         }
 
+    }
+
+    typedef const boost::shared_ptr<const gazebo::msgs::Sensor> SensorPtr;
+    void sensorCB(SensorPtr &_msg)
+    {
+      std::cout << "Setting update rate to: " << _msg->update_rate() << std::endl;
+      this->contactSensor->SetUpdateRate(_msg->update_rate());
     }
 
     public: void Load(physics::WorldPtr _parent, sdf::ElementPtr /*_sdf*/)
@@ -75,7 +83,7 @@ namespace gazebo
       // Listen to custom topic
       this->msgSubscriber = node->Subscribe("/gazebo/default/gripperMsg", &GripperPlugin::cb, this);
       this->predictionSubscriber = node->Subscribe("/gazebo/default/poses", &GripperPlugin::poseCB, this);
-
+      this->sensorSubscriber = node->Subscribe("~/sensor", &GripperPlugin::sensorCB, this);
 
       this->worldStatePub = node->Advertise<gazeboPlugins::msgs::WorldState>("~/worldstate");
       // Listen to the update event. This event is broadcast every
@@ -112,8 +120,6 @@ namespace gazebo
     public: void OnContact()
     {
 
-
-
       // Publish world state
       gazeboPlugins::msgs::WorldState worldState;
       gazeboPlugins::msgs::ModelState_V* models = worldState.mutable_model_v();
@@ -135,8 +141,6 @@ namespace gazebo
       }
 
 
-
-
         //Publish contacts
         msgs::Contacts* contacts = worldState.mutable_contacts();
 
@@ -145,29 +149,6 @@ namespace gazebo
         msgs::Set(contacts->mutable_time(), this->world->GetSimTime());
 
         this->worldStatePub->Publish(worldState);
-//        if (contacts->contact_size() > 0)
-//        {
-//            std::cout << "onContact" << std::endl;
-//        }
-//        for (unsigned int i = 0; i < contacts->contact_size(); ++i)
-//          {
-//            std::cout << "Collision between[" << contacts->contact(i).collision1()
-//                      << "] and [" << contacts->contact(i).collision2() << "]\n";
-
-//            for (unsigned int j = 0; j < contacts.contact(i).position_size(); ++j)
-//            {
-//              std::cout << j << "  Position:"
-//                        << contacts.contact(i).position(j).x() << " "
-//                        << contacts.contact(i).position(j).y() << " "
-//                        << contacts.contact(i).position(j).z() << "\n";
-//              std::cout << "   Normal:"
-//                        << contacts.contact(i).normal(j).x() << " "
-//                        << contacts.contact(i).normal(j).y() << " "
-//                        << contacts.contact(i).normal(j).z() << "\n";
-//              std::cout << "   Depth:" << contacts.contact(i).depth(j) << "\n";
-//            }
-//          }
-
     }
 
 

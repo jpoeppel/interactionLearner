@@ -11,8 +11,8 @@ from numpy import dot as npdot
 import math
 
 from operator import itemgetter
+from config import config
 
-NUMDEC = 3
 GAZEBOCMDS = { "NOTHING": 0,"MOVE": 1, "GRAB": 2, "RELEASE": 3}
 SIDE = {"NONE": 0, "DOWN": 1, "UP": 2}
 
@@ -198,7 +198,7 @@ def relPos(p1, ang,  p2):
     tmpPos = np.ones(l+1)
     tmpPos[:l] = np.copy(p2)
     newPos = npdot(invTrans, tmpPos)[:l]
-    return np.round(newPos, NUMDEC)
+    return np.round(newPos, config.NUMDEC)
     
 def relPosVel(p1,v1, ang, p2,v2):
     ca = math.cos(ang)
@@ -222,7 +222,7 @@ def relPosVel(p1,v1, ang, p2,v2):
     newRelVel = npdot(invTrans, tmpVel)[:l]
     tmpVel[:l] = v2
     newVel = npdot(invTrans, tmpVel)[:l]
-    return np.round(newPos, NUMDEC), np.round(newRelVel, NUMDEC), np.round(newVel, NUMDEC)
+    return np.round(newPos, config.NUMDEC), np.round(newRelVel, config.NUMDEC), np.round(newVel, config.NUMDEC)
     
 def relPosVelChange(ang, pdif, vdif):
     ca = math.cos(ang)
@@ -239,7 +239,7 @@ def relPosVelChange(ang, pdif, vdif):
         raise NotImplementedError("Only works for 2d or 3d positions differences. l: ", l)
     newPDif = npdot(trans,pdif)
     newVDif = npdot(trans,vdif)
-    return np.round(newPDif, NUMDEC), np.round(newVDif, NUMDEC)
+    return np.round(newPDif, config.NUMDEC), np.round(newVDif, config.NUMDEC)
     
 def globalPosVelChange(ang, pdif, vdif):
     ca = math.cos(ang)
@@ -258,7 +258,7 @@ def globalPosVelChange(ang, pdif, vdif):
     newPDif = npdot(trans,pdif)
     newVDif = npdot(trans,vdif)
 #    return newPDif, newVDif
-    return np.round(newPDif, NUMDEC), np.round(newVDif, NUMDEC)
+    return np.round(newPDif, config.NUMDEC), np.round(newVDif, config.NUMDEC)
     
 def globalPosVel(p1, ang, relPos, relVel):
     ca = math.cos(ang)
@@ -282,7 +282,6 @@ def globalPosVel(p1, ang, relPos, relVel):
     tmpVel[:l] = relVel
     newVel = npdot(trans, tmpVel)[:l]
     return newPos, newVel
-#    return np.round(newPos, NUMDEC), np.round(newVel, NUMDEC)
     
 
 
@@ -312,7 +311,7 @@ def computeDistanceClosing(id1, p1, v1, ang1, id2, p2, v2, ang2):
     norm = np.linalg.norm(normal)
     if norm > 0.0:
         normal /= np.linalg.norm(normal)
-    return np.round(max(sortedL[0][0]-0.025,0.0), NUMDEC), np.round(npdot(normal, vel), NUMDEC)
+    return np.round(max(sortedL[0][0]-0.025,0.0), config.NUMDEC), np.round(npdot(normal, vel), config.NUMDEC)
     
 if __name__=="__main__":
     

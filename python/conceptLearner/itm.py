@@ -10,18 +10,8 @@ import numpy as np
 from numpy import dot as npdot
 import collections
 from operator import itemgetter
-
-EMAX = 0.001
-EMAX_2 = EMAX**2
-EMAX05_2 = (0.5*EMAX)**2
-
-#For besttwo
-SIGMAE = 0.05
-
-WINNER = 0
-BESTTWO = 1
-NEIGHBOUR = 2
-TESTMODE = BESTTWO
+from config import WINNER, BESTTWO, NEIGHBOUR
+from config import config
         
 class Node(object):
     __slots__=('inp','out','id','neig','A')
@@ -49,11 +39,7 @@ class ITM(object):
         self.ids = []
         self.idCounter = 0
         self.valAr = np.array([n.inp for n in self.nodes.values()])
-#        self.nodes = []
         self.inserts = 0
-        self.winners = []
-#        self.nodes= {}
-#        self.nodes = np.zeros # Try storing all nodes in one nparray that needs to be reshaped
         
         
     def train(self, node):
@@ -66,7 +52,6 @@ class ITM(object):
             sortedIndices = np.argsort(np.linalg.norm(numpyVals, axis=1))
             w = self.nodes[self.ids[sortedIndices[0]]]
             wI =  w.id
-            self.winners.append(w.id)
             s = self.nodes[self.ids[sortedIndices[1]]]
             sI = s.id
             wsdif = w.inp-s.inp
@@ -123,7 +108,7 @@ class ITM(object):
                 w.addNeighbour(nI, n)
                 n.addNeighbour(wI, w)
 #            
-            if npdot(wsdif,wsdif) < EMAX05_2:
+            if npdot(wsdif,wsdif) < config.EMAX05_2:
                 if len(self.nodes) > 2:
                     self.deleteNode(sI)             
         else:
@@ -140,7 +125,7 @@ class ITM(object):
         pass
     
     def deleteNode(self, nodeId):
-        for nI, n in self.nodes[nodeId].neig.items():
+        for nI, n in self.nodes[nodeId].neig.iteritems():
             n.remNeighbour(nodeId)
             if len(n.neig) == 0 and len(self.nodes) > 2:
                 self.deleteNode(nI)
@@ -152,32 +137,34 @@ class ITM(object):
     
     def test(self, x, sortedIndices = None, testMode=None):
 #        numpyVals = np.array([n.inp for n in self.nodes.values()])-x
+        if len(self.nodes) == 0:
+            return 0
         if sortedIndices == None:
             numpyVals = self.valAr - x
             sortedIndices = np.argsort(np.linalg.norm(numpyVals, axis=1))
         if testMode == None:
-            testMode = TESTMODE
+            testMode = config.TESTMODE
         
         if testMode == WINNER:
     #        ids = [n.id for n in self.nodes.values()]
             w =  self.nodes[self.ids[sortedIndices[0]]]
-            print "x in : ", x
-            print "winner in: ", w.inp
-            print "winner out: ", w.out
+#            print "x in : ", x
+#            print "winner in: ", w.inp
+#            print "winner out: ", w.out
             return w.out+npdot(w.A,x-w.inp)
         elif testMode == BESTTWO:
             if len(self.nodes) > 1:
                 
                 w = self.nodes[self.ids[sortedIndices[0]]]           
                 s = self.nodes[self.ids[sortedIndices[1]]]
-                print "x in : ", x
-                print "winner in: ", w.inp
-                print "winner out: ", w.out
-                print "second in: ", s.inp
-                print "second out: ", s.out
-                norm = np.exp(-np.linalg.norm(x-w.inp)**2/(SIGMAE**2))
+#                print "x in : ", x
+#                print "winner in: ", w.inp
+#                print "winner out: ", w.out
+#                print "second in: ", s.inp
+#                print "second out: ", s.out
+                norm = np.exp(-np.linalg.norm(x-w.inp)**2/(config.SIGMAE**2))
                 res = norm*(w.out+npdot(w.A,x-w.inp))
-                wc = np.exp(-np.linalg.norm(x-s.inp)**2/(SIGMAE**2))
+                wc = np.exp(-np.linalg.norm(x-s.inp)**2/(config.SIGMAE**2))
                 res += wc*(s.out+npdot(s.A,x-s.inp))
                 norm += wc
                 if norm != 0:
@@ -188,10 +175,10 @@ class ITM(object):
                 return self.nodes[self.ids[sortedIndices[0]]].out
         elif testMode == NEIGHBOUR:
             w = self.nodes[self.ids[sortedIndices[0]]]    
-            norm = np.exp(-np.linalg.norm(x-w.inp)**2/(SIGMAE**2))
+            norm = np.exp(-np.linalg.norm(x-w.inp)**2/(config.SIGMAE**2))
             res = norm*(w.out+npdot(w.A,x-w.inp))
-            for nI, n in w.neig.items():
-                wc = np.exp(-np.linalg.norm(x-n.inp)**2/(SIGMAE**2))
+            for nI, n in w.neig.iteritems():
+                wc = np.exp(-np.linalg.norm(x-n.inp)**2/(config.SIGMAE**2))
                 res += wc*(n.out+npdot(n.A,x-n.inp))
                 norm += wc
             if norm != 0:

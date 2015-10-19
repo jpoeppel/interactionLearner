@@ -7,16 +7,16 @@ Adaption from interface5 in order to work with 2D coordinates
 """
 
 
-import pygazebo
+
 import trollius
 from trollius import From
-#from pygazebo.msg import model_pb2
-#from pygazebo.msg import model_v_pb2
+import pygazebo
 from pygazebo.msg import modelState_pb2
 from pygazebo.msg import modelState_v_pb2
 from pygazebo.msg import gripperCommand_pb2
 from pygazebo.msg import worldState_pb2
-#from pygazebo.msg import world_reset_pb2
+from pygazebo.msg import sensor_pb2
+from pygazebo.msg import physics_pb2
 from pygazebo.msg import world_control_pb2
 import logging
 import numpy as np
@@ -26,23 +26,28 @@ import copy
 from common import GAZEBOCMDS
 #import math
 import common
-#from config import DIFFERENCES, SINGLE_INTSTATE, INTERACTION_STATES
+import datetime
+
+import config
+from config import config
+import itm
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
 
-#GATE = True
-GATE = False
+GATE = True
+#GATE = False
 
 if GATE:
-    import modelGate_2D as model
+    import modelGate_2D_config as model
 else:
-    import modelInteractions as model
+    import modelInteractions_config as model
 
 #from sklearn.externals.six import StringIO
 #import pydot
 
-trainRuns = [3]
+
+trainRuns = [5]
 RECORD_SIMULATION = False
 SIMULATION_FILENAME = "gateModel{}Runs_Gate_Act_NoDynsITMNewNeighbour"
 
@@ -55,7 +60,7 @@ PUSHTASK = 1
 PUSHTASKSIMULATION = 2
 MOVE_TO_TARGET = 3
 PUSHTASKSIMULATION2 = 4
-MODE = PUSHTASKSIMULATION2
+MODE = PUSHTASKSIMULATION
 #MODE = FREE_EXPLORATION
 #MODE = MOVE_TO_TARGET
 
@@ -89,23 +94,11 @@ class GazeboInterface():
         
         self.stepCounter = 0
         self.times = 0
-        
-        self.gripperErrorPos = 0.0
-        self.gripperErrorOri = 0.0
-        self.gripperErrors = []
-        self.tmpGripperErrorPos = 0.0
-        self.tmpGripperErrorOri = 0.0
-        self.blockErrorPos = 0.0
-        self.blockErrorOri = 0.0
-        self.blockErrors = []
-        self.tmpBlockErrorPos = 0.0
-        self.tmpBlockErrorOri = 0.0
+     
         self.direction = np.array([0.0,0.5,0.0])
         self.finalPrediction = None
         
         self.startPositions = []
-        self.accDifBlock = 0.0
-        self.accDifActuator = 0.0
         self.numSteps = 0       
         self.runNumber = 0
         
@@ -135,6 +128,14 @@ class GazeboInterface():
         self.worldControlPublisher = yield From(
                 self.manager.advertise('/gazebo/default/world_control',
                     'gazebo.msgs.WorldControl'))
+                    
+        self.physicsControlPublisher = yield From(
+                self.manager.advertise('/gazebo/default/physics',
+                    'gazebo.msgs.Physics'))
+                    
+        self.sensorControlPublisher = yield From(
+                self.manager.advertise('/gazebo/default/sensor',
+                    'gazebo.msgs.Sensor'))
                     
         
         
@@ -178,6 +179,8 @@ class GazeboInterface():
         msg.direction.z = 0.0
         self.cmdPublisher.publish(msg)
         
+    
+        
     def sendPrediction(self):
         """
         Function to send the last prediction to gazebo. This will move the shadow model
@@ -195,14 +198,16 @@ class GazeboInterface():
 
     def getModelState(self, name, pos, euler):
         """
-        Function to create a ModeLState object from a name and the desired position and orientation.
+        Function to create a ModelState object from a name and the desired position and orientation.
         
         Parameters
         ----------
         name : String
             Name of the model
-        pos : np.array() Size 3
+        pos : np.array() Size 2
             The position of the model
+        euler: Float
+            The orientation around the z-axis in world coordinates
 
         Returns
         -------
@@ -260,6 +265,7 @@ class GazeboInterface():
         data: bytearry
             Protobuf bytearray containing a list of models
         """
+        print "called at: ", datetime.datetime.now()
         if self.startup:
             self.resetWorld()
             self.startup= False
@@ -269,6 +275,9 @@ class GazeboInterface():
             print "parsing new WorldState"
             newWS = model.WorldState()
             newWS.parse(worldState)
+            
+            if self.lastPrediction != None and RECORD_SIMULATION:
+                self.recordData(newWS)
             
             if MODE == FREE_EXPLORATION:
                 self.randomExploration(newWS)
@@ -284,6 +293,31 @@ class GazeboInterface():
             else:
                 raise AttributeError("Unknown MODE: ", MODE)
 
+    def changeUpdateRate(self, rate):
+        msg = sensor_pb2.Sensor()
+        msg.name = "gripperContact"
+        msg.type = "contact"
+        msg.parent = "gripper::finger"
+        msg.parent_id = 9
+        msg.update_rate = rate
+        self.sensorControlPublisher.publish(msg)
+
+    def changeRealTimeRate(self, rate):
+        msg = physics_pb2.Physics()
+        msg.type = physics_pb2.Physics.ODE
+        msg.real_time_update_rate = rate
+        self.physicsControlPublisher.publish(msg)
+
+    def recordData(self, newWorldState):
+        #Create the filename: Model_NrTrainRuns_
+#        if GATE:
+#            fileName = "gateModel_" + str(trainRuns[self.runNumber]) + 
+        pass
+    
+    def writeConfig(self):
+        with open(fileName, "w") as f:
+            f.write("Config for testrun recorded in {}\n".format(fileName))
+            f.write(config.toString())
 
     def runEnded(self, worldState):
         """
@@ -296,7 +330,7 @@ class GazeboInterface():
             The current world state.
         """
         gripperOs = worldState.actuator
-        tPos = gripperOs.vec[1:4]
+        tPos = gripperOs.vec[0:2]
         
         if np.linalg.norm(tPos) > 1.0 or self.stepCounter > 150:
             return True
@@ -539,7 +573,7 @@ class GazeboInterface():
 #            self.lastPrediction = self.worldModel.predict(worldState, self.lastAction)
 #            self.sendPrediction()
             if self.worldModel.target != None:
-                self.sendPose("blockAShadow", self.worldModel.target.vec[0:3], self.worldModel.target.vec[3])
+                self.sendPose("blockAShadow", self.worldModel.target.vec[0:2], self.worldModel.target.vec[2])
             
         
     def setRandomTarget(self):
@@ -547,8 +581,7 @@ class GazeboInterface():
         target.id = 15
         target.vec = np.zeros(4)
         target.vec[0:2] = (np.random.rand(2)-0.5)*2.0
-        target.vec[2] = 0.05
-        target.vec[3] = (np.random.rand()-0.5)*2*np.pi
+        target.vec[2] = (np.random.rand()-0.5)*2*np.pi
         self.worldModel.setTarget(target)
 
     def setTarget(self):

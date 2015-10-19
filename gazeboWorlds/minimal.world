@@ -63,7 +63,7 @@
           <contact>
             <collision>collision</collision>
           </contact>
-        <update_rate>10.0</update_rate>
+        <update_rate>100.0</update_rate>
         </sensor>
       </link>
       <static>0</static>

@@ -7,9 +7,10 @@ Adaption from interface5 in order to work with 2D coordinates
 """
 
 
-
+import os
 import trollius
 from trollius import From
+
 import pygazebo
 from pygazebo.msg import modelState_pb2
 from pygazebo.msg import modelState_v_pb2
@@ -18,20 +19,18 @@ from pygazebo.msg import worldState_pb2
 from pygazebo.msg import sensor_pb2
 from pygazebo.msg import physics_pb2
 from pygazebo.msg import world_control_pb2
-import logging
+
+
 import numpy as np
 np.set_printoptions(precision=3,suppress=True)
-#import math
-import copy
+
 from common import GAZEBOCMDS
-#import math
 import common
 import datetime
 
-import config
 from config import config
-import itm
 
+import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
 
@@ -43,13 +42,10 @@ if GATE:
 else:
     import modelInteractions_config as model
 
-#from sklearn.externals.six import StringIO
-#import pydot
 
-
-trainRuns = [5]
-RECORD_SIMULATION = False
-SIMULATION_FILENAME = "gateModel{}Runs_Gate_Act_NoDynsITMNewNeighbour"
+trainRuns = [10]
+NUMBER_FOLDS = 1
+RECORD_SIMULATION = True
 
 logging.basicConfig()
 
@@ -58,14 +54,15 @@ logging.basicConfig()
 FREE_EXPLORATION = 0
 PUSHTASK = 1
 PUSHTASKSIMULATION = 2
-MOVE_TO_TARGET = 3
-PUSHTASKSIMULATION2 = 4
+PUSHTASKSIMULATION2 = 3
+MOVE_TO_TARGET = 4
+
 MODE = PUSHTASKSIMULATION
 #MODE = FREE_EXPLORATION
 #MODE = MOVE_TO_TARGET
 
 
-NUM_TRAIN_RUNS = 3
+#NUM_TRAIN_RUNS = 3
 NUM_TEST_RUNS = 20
 
 class GazeboInterface():
@@ -91,18 +88,19 @@ class GazeboInterface():
         self.testRun = 0
         self.runStarted = False
         
-        
-        self.stepCounter = 0
+        self.foldNumber = 0
+        self.numSteps = 0   
+        self.runNumber = 0
         self.times = 0
      
         self.direction = np.array([0.0,0.5,0.0])
-        self.finalPrediction = None
         
         self.startPositions = []
-        self.numSteps = 0       
-        self.runNumber = 0
+        self.stepCounter = 0    
+        self.configNummer = 0
         
-        np.random.seed(1234)
+        if config.fixedTrainSeed:
+            np.random.seed(config.trainSeed)
         
     @trollius.coroutine
     def loop(self):
@@ -246,9 +244,9 @@ class GazeboInterface():
         msg.reset.all = True
         self.worldControlPublisher.publish(msg)
         self.lastAction = None
-        self.finalPrediction = self.lastPrediction
         self.lastPrediction = None
         self.lastState = None
+        self.numSteps = 0
         
     def pauseWorld(self):
         msg = world_control_pb2.WorldControl()
@@ -265,7 +263,6 @@ class GazeboInterface():
         data: bytearry
             Protobuf bytearray containing a list of models
         """
-        print "called at: ", datetime.datetime.now()
         if self.startup:
             self.resetWorld()
             self.startup= False
@@ -276,7 +273,7 @@ class GazeboInterface():
             newWS = model.WorldState()
             newWS.parse(worldState)
             
-            if self.lastPrediction != None and RECORD_SIMULATION:
+            if self.runStarted and RECORD_SIMULATION:
                 self.recordData(newWS)
             
             if MODE == FREE_EXPLORATION:
@@ -309,11 +306,25 @@ class GazeboInterface():
         self.physicsControlPublisher.publish(msg)
 
     def recordData(self, newWorldState):
-        #Create the filename: Model_NrTrainRuns_
-#        if GATE:
-#            fileName = "gateModel_" + str(trainRuns[self.runNumber]) + 
+        print "recording data: ", self.runNumber
+    
         if GATE:
-            s = "" #TODO Fold, run and timestep number
+            fileName = "gateModel_" + str(trainRuns[self.runNumber]) \
+                        + "_TrainRuns_Mode" +  str(MODE) \
+                        + "_Configuration_" + str(self.configNummer)
+        else:
+            fileName = "interactionModel_"+str(trainRuns[self.runNumber]) \
+                        + "_TrainRuns_Mode" + str(MODE) \
+                        + "_Configuration_" + str(self.configNummer)
+        if GATE:
+            #Fold, isTraining, run and timestep number
+            if self.trainRun == trainRuns[self.runNumber]:
+                training = 0
+                runs = self.testRun
+            else:
+                training = 1
+                runs = self.trainRun
+            s = "{};{};{};{};".format(self.foldNumber, training, runs, self.stepCounter) 
             for o in newWorldState.objectStates.values():
                 keypoints = o.getKeyPoints()
                 s += "{}; {}; {}; {}; {}; {}; {}; {}".format(o.id, 
@@ -322,25 +333,60 @@ class GazeboInterface():
                                     keypoints[2][0], keypoints[2][1], o.vec[2])
                 s += ";"
             s += "{}; {};".format(newWorldState.actuator.vec[0], newWorldState.actuator.vec[1])
-            
-            for o in self.lastPrediction.objectStates.values():
-                keypoints = o.getKeyPoints()
-                s += "{}; {}; {}; {}; {}; {}; {}; {}".format(o.id, 
-                                    keypoints[0][0], keypoints[0][1], 
-                                    keypoints[1][0], keypoints[1][1], 
-                                    keypoints[2][0], keypoints[2][1], o.vec[2])
-                s += ";"
-            s += "{}; {}\n".format(self.lastPrediction..actuator.vec[0], self.lastPrediction..actuator.vec[1])
+            if self.lastPrediction != None:
+                
+                for o in self.lastPrediction.objectStates.values():
+                    keypoints = o.getKeyPoints()
+                    s += "{}; {}; {}; {}; {}; {}; {}; {}".format(o.id, 
+                                        keypoints[0][0], keypoints[0][1], 
+                                        keypoints[1][0], keypoints[1][1], 
+                                        keypoints[2][0], keypoints[2][1], o.vec[2])
+                    s += ";"
+                s += "{}; {}\n".format(self.lastPrediction.actuator.vec[0], self.lastPrediction.actuator.vec[1])
+            else:
+                #No prediction values possible
+                s += "0.0; 0.0; 0.0; 0.0; 0.0; 0.0; 0.0; 0.0; 0.0; 0.0\n"
         else:
-            pass
-        with open(fileName, "a") as f:
+            s = "{};{};{}".format(self.foldNumber, self.runNumber, self.numSteps) 
+            for o in newWorldState.objectStates.values():
+                bS = ""
+                if o.id == 8:
+                    actS = "{}; {}".format(o.vec[0], o.vec[1])
+                else:
+                    keypoints = o.getKeyPoints()
+                    bS += ";{}; {}; {}; {}; {}; {}; {}; {}".format(o.id, 
+                                        keypoints[0][0], keypoints[0][1], 
+                                        keypoints[1][0], keypoints[1][1], 
+                                        keypoints[2][0], keypoints[2][1], o.vec[2])
+            s += bS + actS
+            if self.lastPrediction != None:
+                for o in self.lastPrediction.objectStates.values():
+                    bS = ""
+                    if o.id == 8:
+                        actS += "{}; {}\n".format(o.vec[0], o.vec[1])
+                    else:
+                        keypoints = o.getKeyPoints()
+                        bS += ";{}; {}; {}; {}; {}; {}; {}; {}".format(o.id, 
+                                            keypoints[0][0], keypoints[0][1], 
+                                            keypoints[1][0], keypoints[1][1], 
+                                            keypoints[2][0], keypoints[2][1], o.vec[2])
+                    
+                s += bS + actS
+            else:
+                s += "0.0; 0.0; 0.0; 0.0; 0.0; 0.0; 0.0; 0.0; 0.0; 0.0\n"
+
+        if not os.path.isfile("../../evalData/" + fileName + ".txt"):
+            s = "#FoldNumber; isTraining; RunNumber; StepNumber; BlockId; px; py; kx1; \
+                        ky1; kx2; ky2; ori; actx; acty; Pred px; py; ...\n" + s
+            self.writeConfig(fileName)
+            
+        with open("../../evalData/" + fileName + ".txt", "a") as f:
             f.write(s)
-        pass
     
-    def writeConfig(self):
-        with open(fileName, "w") as f:
-            f.write("Config for testrun recorded in {}\n".format(fileName))
-            f.write(config.toString())
+    def writeConfig(self, fileName):
+        with open("../../evalData/" + fileName + "_config.txt", "w") as f:
+            f.write("Configuration for experiment recorded in {}\n".format(fileName))
+            f.write(config.toString(GATE))
 
     def runEnded(self, worldState):
         """
@@ -442,12 +488,8 @@ class GazeboInterface():
                 self.resetWorld()
                 self.runStarted = False
         else:
-            if self.testRun > 0:
-                self.startRun(0.7)
-                self.direction = np.array([0.0,0.5])
-            else:
-                self.startRun(0.7)
-                self.direction = np.array([0.0,0.5])
+            self.startRun(0.7)
+            self.direction = np.array([0.0,0.5])
             return
             
         if self.trainRun < trainRuns[self.runNumber]: #NUM_TRAIN_RUNS:
@@ -457,8 +499,10 @@ class GazeboInterface():
             else:
                 self.trainRun += 1
                 if self.trainRun == trainRuns[self.runNumber]: # NUM_TRAIN_RUNS:
-                    self.pauseWorld()
-                    np.random.seed(4321) # Set new seed so that all test runs start identically, independent of the number of training runs
+#                    self.pauseWorld()
+                    if config.fixedTestSeed:
+                        # Set new seed so that all test runs start identically, independent of the number of training runs
+                        np.random.seed(config.testSeed) 
                     self.worldModel.training = False
                     
         elif self.testRun < NUM_TEST_RUNS:
@@ -467,11 +511,8 @@ class GazeboInterface():
                 self.lastAction = self.direction
                 if self.lastPrediction != None:
                     predictedWorldState = self.lastPrediction
-#                    self.worldModel.actuator.vec = self.lastPrediction.actuator.vec
-#                    curDifBlock, curDifActuator = self.compare(worldState, self.lastPrediction)
-#                    self.accDifBlock += curDifBlock
-#                    self.accDifActuator += curDifActuator
-                    self.numSteps +=1
+
+                    
                 else:
                     print "lastPrediction None"
                     predictedWorldState = worldState
@@ -482,45 +523,32 @@ class GazeboInterface():
                 self.sendCommand(self.lastAction)
             else:
                 self.testRun += 1
-                if RECORD_SIMULATION:
-                    differenceBlock, differenceActuator = self.compare(worldState, self.finalPrediction)
-                    with open("../../data/" + SIMULATION_FILENAME.format(trainRuns[self.runNumber]) + ".txt", "a") as f:
-                        f.write("{}; ".format(differenceBlock))
-                        f.write("{}; ".format(self.accDifBlock))
-                        f.write("{}; ".format(self.accDifBlock/self.numSteps))
-                        f.write("{}; ".format(differenceActuator))
-                        f.write("{}; ".format(self.accDifActuator))
-                        f.write("{} ".format(self.accDifActuator/self.numSteps))
-                        f.write("\n")
-                    self.accDifBlock = 0.0
-                    self.accDifActuator = 0.0
-                    self.numSteps = 0
         else:
-#            self.pauseWorld()
-            if RECORD_SIMULATION:
-                with open("../../data/"+ SIMULATION_FILENAME.format(trainRuns[self.runNumber]) + "startPos.txt", "w") as f:
-                    f.write("; ".join(["{:.4f}".format(x) for x in self.startPositions]))
-                if self.runNumber < len(trainRuns)-1:
-                    self.runNumber += 1
-                    self.testRun = 0
-                    self.trainRun = 0
-                    np.random.seed(1234)
-                    self.worldModel = model.ModelAction()
-                    self.resetWorld()
-                    self.finalPrediction = None
-                    self.startPositions = []
-                else:
-                    self.pauseWorld()
+            #Continue with next fold
+            if self.foldNumber+1 < NUMBER_FOLDS:
+                self.foldNumber += 1
+                self.resetExperiment()
+                return
             else:
-                self.pauseWorld()
-            
-    def compare(self, worldState, prediction):
-        blockOSReal = worldState.objectStates[15]
-        blockOSPrediction = prediction.objectStates[15]
-        gripperOSReal = worldState.actuator
-        gripperOSPrediction = prediction.actuator
-        return blockOSReal.compare(blockOSPrediction), gripperOSReal.compare(gripperOSPrediction)
-        
+                if self.runNumber+1 < len(trainRuns):
+                    self.runNumber += 1
+                    self.foldNumber = 0
+                    self.resetExperiment()
+                    return
+            import sys
+            sys.exit()
+                
+    def resetExperiment(self):
+        self.trainRun = 0
+        self.testRun = 0
+        if GATE:
+            self.worldModel = model.ModelGate()
+        else:
+            self.worldModel = model.ModelInteraction()
+        if config.fixedTrainSeed:
+            np.random.seed(config.trainSeed)
+        self.startPositions = []
+        self.resetWorld()
             
     def updateModel(self, worldState, direction=np.array([0.0,0.5])):
         """
@@ -532,13 +560,13 @@ class GazeboInterface():
         worldState: mode.WorldState
             The current world state
         """
-        if self.lastState != None and worldState != None:
+        if self.lastPrediction != None and worldState != None:
             self.worldModel.update(worldState, self.lastAction)
         else:
             print "reset objects"
             self.worldModel.resetObjects(worldState)
         
-        self.lastState = worldState
+#        self.lastState = worldState
         self.lastAction = direction
         
         self.lastPrediction = self.worldModel.predict(worldState, self.lastAction)

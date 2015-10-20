@@ -60,9 +60,13 @@ class Config(object):
         #General
         self.USE_DYNS = False
         self.NUMDEC = 3
+        self.fixedTestSeed = True
+        self.testSeed = 4321
+        self.fixedTrainSeed = False
+        self.trainSeed = 1234
 
     def toString(self, usedGate):
-        s = "General configs\n"
+        s = "###General configs###\n"
         s += "ITM Sigma: {}\n".format( self.SIGMAE)
         s += "ITM default testmode: {} \n".format(self.TESTMODE)
         s += "ITM max error: {}\n".format(self.EMAX)
@@ -71,6 +75,10 @@ class Config(object):
         s += "Used dynamic features: {}\n".format(self.USE_DYNS)
         s += "Used frequency: {}\n".format(self.frequency)
         s += "Number of decimal places used: {} \n".format(self.NUMDEC)
+        s += "Using fixed testSeed: {}\n".format(self.fixedTestSeed)
+        s += "Used testing seed: {}\n".format(self.testSeed)
+        s += "Using fixed trainingSeed: {}\n".format(self.fixedTrainSeed)
+        s += "Used train seed: {}\n".format(self.trainSeed)
         if usedGate:
             s+= "Gating configurations: \n"
             s+= "Used hardcoded actuator: {}\n".format(self.HARDCODEDACTUATOR)
@@ -106,6 +114,12 @@ class Config(object):
             
         return s
         
-        
+    def switchToConfig(self, configNummer):
+        """
+            Function to switch to a specific configuration given by the 
+            config nummer
+        """
+        #TODO
+        pass
         
 config = Config()

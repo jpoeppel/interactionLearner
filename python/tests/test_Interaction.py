@@ -6,9 +6,9 @@ Created on Tue Oct  6 15:24:16 2015
 @author: jpoeppel
 """
 
-from conceptLearner.modelInteractions import Object
-from conceptLearner.modelInteractions import InteractionState
-from conceptLearner.modelInteractions import Episode
+from conceptLearner.modelInteractions_config import Object
+from conceptLearner.modelInteractions_config import InteractionState
+from conceptLearner.modelInteractions_config import Episode
 import conceptLearner.common as common
 
 import numpy as np

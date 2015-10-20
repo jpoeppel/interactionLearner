@@ -19,11 +19,13 @@ from numpy import round as npround
 
 
 import common
-from common import NUMDEC
 #from topoMaps import ITM
 from network import Node
 from itm import ITM
 import copy
+
+NUMDEC = common.config.NUMDEC
+USE_DYNS = common.config.USE_DYNS
 
 from operator import itemgetter
 
@@ -32,7 +34,6 @@ GREEDY_TARGET = True
 HARDCODEDGATE = True
 HARDCODEDACTUATOR = True
 
-USE_DYNS = False
 
 #mask = np.array([3,4,5,7,8,10,11])
 mask = np.array([0,1,2,3,4,5,6,7,8,9,10,11,12])

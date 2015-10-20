@@ -12,13 +12,14 @@ the old model.
 
 import numpy as np
 import common
-from common import NUMDEC
 from itm import ITM
 from sets import Set
 import copy
-from config import SHORT_TS, USE_DYNS
+from config import SHORT_TS
 from config import config
 
+NUMDEC = common.config.NUMDEC
+USE_DYNS = common.config.USE_DYNS
 
 class Object(object):
     

@@ -22,15 +22,15 @@ from numpy import round as npround
 
 
 import common
-from common import NUMDEC
 #from topoMaps import ITM
 from network import Node
 from itm import ITM
 import copy
 
 from operator import itemgetter
-from config import USE_DYNS
 
+NUMDEC = common.config.NUMDEC
+USE_DYNS = common.config.USE_DYNS
 
 GREEDY_TARGET = True
 

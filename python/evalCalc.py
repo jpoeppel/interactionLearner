@@ -22,34 +22,36 @@ New records
 
 import os
 
-#directory = "../evalData/"
-directory = "./"
+directory = "../evalData/"
+#directory = "./"
 
 fileList = os.listdir(directory)
 
+
 for f in fileList:
-    if "config" in f:
-        break
+    if f.startswith(".") or "_config" in f:
+        continue
     
-    if "evalTest" in f:
-        #load data
-        print "filename: ", directory+f
-        data = np.loadtxt(directory+f, delimiter = ';')
-        
-        trainrows = data[:,1] == 1
-        
-        testrows = np.invert(trainrows)
-        testData = data[testrows,:]
-        testDifs = np.copy(testData[:,:14])
-        testDifs[:,5:14] -= testData[:,14:]
-        
-        lastFrames = testData[:,3] ==0
-        lastFrames = np.roll(lastFrames, -1) #TODO Test if this is always correct!
-        
-        #Consider filtering, i.e. only last frame
-        actDifs = testDifs[:,12:14]
-        oriDifs = testDifs[:,11]
-        posDifs = testDifs[:,5:7]
-        keyPoint1Difs = testDifs[:,7:9]
-        keyPoint2Difs = testDifs[:,9:11]
+    #load data
+    print "filename: ", directory+f
+    data = np.loadtxt(directory+f, delimiter = ';')
+    
+    trainrows = data[:,1] == 1
+    
+    testrows = np.invert(trainrows)
+    testData = data[testrows,:]
+    testDifs = np.copy(testData[:,:14])
+    testDifs[:,5:14] -= testData[:,15:]
+    
+    lastFrames = testData[:,3] ==0
+    lastFrames = np.roll(lastFrames, -1) #TODO Test if this is always correct!
+    
+    #Consider filtering, i.e. only last frame
+    actDifs = testDifs[lastFrames,12:14]
+    oriDifs = testDifs[lastFrames,11]
+    posDifs = testDifs[lastFrames,5:7]
+    keyPoint1Difs = testDifs[lastFrames,7:9]
+    keyPoint2Difs = testDifs[lastFrames,9:11]
+    
+    print "oriDifs: ", oriDifs
         

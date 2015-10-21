@@ -223,7 +223,6 @@ class Actuator(Object):
         return res
             
     def update(self, newAc, action, training = True):
-        print "training actuator"
         self.lastVec = self.vec
 #        self.predictor = newAc.predictor
         if training:
@@ -276,7 +275,7 @@ class Classifier(object):
         if config.HARDCODEDGATE:
             pass
         else:
-            self.clas.update(o1vec[[2,3,6,7]], np.array([label]), 
+            self.clas.update(o1vec[config.gateMask], np.array([label]), 
                              etaIn=config.gateClassifierEtaIn, 
                              etaOut=config.gateClassifierEtaOut, 
                              etaA=config.gateClassifierEtaA, 
@@ -287,19 +286,19 @@ class Classifier(object):
         
         if config.HARDCODEDGATE:
             if ovec[3] <= -ovec[2]:
-                print "Change: closing: {}, dist: {}, relVel: {}".format(ovec[3], ovec[2], ovec[6:8])
+#                print "Change: closing: {}, dist: {}, relVel: {}".format(ovec[3], ovec[2], ovec[6:8])
                 return 1
             else:
                 if ovec[3] == 0 and np.linalg.norm(ovec[6:8]) < 0.001 and ovec[2] < 0.05: #Todo remove distance from this
-                    print "Change: closing: {}, dist: {}, relVel: {}".format(ovec[3], ovec[2], ovec[6:8])
+#                    print "Change: closing: {}, dist: {}, relVel: {}".format(ovec[3], ovec[2], ovec[6:8])
                     return 1    
                 else:
-                    print "no Change: closing: {}, dist: {}, relVel: {}".format(ovec[3], ovec[2], ovec[6:8])
+#                    print "no Change: closing: {}, dist: {}, relVel: {}".format(ovec[3], ovec[2], ovec[6:8])
                     return 0
         else:
-            print "testing with gate itm"
+#            print "testing with gate itm"
             if self.isTrained:
-                pred = self.clas.test(ovec[[2,3,6,7]], testMode=config.gateClassifierTestMode)
+                pred = self.clas.test(ovec[config.gateMask], testMode=config.gateClassifierTestMode)
                 return pred
             else:
                 return 0
@@ -314,7 +313,7 @@ class GateFunction(object):
     
     def test(self, o1, o2, action):
         vec = o1.getRelVec(o2)
-        return self.classifier.test(vec,action)
+        return self.classifier.test(vec, action)
         
     def checkChange(self, pre, post):
         dif = pre.getLocalChangeVec(post)
@@ -324,24 +323,24 @@ class GateFunction(object):
         return False, dif
         
         
-    def update(self, o1Pre, o1Post, o2Pre, action):
+    def update(self, o1Pre, o1Post, o2Post, action):
         """
         Parameters
         ----------
         o1Pre: Object
         o1Post: Object
-        o2Pre: Object #CURRENTLY o2POST!!!! TODO
+        o2Post: Object
         action: np.ndarray
         """
-        #TODO Causal determination, make hypothesis and test these!
+        #TODO For multiple objects: Causal determination, make hypothesis and test these!
         
-        vec = o1Pre.getRelVec(o2Pre)
+        vec = o1Pre.getRelVec(o2Post)
         hasChanged, dif = self.checkChange(o1Pre, o1Post)
         if hasChanged:
-            self.classifier.train(vec,action, int(hasChanged))
+            self.classifier.train(vec, action, int(hasChanged))
             return True, dif
         else:
-            self.classifier.train(vec,action, int(hasChanged))
+            self.classifier.train(vec, action, int(hasChanged))
             return False, dif
 
 class MetaNode(object):
@@ -623,6 +622,28 @@ class ModelGate(object):
         self.training = True #Determines if the model should be trained on updates or
                             # just update it's objects features
         
+    def getITMInformation(self):
+        if config.HARDCODEDGATE:
+            gateString = "Gate has been hardcoded.\n"
+        else:
+            gateString = "Gate ITM: UpdateCalls: {}, Insertions: {}, final Number of nodes: {}\n"\
+                        .format(self.gate.classifier.clas.updateCalls,
+                                self.gate.classifier.clas.inserts, 
+                                len(self.gate.classifier.clas.nodes))
+        if config.HARDCODEDACTUATOR:
+            actString = "Actuator has been hardcoded.\n"
+        else:
+            actString = "Actuator ITM: UpdateCalls: {}, Insertions: {}, final Number of nodes: {}\n"\
+                        .format(self.actuator.predictor.updateCalls,
+                                self.actuator.predictor.inserts, 
+                                len(self.actuator.predictor.nodes))
+        predString = ""
+        for oId, predItm in self.predictor.predictors.items():
+            predString += "Object predictor ITM for object {}: UpdateCalls: {}, Insertions: {}, final Number of nodes: {}\n"\
+                        .format(oId, predItm.updateCalls,
+                                predItm.inserts, len(predItm.nodes))
+        return actString + gateString + predString
+        
         
     def setTarget(self, target):
         """
@@ -830,10 +851,9 @@ class ModelGate(object):
                 
         if self.actuator == None:
             self.actuator = curWS.actuator
-        self.actuator.update(curWS.actuator, np.array([0.0,0.0]))
+        self.actuator.update(curWS.actuator, np.array([0.0,0.0]), training = False)
         
     def update(self, curWS, action):
-        print "updating model"
         for o in curWS.objectStates.values():
             #TODO extent to more objects
             if o.id in self.curObjects:

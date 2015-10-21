@@ -280,17 +280,17 @@ class Classifier(object):
         
         if HARDCODEDGATE:
             if ovec[3] <= -ovec[2]:
-                print "Change: closing: {}, dist: {}, relVel: {}".format(ovec[3], ovec[2], ovec[6:8])
+#                print "Change: closing: {}, dist: {}, relVel: {}".format(ovec[3], ovec[2], ovec[6:8])
                 return 1
             else:
                 if ovec[3] == 0 and np.linalg.norm(ovec[6:8]) < 0.001 and ovec[2] < 0.05: #Todo remove distance from this
-                    print "Change: closing: {}, dist: {}, relVel: {}".format(ovec[3], ovec[2], ovec[6:8])
+#                    print "Change: closing: {}, dist: {}, relVel: {}".format(ovec[3], ovec[2], ovec[6:8])
                     return 1    
                 else:
-                    print "no Change: closing: {}, dist: {}, relVel: {}".format(ovec[3], ovec[2], ovec[6:8])
+#                    print "no Change: closing: {}, dist: {}, relVel: {}".format(ovec[3], ovec[2], ovec[6:8])
                     return 0
         else:
-            print "testing with gate itm"
+#            print "testing with gate itm"
             if self.isTrained:
                 pred = self.clas.test(ovec[[2,3,6,7]], testMode=0)
                 return pred

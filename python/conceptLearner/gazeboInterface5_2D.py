@@ -20,15 +20,15 @@ from pygazebo.msg import sensor_pb2
 from pygazebo.msg import physics_pb2
 from pygazebo.msg import world_control_pb2
 
+#import yappi
 
 import numpy as np
 np.set_printoptions(precision=3,suppress=True)
 
 from common import GAZEBOCMDS
 import common
-import datetime
 
-from config import config
+
 
 import logging
 logger = logging.getLogger(__name__)
@@ -42,9 +42,18 @@ if GATE:
 else:
     import modelInteractions_config as model
 
+import time
 
-trainRuns = [10]
-NUMBER_FOLDS = 1
+import configuration
+from configuration import config
+
+#Select used configuration
+CONFIGURATION = configuration.HARDCODEDGATE
+config.switchToConfig(CONFIGURATION)
+
+
+trainRuns = [1,2,3,4,5,10,20,30]
+NUMBER_FOLDS = 20
 RECORD_SIMULATION = True
 
 logging.basicConfig()
@@ -62,7 +71,7 @@ MODE = PUSHTASKSIMULATION
 #MODE = MOVE_TO_TARGET
 
 
-#NUM_TRAIN_RUNS = 3
+NUM_TRAIN_RUNS = 3
 NUM_TEST_RUNS = 20
 
 class GazeboInterface():
@@ -97,7 +106,22 @@ class GazeboInterface():
         
         self.startPositions = []
         self.stepCounter = 0    
-        self.configNummer = 0
+        self.configNummer = CONFIGURATION
+        
+        self.manager = None
+        
+        self.runString = ""
+        
+        if GATE:
+            self.fileName = "gateModel_" + str(trainRuns[self.runNumber]) \
+                    + "_TrainRuns_Mode" +  str(MODE) \
+                    + "_Configuration_" + str(self.configNummer)
+        else:
+            self.fileName = "interactionModel_"+str(trainRuns[self.runNumber]) \
+                + "_TrainRuns_Mode" + str(MODE) \
+                + "_Configuration_" + str(self.configNummer)
+        
+        self.numTooSlow = 0
         
         if config.fixedTrainSeed:
             np.random.seed(config.trainSeed)
@@ -152,7 +176,7 @@ class GazeboInterface():
         action: model.Action
             The action that should be send to gazebo
         """
-        msg = pygazebo.msg.gripperCommand_pb2.GripperCommand()
+        msg = gripperCommand_pb2.GripperCommand()
         msg.cmd = GAZEBOCMDS["MOVE"]
         
         
@@ -170,7 +194,7 @@ class GazeboInterface():
         Function to send a stop command to gazebo to stop the gripper from moving.
         """
         print "sending stop command"
-        msg = pygazebo.msg.gripperCommand_pb2.GripperCommand()
+        msg = gripperCommand_pb2.GripperCommand()
         msg.cmd = GAZEBOCMDS["MOVE"]
         msg.direction.x = 0.0
         msg.direction.y = 0.0
@@ -247,6 +271,7 @@ class GazeboInterface():
         self.lastPrediction = None
         self.lastState = None
         self.numSteps = 0
+        self.ignore= True
         
     def pauseWorld(self):
         msg = world_control_pb2.WorldControl()
@@ -263,17 +288,21 @@ class GazeboInterface():
         data: bytearry
             Protobuf bytearray containing a list of models
         """
+        start = time.time()
         if self.startup:
             self.resetWorld()
             self.startup= False
-            
+        elif self.ignore:
+            self.ignore = False
         else:
             worldState = worldState_pb2.WorldState.FromString(data)
-            print "parsing new WorldState"
+#            print "parsing new WorldState"
             newWS = model.WorldState()
             newWS.parse(worldState)
             
             if self.runStarted and RECORD_SIMULATION:
+                
+                        
                 self.recordData(newWS)
             
             if MODE == FREE_EXPLORATION:
@@ -289,6 +318,11 @@ class GazeboInterface():
                 self.moveToTarget(newWS)
             else:
                 raise AttributeError("Unknown MODE: ", MODE)
+        end = time.time()
+        print "Execution took: ", end-start
+        if end-start > 2*1.0/config.frequency:
+            self.numTooSlow += 1
+#            raise TypeError("Execution took too long")
 
     def changeUpdateRate(self, rate):
         msg = sensor_pb2.Sensor()
@@ -306,25 +340,17 @@ class GazeboInterface():
         self.physicsControlPublisher.publish(msg)
 
     def recordData(self, newWorldState):
-        print "recording data: ", self.runNumber
+
+        #Fold, isTraining, run and timestep number
+        if self.trainRun == trainRuns[self.runNumber]:
+            training = 0
+            runs = self.testRun
+        else:
+            training = 1
+            runs = self.trainRun
+        s = "{};{};{};{};".format(self.foldNumber, training, runs, self.stepCounter) 
     
         if GATE:
-            fileName = "gateModel_" + str(trainRuns[self.runNumber]) \
-                        + "_TrainRuns_Mode" +  str(MODE) \
-                        + "_Configuration_" + str(self.configNummer)
-        else:
-            fileName = "interactionModel_"+str(trainRuns[self.runNumber]) \
-                        + "_TrainRuns_Mode" + str(MODE) \
-                        + "_Configuration_" + str(self.configNummer)
-        if GATE:
-            #Fold, isTraining, run and timestep number
-            if self.trainRun == trainRuns[self.runNumber]:
-                training = 0
-                runs = self.testRun
-            else:
-                training = 1
-                runs = self.trainRun
-            s = "{};{};{};{};".format(self.foldNumber, training, runs, self.stepCounter) 
             for o in newWorldState.objectStates.values():
                 keypoints = o.getKeyPoints()
                 s += "{}; {}; {}; {}; {}; {}; {}; {}".format(o.id, 
@@ -347,46 +373,60 @@ class GazeboInterface():
                 #No prediction values possible
                 s += "0.0; 0.0; 0.0; 0.0; 0.0; 0.0; 0.0; 0.0; 0.0; 0.0\n"
         else:
-            s = "{};{};{}".format(self.foldNumber, self.runNumber, self.numSteps) 
             for o in newWorldState.objectStates.values():
                 bS = ""
                 if o.id == 8:
-                    actS = "{}; {}".format(o.vec[0], o.vec[1])
+                    actS = "{}; {};".format(o.vec[0], o.vec[1])
                 else:
                     keypoints = o.getKeyPoints()
-                    bS += ";{}; {}; {}; {}; {}; {}; {}; {}".format(o.id, 
+                    bS += "{}; {}; {}; {}; {}; {}; {}; {}".format(o.id, 
                                         keypoints[0][0], keypoints[0][1], 
                                         keypoints[1][0], keypoints[1][1], 
                                         keypoints[2][0], keypoints[2][1], o.vec[2])
+                    bS += ";"
             s += bS + actS
             if self.lastPrediction != None:
                 for o in self.lastPrediction.objectStates.values():
                     bS = ""
                     if o.id == 8:
-                        actS += "{}; {}\n".format(o.vec[0], o.vec[1])
+                        actS = "{}; {}\n".format(o.vec[0], o.vec[1])
                     else:
                         keypoints = o.getKeyPoints()
-                        bS += ";{}; {}; {}; {}; {}; {}; {}; {}".format(o.id, 
+                        bS += "{}; {}; {}; {}; {}; {}; {}; {}".format(o.id, 
                                             keypoints[0][0], keypoints[0][1], 
                                             keypoints[1][0], keypoints[1][1], 
                                             keypoints[2][0], keypoints[2][1], o.vec[2])
+                        bS += ";"
                     
                 s += bS + actS
             else:
                 s += "0.0; 0.0; 0.0; 0.0; 0.0; 0.0; 0.0; 0.0; 0.0; 0.0\n"
 
-        if not os.path.isfile("../../evalData/" + fileName + ".txt"):
-            s = "#FoldNumber; isTraining; RunNumber; StepNumber; BlockId; px; py; kx1; \
-                        ky1; kx2; ky2; ori; actx; acty; Pred px; py; ...\n" + s
-            self.writeConfig(fileName)
+        self.runString += s
+        return
+       
+    def writeData(self):
+        if not RECORD_SIMULATION:
+            return
+
+        if not os.path.isfile("../../evalData/" + self.fileName + ".txt"):
+            self.runString = "#FoldNumber; isTraining; RunNumber; StepNumber; BlockId; px; py; kx1; \
+                        ky1; kx2; ky2; ori; actx; acty; PredBlockId; Pred px; py; ...\n" + self.runString
+#            self.writeConfig()
             
-        with open("../../evalData/" + fileName + ".txt", "a") as f:
-            f.write(s)
+        with open("../../evalData/" + self.fileName + ".txt", "a") as f:
+            f.write(self.runString)
+            
+        self.runString = ""
     
-    def writeConfig(self, fileName):
-        with open("../../evalData/" + fileName + "_config.txt", "w") as f:
-            f.write("Configuration for experiment recorded in {}\n".format(fileName))
+    def writeConfig(self):
+        with open("../../evalData/" + self.fileName + "_config.txt", "w") as f:
+            f.write("Configuration for experiment recorded in {}\n".format(self.fileName))
             f.write(config.toString(GATE))
+            
+    def writeITMInformation(self, info):
+        with open("../../evalData/" + self.fileName + "_ITMInformation.txt", "a") as f:
+            f.write(info)
 
     def runEnded(self, worldState):
         """
@@ -486,6 +526,7 @@ class GazeboInterface():
         if self.runStarted:
             if self.runEnded(worldState):
                 self.resetWorld()
+                self.writeData()
                 self.runStarted = False
         else:
             self.startRun(0.7)
@@ -504,6 +545,10 @@ class GazeboInterface():
                         # Set new seed so that all test runs start identically, independent of the number of training runs
                         np.random.seed(config.testSeed) 
                     self.worldModel.training = False
+#                    fileName = ""
+                    self.writeITMInformation("####ITM Information for fold: {}\n".format(self.foldNumber) 
+                                            + self.worldModel.getITMInformation())
+                    
                     
         elif self.testRun < NUM_TEST_RUNS:
             print "Test run #: ", self.testRun
@@ -523,28 +568,40 @@ class GazeboInterface():
                 self.sendCommand(self.lastAction)
             else:
                 self.testRun += 1
+                if self.testRun == NUM_TEST_RUNS:
+                    #Continue with next fold
+                    if self.foldNumber+1 < NUMBER_FOLDS:
+                        self.foldNumber += 1
+                        self.resetExperiment()
+                        return
+                    else:
+                        if self.runNumber+1 < len(trainRuns):
+                            self.runNumber += 1
+                            self.foldNumber = 0
+                            self.resetExperiment()
+                            return
+                        else:
+                            self.writeConfig()
+                            self.active = False
+                            
         else:
-            #Continue with next fold
-            if self.foldNumber+1 < NUMBER_FOLDS:
-                self.foldNumber += 1
-                self.resetExperiment()
-                return
-            else:
-                if self.runNumber+1 < len(trainRuns):
-                    self.runNumber += 1
-                    self.foldNumber = 0
-                    self.resetExperiment()
-                    return
-            import sys
-            sys.exit()
+#            import sys
+#            sys.exit()
+            pass
                 
     def resetExperiment(self):
         self.trainRun = 0
         self.testRun = 0
         if GATE:
             self.worldModel = model.ModelGate()
+            self.fileName = "gateModel_" + str(trainRuns[self.runNumber]) \
+                        + "_TrainRuns_Mode" +  str(MODE) \
+                        + "_Configuration_" + str(self.configNummer)
         else:
             self.worldModel = model.ModelInteraction()
+            self.fileName = "interactionModel_"+str(trainRuns[self.runNumber]) \
+                        + "_TrainRuns_Mode" + str(MODE) \
+                        + "_Configuration_" + str(self.configNummer)
         if config.fixedTrainSeed:
             np.random.seed(config.trainSeed)
         self.startPositions = []
@@ -652,7 +709,9 @@ class GazeboInterface():
 
     
 if __name__ == "__main__":
+#    yappi.start()
     loop = trollius.get_event_loop()
     gi = GazeboInterface()
     loop.run_until_complete(gi.loop())
-    
+    print "Number of times too slow: ", gi.numTooSlow
+#    yappi.get_func_stats().print_all(columns={0:("name",200), 1:("ncall", 5), 2:("tsub", 8), 3:("ttot", 8), 4:("tavg",8)})

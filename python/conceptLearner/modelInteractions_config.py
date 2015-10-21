@@ -13,6 +13,8 @@ Replace all magic numbers with config lookups
 """
 
 import numpy as np
+from numpy import copy as npcopy
+from numpy import round as npround
 import common
 from itm import ITM
 from sets import Set
@@ -34,22 +36,22 @@ class Object(object):
         res.id = m.id 
         if config.USE_DYNS:
             res.vec = np.zeros(6)
-            res.vec[0] = np.round(m.pose.position.x, config.NUMDEC) #posX
-            res.vec[1] = np.round(m.pose.position.y, config.NUMDEC) #posY
-            res.vec[2] = np.round(common.quaternionToEuler(np.array([m.pose.orientation.x,m.pose.orientation.y,
+            res.vec[0] = npround(m.pose.position.x, config.NUMDEC) #posX
+            res.vec[1] = npround(m.pose.position.y, config.NUMDEC) #posY
+            res.vec[2] = npround(common.quaternionToEuler(np.array([m.pose.orientation.x,m.pose.orientation.y,
                                                 m.pose.orientation.z,m.pose.orientation.w])), config.NUMDEC)[2] #ori
-            res.vec[3] = np.round(m.linVel.x, config.NUMDEC) #linVelX
-            res.vec[4] = np.round(m.linVel.y, config.NUMDEC) #linVelY
-            res.vec[5] = np.round(m.angVel.z, config.NUMDEC) #angVel
+            res.vec[3] = npround(m.linVel.x, config.NUMDEC) #linVelX
+            res.vec[4] = npround(m.linVel.y, config.NUMDEC) #linVelY
+            res.vec[5] = npround(m.angVel.z, config.NUMDEC) #angVel
         else:
             res.vec = np.zeros(3)
-            res.vec[0] = np.round(m.pose.position.x, config.NUMDEC) #posX
-            res.vec[1] = np.round(m.pose.position.y, config.NUMDEC) #posY
-            res.vec[2] = np.round(common.quaternionToEuler(np.array([m.pose.orientation.x,m.pose.orientation.y,
+            res.vec[0] = npround(m.pose.position.x, config.NUMDEC) #posX
+            res.vec[1] = npround(m.pose.position.y, config.NUMDEC) #posY
+            res.vec[2] = npround(common.quaternionToEuler(np.array([m.pose.orientation.x,m.pose.orientation.y,
                                                 m.pose.orientation.z,m.pose.orientation.w])), config.NUMDEC)[2] #ori
                                                 
                                                 
-        res.lastVec = np.copy(res.vec)
+        res.lastVec = npcopy(res.vec)
         return res
         
     @classmethod
@@ -86,7 +88,7 @@ class Object(object):
         p1yn = p1x*s + p1y*c + self.vec[1]
         p2xn = p2x*c - p2y*s + self.vec[0]
         p2yn = p2x*s + p2y*c + self.vec[1]
-        return np.array([np.copy(self.vec[0:2]), np.array([p1xn,p1yn]), np.array([p2xn,p2yn])])
+        return np.array([npcopy(self.vec[0:2]), np.array([p1xn,p1yn]), np.array([p2xn,p2yn])])
     
 class InteractionState(object):
     
@@ -100,11 +102,11 @@ class InteractionState(object):
         pass
     
     def update(self, newState):
-        self.lastVec = np.copy(self.vec)
-        self.vec = np.copy(newState.vec)
+        self.lastVec = npcopy(self.vec)
+        self.vec = npcopy(newState.vec)
         self.ori = newState.ori
-        self.trans = np.copy(newState.trans)
-        self.invTrans = np.copy(newState.invTrans)
+        self.trans = npcopy(newState.trans)
+        self.invTrans = npcopy(newState.invTrans)
     
     @classmethod
     def fromObjectStates(cls, o1, o2):
@@ -122,7 +124,7 @@ class InteractionState(object):
             orientation 0
         """
 #        res.vec[7] = o2.vec[2]-o1.vec[2] 
-        res.lastVec = np.copy(res.vec)
+        res.lastVec = npcopy(res.vec)
         res.trans = common.eulerPosToTransformation(o1.vec[2],o1.vec[0:2])
         res.invTrans = common.invertTransMatrix(res.trans)
         res.ori = o1.vec[2]
@@ -184,7 +186,8 @@ class Episode(object):
         self.preState = pre
         self.action = action
         self.postState = post
-        postVec = np.copy(post.vec)
+        #Transform post to coordinate system of pre to compute proper difs
+        postVec = npcopy(post.vec)
         oldPos = np.ones(3)
         oldPos[:2] = postVec[2:4]
         postVec[2:4] = np.dot(np.dot(pre.invTrans,post.trans), oldPos)[:2]
@@ -205,7 +208,7 @@ class AbstractCollection(object):
     def __init__(self, identifier, changingFeatures):
         self.id = identifier
         self.predictor = ITM()
-        self.changingFeatures = np.copy(changingFeatures)
+        self.changingFeatures = npcopy(changingFeatures)
         self.storedEpisodes = []
     
     def update(self, episode):
@@ -223,11 +226,11 @@ class AbstractCollection(object):
         """
         res = InteractionState()
         res.id = intState.id
-        res.trans = np.copy(intState.trans)
-        res.invTrans = np.copy(intState.invTrans)
+        res.trans = npcopy(intState.trans)
+        res.invTrans = npcopy(intState.invTrans)
         res.ori = intState.ori
-        res.lastVec = np.copy(intState.vec)
-        res.vec = np.copy(intState.vec)
+        res.lastVec = npcopy(intState.vec)
+        res.vec = npcopy(intState.vec)
         transAction = np.dot(intState.invTrans[:-1,:-1], action)
         vec = np.concatenate((intState.vec, transAction))
         prediction = self.predictor.test(vec, testMode=config.aCTestMode)
@@ -242,7 +245,7 @@ class ACSelector(object):
         
     def update(self, intState, action, respACId):
         transAction = np.dot(intState.invTrans[:-1,:-1], action) 
-        vec = np.concatenate((intState.vec[5:7], transAction))
+        vec = np.concatenate((intState.vec[config.aCSelectorMask], transAction))
         self.classifier.update(vec, np.array([respACId]), 
                                etaIn=config.aCSelectorEtaIn, 
                                etaOut=config.aCSelectorEtaOut, 
@@ -253,7 +256,7 @@ class ACSelector(object):
     def test(self, intState, action):
         transAction = np.dot(intState.invTrans[:-1,:-1], action) 
         if self.isTrained:
-            vec = np.concatenate((intState.vec[5:7], transAction))
+            vec = np.concatenate((intState.vec[config.aCSelectorMask], transAction))
 #            return int(self.classifier.test(vec))
             #Only use winner to make prediction, interpolation does not really
             #make sense when having more then 2 classes
@@ -273,10 +276,21 @@ class ModelInteraction(object):
         
         pass    
     
+    
+    def getITMInformation(self):
+        acSelString = "acSelector ITM: UpdateCalls: {}, Insertions: {}, final Number of nodes: {}\n"\
+                                    .format(self.acSelector.classifier.updateCalls,
+                                            self.acSelector.classifier.inserts, 
+                                            len(self.acSelector.classifier.nodes))
+        acString = ""
+        for ac in self.abstractCollections.values():
+            acString += "Abstract collection for features: {}, ITM: UpdateCalls: {}, Insertions: {}, final Number of nodes: {}\n"\
+                        .format(ac.changingFeatures, ac.predictor.updateCalls, 
+                                ac.predictor.inserts, len(ac.predictor.nodes))
+        return acSelString + acString
+    
     def update(self, curWorldState, usedAction):
-        print "update model"
         for intId, intState in curWorldState.interactionStates.items():
-            print "loop for intID: ", intId
             if intId in self.curInteractionStates:
                 #When training, update the ACs and the selector
                 if self.training:
@@ -309,17 +323,16 @@ class ModelInteraction(object):
         newWS = WorldState()
         for intId, intState in curWorldState.interactionStates.items():
 #        for intId, intState in self.curInteractionStates.items():
-            print "predicting intId: ", intId
             acID = self.acSelector.test(intState, curAction)
 #            if 0 in self.abstractCollections:
 #                acID = 0
 #            else:
 #                acID = None
-            print "acID: ", acID
+#            print "acID: ", acID
             if acID == None:
                 newIntState = copy.deepcopy(intState)
             else:
-                print "changing features: ", self.abstractCollections[acID].changingFeatures
+#                print "changing features: ", self.abstractCollections[acID].changingFeatures
                 newIntState = self.abstractCollections[acID].predict(intState, curAction)
             newWS.interactionStates[intId] = newIntState
         

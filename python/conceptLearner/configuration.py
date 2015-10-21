@@ -12,6 +12,14 @@ WINNER = 0
 BESTTWO = 1
 NEIGHBOUR = 2
 
+USE_DYNS = 1
+LOWFREQ = 2
+HARDCODEDACT = 4
+HARDCODEDGATE = 8
+
+
+
+
 class Config(object):
     
     def __init__(self):
@@ -30,6 +38,7 @@ class Config(object):
         self.gateClassifierEtaOut = 0.0
         self.gateClassifierEtaA = 0.0
         self.gateClassifierTestMode = 0 #Winner
+        self.gateMask = [2,3,6,7]
         self.actuatorEtaIn = 0.0
         self.actuatorEtaOut = 0.1
         self.actuatorEtaA = 0.0
@@ -47,6 +56,7 @@ class Config(object):
         self.aCSelectorEtaOut = 0.0
         self.aCSelectorEtaA = 0.0
         self.aCSelectorTestMode = 0
+        self.aCSelectorMask = [5,6]
         if SHORT_TS:
             self.episodeDifThr = 0.001
             self.frequency = 100
@@ -65,6 +75,7 @@ class Config(object):
         self.fixedTrainSeed = False
         self.trainSeed = 1234
 
+
     def toString(self, usedGate):
         s = "###General configs###\n"
         s += "ITM Sigma: {}\n".format( self.SIGMAE)
@@ -80,6 +91,7 @@ class Config(object):
         s += "Using fixed trainingSeed: {}\n".format(self.fixedTrainSeed)
         s += "Used train seed: {}\n".format(self.trainSeed)
         if usedGate:
+            s+= "###Gate configuration###\n"
             s+= "Gating configurations: \n"
             s+= "Used hardcoded actuator: {}\n".format(self.HARDCODEDACTUATOR)
             s+= "Used hardcoded gate: {}\n".format(self.HARDCODEDGATE)
@@ -95,12 +107,14 @@ class Config(object):
                 s+= "Gate etaOut: {}\n".format(self.gateClassifierEtaOut)
                 s+= "Gate etaA: {}\n".format(self.gateClassifierEtaA)
                 s+= "Gate testMode: {}\n".format(self.gateClassifierTestMode)
+                s+= "Used Gate mask: {}\n".format(self.gateMask)
             if not self.HARDCODEDACTUATOR:
                 s+= "Actuator etaIn: {}\n".format(self.actuatorEtaIn)
                 s+= "Actuator etaOut: {}\n".format(self.actuatorEtaOut)
                 s+= "Actuator etaA: {}\n".format(self.actuatorEtaA)
                 s+= "Actuator testMode: {}\n".format(self.actuatorTestMode)
         else:
+            s+= "###Interaction configuration###\n"
             s+= "Interaction configurations: \n"
             s+= "Episode difference threshold: {}\n".format(self.episodeDifThr)
             s+= "Abstact collection etaIn: {}\n".format(self.aCEtaIn)
@@ -111,6 +125,7 @@ class Config(object):
             s+= "Abstact collection selector etaOut: {}\n".format(self.aCSelectorEtaOut)
             s+= "Abstact collection selector etaA: {}\n".format(self.aCSelectorEtaA)
             s+= "Abstact collection selector TestMode: {}\n".format(self.aCSelectorTestMode)
+            s+= "Abstract collection selector mask: {}\n".format(self.aCSelectorMask)
             
         return s
         
@@ -119,7 +134,28 @@ class Config(object):
             Function to switch to a specific configuration given by the 
             config nummer
         """
-        #TODO
+        if configNummer & USE_DYNS:
+            self.USE_DYNS = True
+        else:
+            self.USE_DYNS = False
+        if configNummer & LOWFREQ:
+            self.episodeDifThr = 0.01
+            self.frequency = 10
+            self.metaNodeThr = 0.01
+            self.metaNetDifThr = 0.02
+        else:
+            self.episodeDifThr = 0.001
+            self.frequency = 100
+            self.metaNodeThr = 0.001
+            self.metaNetDifThr = 0.002
+        if configNummer & HARDCODEDACT:
+            self.HARDCODEDACTUATOR = True
+        else:
+            self.HARDCODEDACTUATOR = False
+        if configNummer & HARDCODEDGATE:
+            self.HARDCODEDGATE = True
+        else:
+            self.HARDCODEDGATE = False
         pass
         
 config = Config()

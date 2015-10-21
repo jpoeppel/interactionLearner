@@ -183,8 +183,8 @@ def relPos(p1, ang,  p2):
         Calculates the position of p2 relativ to the relevance frame of p1
     """
     l = len(p1)
-    ca = math.cos(ang)
-    sa = math.sin(ang)
+    ca = np.cos(ang)
+    sa = np.sin(ang)
     if l == 3:
         trans = np.array([[ca, -sa, 0.0, p1[0]],
                  [sa, ca, 0.0, p1[1]],

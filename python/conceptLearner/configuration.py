@@ -16,7 +16,7 @@ USE_DYNS = 1
 LOWFREQ = 2
 HARDCODEDACT = 4
 HARDCODEDGATE = 8
-
+ALLOWMISSPOSITIONS = 16
 
 
 
@@ -29,6 +29,7 @@ class Config(object):
         self.EMAX = 0.001
         self.EMAX_2 = self.EMAX**2
         self.EMAX05_2 = (0.5*self.EMAX)**2
+        self.startRunRange = 0.5
         #ITM Settings gate
         self.predictorEtaIn = 0.1
         self.predictorEtaOut = 0.0
@@ -156,6 +157,10 @@ class Config(object):
             self.HARDCODEDGATE = True
         else:
             self.HARDCODEDGATE = False
+        if configNummer & ALLOWMISSPOSITIONS:
+            self.startRunRange = 0.7
+        else:
+            self.startRunRange = 0.5
         pass
         
 config = Config()

@@ -48,7 +48,7 @@ import configuration
 from configuration import config
 
 #Select used configuration
-CONFIGURATION = configuration.HARDCODEDGATE
+CONFIGURATION = configuration.HARDCODEDGATE | configuration.HARDCODEDACT
 config.switchToConfig(CONFIGURATION)
 
 
@@ -529,7 +529,7 @@ class GazeboInterface():
                 self.writeData()
                 self.runStarted = False
         else:
-            self.startRun(0.7)
+            self.startRun(config.startRunRange)
             self.direction = np.array([0.0,0.5])
             return
             

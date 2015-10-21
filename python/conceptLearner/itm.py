@@ -6,8 +6,23 @@ Created on Fri Sep 11 16:06:08 2015
 @author: jpoeppel
 """
 
-import numpy as np
+#import numpy as np
+
+# Make numpy imports explicit to save some computational power
+# since this class is the core bottleneck to the model
+from numpy import argsort as npargsort
+from numpy import array as nparray
+from numpy import copy as npcopy
 from numpy import dot as npdot
+from numpy import exp as npexp
+from numpy import floor as npfloor
+from numpy import log10 as nplog10
+from numpy import outer as npouter
+from numpy import sqrt as npsqrt
+from numpy import zeros as npzeros
+from numpy.linalg import norm as npnorm
+
+
 import collections
 from operator import itemgetter
 from config import WINNER, BESTTWO, NEIGHBOUR
@@ -15,11 +30,11 @@ from config import config
         
 class Node(object):
     __slots__=('inp','out','id','neig','A')
-    def __init__(self, input_array, id=-1, output=np.zeros(1)):
+    def __init__(self, input_array, id=-1, output=npzeros(1)):
         self.id = id
-        self.inp =  np.copy(input_array)
-        self.out = np.copy(output)
-        self.A = np.zeros((len(output),len(input_array)))
+        self.inp =  npcopy(input_array)
+        self.out = npcopy(output)
+        self.A = npzeros((len(output),len(input_array)))
         self.neig = {}
         
     def addNeighbour(self, nId, n):
@@ -38,18 +53,17 @@ class ITM(object):
         self.nodes = collections.OrderedDict()
         self.ids = []
         self.idCounter = 0
-        self.valAr = np.array([n.inp for n in self.nodes.values()])
+        self.valAr = nparray([n.inp for n in self.nodes.values()])
         self.inserts = 0
+        self.updateCalls = 0
         
-        
-    def train(self, node):
-        self.update(np.concatenate((node.wIn,node.action)), node.wOut)
         
     def update(self, x, y, etaIn=0.0, etaOut=0.0, etaA=0.0, testMode=None):
+        self.updateCalls += 1
         #Get winners:
         if len(self.nodes) > 1:
             numpyVals = self.valAr - x 
-            sortedIndices = np.argsort(np.linalg.norm(numpyVals, axis=1))
+            sortedIndices = npargsort(npnorm(numpyVals, axis=1))
             w = self.nodes[self.ids[sortedIndices[0]]]
             wI =  w.id
             s = self.nodes[self.ids[sortedIndices[1]]]
@@ -61,13 +75,15 @@ class ITM(object):
             dwIn = etaIn*dif
             w.inp += dwIn
             cor = npdot(w.A,dif)
-            dwout = etaOut*(y-w.out+cor) + np.dot(w.A,dwIn)
+            dwout = etaOut*(y-w.out+cor) + npdot(w.A,dwIn)
             w.out += dwout
             if ndif > 0.0:
-                w.A += etaA*np.outer((y-w.out+cor), dif/ndif)
+                w.A += etaA*npouter((y-w.out+cor), dif/ndif)
             #Add edge
-            w.addNeighbour(sI,s)
-            s.addNeighbour(wI,w)
+#            w.addNeighbour(sI,s)
+#            s.addNeighbour(wI,w)
+            w.neig[sI] = s
+            s.neig[wI] = w
             #Get expected output according to currently used prediction scheme
             expOut = self.test(x, sortedIndices, testMode)
 #            #Check neighbours
@@ -85,15 +101,15 @@ class ITM(object):
 #            if npdot(np.concatenate((w.inp,w.out))-np.concatenate((x,y)),np.concatenate((s.inp,s.out))-np.concatenate((x,y))) > 0 and np.linalg.norm(np.concatenate((x,y))-np.concatenate((w.inp,w.out))) > EMAX:
 #            print "ndif: ", ndif
 #            print "thales: ", npdot(w.inp-x,s.inp-x)
-            outNorm = np.linalg.norm(y)
+            outNorm = npsqrt(npdot(y,y))#np.linalg.norm(y)
 #            outNorm = npdot(y,y)
             if outNorm != 0:
-                outputDim = np.floor(np.log10(outNorm))-1
+                outputDim = npfloor(nplog10(outNorm))-1
             else:
                 outputDim = -3
 #            print "outputDim: ", outputDim
 #            if npdot(expOut-y,expOut-y) > 10**outputDim:
-            if np.linalg.norm(expOut-y) > 10**outputDim:
+            if npnorm(expOut-y) > 10**outputDim:
 #            if npdot(w.inp-x,s.inp-x) > 0 and ndif > EMAX_2:
 #                nI = len(self.nodes)
                 nI = self.idCounter
@@ -103,7 +119,7 @@ class ITM(object):
                 self.inserts += 1
                 self.ids.append(nI)
                 self.idCounter += 1
-                self.valAr = np.array([node.inp for node in self.nodes.values()])
+                self.valAr = nparray([node.inp for node in self.nodes.values()])
 #                self.valAr = np.array([np.concatenate((node.inp,node.out)) for node in self.nodes.values()])
                 w.addNeighbour(nI, n)
                 n.addNeighbour(wI, w)
@@ -118,7 +134,7 @@ class ITM(object):
             self.nodes[nI] = Node(x,nI,y)
             self.ids.append(nI)
             self.idCounter += 1
-            self.valAr = np.array([n.inp for n in self.nodes.values()])
+            self.valAr = nparray([n.inp for n in self.nodes.values()])
 #            self.valAr = np.array([np.concatenate((node.inp,node.out)) for node in self.nodes.values()])
             self.inserts += 1
             
@@ -130,7 +146,7 @@ class ITM(object):
             if len(n.neig) == 0 and len(self.nodes) > 2:
                 self.deleteNode(nI)
         del self.nodes[nodeId]
-        self.valAr = np.array([n.inp for n in self.nodes.values()])
+        self.valAr = nparray([n.inp for n in self.nodes.values()])
 #        self.valAr = np.array([np.concatenate((node.inp,node.out)) for node in self.nodes.values()])
 #        self.ids = [n.id for n in self.nodes.values()]
         self.ids.remove(nodeId)
@@ -141,7 +157,7 @@ class ITM(object):
             return 0
         if sortedIndices == None:
             numpyVals = self.valAr - x
-            sortedIndices = np.argsort(np.linalg.norm(numpyVals, axis=1))
+            sortedIndices = npargsort(npnorm(numpyVals, axis=1))
         if testMode == None:
             testMode = config.TESTMODE
         
@@ -162,9 +178,9 @@ class ITM(object):
 #                print "winner out: ", w.out
 #                print "second in: ", s.inp
 #                print "second out: ", s.out
-                norm = np.exp(-np.linalg.norm(x-w.inp)**2/(config.SIGMAE**2))
+                norm = npexp(-npnorm(x-w.inp)**2/(config.SIGMAE**2))
                 res = norm*(w.out+npdot(w.A,x-w.inp))
-                wc = np.exp(-np.linalg.norm(x-s.inp)**2/(config.SIGMAE**2))
+                wc = npexp(-npnorm(x-s.inp)**2/(config.SIGMAE**2))
                 res += wc*(s.out+npdot(s.A,x-s.inp))
                 norm += wc
                 if norm != 0:
@@ -175,49 +191,13 @@ class ITM(object):
                 return self.nodes[self.ids[sortedIndices[0]]].out
         elif testMode == NEIGHBOUR:
             w = self.nodes[self.ids[sortedIndices[0]]]    
-            norm = np.exp(-np.linalg.norm(x-w.inp)**2/(config.SIGMAE**2))
+            norm = np.exp(-npnorm(x-w.inp)**2/(config.SIGMAE**2))
             res = norm*(w.out+npdot(w.A,x-w.inp))
             for nI, n in w.neig.iteritems():
-                wc = np.exp(-np.linalg.norm(x-n.inp)**2/(config.SIGMAE**2))
+                wc = np.exp(-npnorm(x-n.inp)**2/(config.SIGMAE**2))
                 res += wc*(n.out+npdot(n.A,x-n.inp))
                 norm += wc
             if norm != 0:
                 return res/norm
             else:
                 return res
-
-
-    
-if __name__ == "__main__":
-#    a = np.array([1,2,3])
-#    b = [4,5,6]
-#    n = Node(a)
-#    n + b
-#    n2 = Node(b)
-#    print n
-#    print type(n)
-#    c = np.array([n,n2])
-##    print c[1]
-##    print type(c)
-##    print type(c[0])
-#    n3 = Node([a,b])
-##    print n3
-##    print type(n3)
-    inputs = [[0,0],[0,1],[1,1],[1,0]]
-    outputs = [np.array([0]),np.array([1]),np.array([0]),np.array([1])]
-    net = ITM()
-    for ins,out in zip(inputs, outputs):
-        net.update(ins, out)
-        
-    print net.test([0.5,0.5])
-    
-    d = collections.OrderedDict()
-    d[1] = 1
-    d[2] = 2
-    d[3] = 3
-    print d.values()
-    del d[2]
-    d[4] = 4
-    d[2] = 2
-    print d.values()
-#    

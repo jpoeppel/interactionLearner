@@ -48,11 +48,11 @@ import configuration
 from configuration import config
 
 #Select used configuration
-CONFIGURATION = configuration.HARDCODEDGATE | configuration.HARDCODEDACT
+CONFIGURATION = configuration.FIXFIRSTTHREETRAININGRUNS
 config.switchToConfig(CONFIGURATION)
 
 
-trainRuns = [1,2,3,4,5,10,20,30]
+trainRuns = [1,2,3,5,10,20,30]
 NUMBER_FOLDS = 20
 RECORD_SIMULATION = True
 
@@ -72,7 +72,7 @@ MODE = PUSHTASKSIMULATION
 
 
 NUM_TRAIN_RUNS = 3
-NUM_TEST_RUNS = 20
+NUM_TEST_RUNS = len(config.testPositions)
 
 class GazeboInterface():
     """
@@ -83,15 +83,17 @@ class GazeboInterface():
          
         self.active = True
         self.lastState = None
+        self.done = False
         if GATE:
             self.worldModel = model.ModelGate()
         else:
             self.worldModel = model.ModelInteraction()
         self.lastAction = np.zeros(2)
         self.lastPrediction = None
-        self.ignore = True
+        self.ignore = False
         self.target = None
         self.startup = True
+        self.startedRun = False
         
         self.trainRun = 0
         self.testRun = 0
@@ -103,8 +105,7 @@ class GazeboInterface():
         self.times = 0
      
         self.direction = np.array([0.0,0.5,0.0])
-        
-        self.startPositions = []
+        self.lastStartConfig = None
         self.stepCounter = 0    
         self.configNummer = CONFIGURATION
         
@@ -122,6 +123,7 @@ class GazeboInterface():
                 + "_Configuration_" + str(self.configNummer)
         
         self.numTooSlow = 0
+        self.resetErrors = 0
         
         if config.fixedTrainSeed:
             np.random.seed(config.trainSeed)
@@ -288,6 +290,8 @@ class GazeboInterface():
         data: bytearry
             Protobuf bytearray containing a list of models
         """
+        if self.done:
+            return
         start = time.time()
         if self.startup:
             self.resetWorld()
@@ -295,14 +299,18 @@ class GazeboInterface():
         elif self.ignore:
             self.ignore = False
         else:
+            
             worldState = worldState_pb2.WorldState.FromString(data)
 #            print "parsing new WorldState"
             newWS = model.WorldState()
             newWS.parse(worldState)
             
+            if self.startedRun:
+                self.startedRun = False
+                if not self.checkPositions(newWS):
+                    return
+            
             if self.runStarted and RECORD_SIMULATION:
-                
-                        
                 self.recordData(newWS)
             
             if MODE == FREE_EXPLORATION:
@@ -323,6 +331,29 @@ class GazeboInterface():
         if end-start > 2*1.0/config.frequency:
             self.numTooSlow += 1
 #            raise TypeError("Execution took too long")
+            
+    def checkPositions(self, newWS):
+        if GATE:
+            act = newWS.actuator
+            block = newWS.objectStates.values()[0]
+        else:
+            for o in newWS.objectStates.values()[0]:
+                if o.id == 8:
+                    act = o
+                else:
+                    block = o
+        if np.linalg.norm(act.vec-self.lastStartConfig[8]) > 0.01:
+            self.resetErrors += 1
+            self.sendPose("gripper", np.concatenate((self.lastStartConfig[8][:2],[0.03])), self.lastStartConfig[8][2])
+            self.startedRun = True
+            return False
+        if np.linalg.norm(block.vec-self.lastStartConfig[15]) > 0.01:
+            self.resetErrors += 1
+            self.sendPose("blockA", np.concatenate((self.lastStartConfig[15][:2],[0.05])), self.lastStartConfig[15][2])
+            self.startedRun = True
+            return False
+        return True
+        
 
     def changeUpdateRate(self, rate):
         msg = sensor_pb2.Sensor()
@@ -455,18 +486,31 @@ class GazeboInterface():
         self.runStarted = True
          #Set up Starting position
         posX = ((np.random.rand()-0.5)*randomRange) #* 0.5
-#        if self.trainRun == 0:
-#            posX = -0.25
-#        elif self.trainRun == 1:
-#            posX = 0.25
-#        elif self.trainRun == 2:
-#            posX = 0
-        if self.trainRun == trainRuns[self.runNumber]:
-            self.startPositions.append(posX)    
+        if config.fixedFirstThreeTrains:
+            if self.trainRun == 0:
+                posX = -0.25
+            elif self.trainRun == 1:
+                posX = 0.25
+            elif self.trainRun == 2:
+                posX = 0
+                
+        self.lastStartConfig = {8:np.array([posX,0.0,0.0]), 15:np.array([0.0,0.25,0.0])}
             
         self.sendPose("gripper", np.array([posX,0.0,0.03]), 0.0)
         self.stepCounter = 0
         self.ignore = True
+        self.startedRun = True
+        
+    def startTestRun(self):
+        self.runStarted = True
+        posX = config.testPositions[self.testRun]
+        
+        self.lastStartConfig = {8:np.array([posX,0.0,0.0]), 15:np.array([0.0,0.25,0.0])}
+        
+        self.sendPose("gripper", np.array([posX, 0.0,0.03]), 0.0)
+        self.stepCounter = 0
+        self.ignore = True
+        self.startedRun = True
         
     def startRun2(self, randomRange=0.5):
         self.runStarted = True
@@ -529,7 +573,10 @@ class GazeboInterface():
                 self.writeData()
                 self.runStarted = False
         else:
-            self.startRun(config.startRunRange)
+            if self.trainRun == trainRuns[self.runNumber]:
+                self.startTestRun()
+            else:
+                self.startRun(config.startRunRange)
             self.direction = np.array([0.0,0.5])
             return
             
@@ -540,7 +587,8 @@ class GazeboInterface():
             else:
                 self.trainRun += 1
                 if self.trainRun == trainRuns[self.runNumber]: # NUM_TRAIN_RUNS:
-#                    self.pauseWorld()
+                    if not RECORD_SIMULATION:
+                        self.pauseWorld()
                     if config.fixedTestSeed:
                         # Set new seed so that all test runs start identically, independent of the number of training runs
                         np.random.seed(config.testSeed) 
@@ -581,8 +629,11 @@ class GazeboInterface():
                             self.resetExperiment()
                             return
                         else:
+                            config.numTooSlow = self.numTooSlow
+                            config.resetErrors = self.resetErrors
                             self.writeConfig()
                             self.active = False
+                            self.done = True
                             
         else:
 #            import sys
@@ -604,7 +655,6 @@ class GazeboInterface():
                         + "_Configuration_" + str(self.configNummer)
         if config.fixedTrainSeed:
             np.random.seed(config.trainSeed)
-        self.startPositions = []
         self.resetWorld()
             
     def updateModel(self, worldState, direction=np.array([0.0,0.5])):

@@ -6,6 +6,8 @@ Created on Fri Jun  5 16:48:10 2015
 @author: jpoeppel
 """
 
+import numpy as np
+
 SHORT_TS = True
 
 WINNER = 0
@@ -14,10 +16,12 @@ NEIGHBOUR = 2
 
 USE_DYNS = 1
 LOWFREQ = 2
-HARDCODEDACT = 4
-HARDCODEDGATE = 8
-ALLOWMISSPOSITIONS = 16
-
+ALLOWMISSPOSITIONS = 4
+FIXFIRSTTHREETRAININGRUNS = 8
+#GATE specific
+HARDCODEDACT = 16
+HARDCODEDGATE = 32
+USINGPREDICTIONBOOST = 64
 
 
 class Config(object):
@@ -29,7 +33,6 @@ class Config(object):
         self.EMAX = 0.001
         self.EMAX_2 = self.EMAX**2
         self.EMAX05_2 = (0.5*self.EMAX)**2
-        self.startRunRange = 0.5
         #ITM Settings gate
         self.predictorEtaIn = 0.1
         self.predictorEtaOut = 0.0
@@ -48,6 +51,7 @@ class Config(object):
         self.HARDCODEDACTUATOR = True
         self.HARDCODEDGATE = True
         self.metaNetIndexThr = 0.01
+        self.predictionBoost = 1.0
         #ITM Settings interaction
         self.aCEtaIn = 0.0
         self.aCEtaOut = 0.0
@@ -75,6 +79,12 @@ class Config(object):
         self.testSeed = 4321
         self.fixedTrainSeed = False
         self.trainSeed = 1234
+        self.startRunRange = 0.5
+        self.testPositions = np.arange(-0.35,0.35,0.349)#np.arange(-0.35,0.35,0.035)
+        self.fixedFirstThreeTrains = False
+        
+        self.numTooSlow = 0
+        self.resetErrors = 0
 
 
     def toString(self, usedGate):
@@ -91,9 +101,14 @@ class Config(object):
         s += "Used testing seed: {}\n".format(self.testSeed)
         s += "Using fixed trainingSeed: {}\n".format(self.fixedTrainSeed)
         s += "Used train seed: {}\n".format(self.trainSeed)
+        s += "Used test starting postions: {}\n".format(self.testPositions if self.testPositions != None else "Random")
+        s += "Fixed first three training runs: {}\n".format(self.fixedFirstThreeTrains)
+        s += "Number of times too slow during whole experiment: {}\n".format(self.numTooSlow)
+        s += "Number of reset errors: {}\n".format(self.resetErrors)
         if usedGate:
             s+= "###Gate configuration###\n"
             s+= "Gating configurations: \n"
+            s+= "Used prediction boose: {}\n".format(self.predictionBoost)
             s+= "Used hardcoded actuator: {}\n".format(self.HARDCODEDACTUATOR)
             s+= "Used hardcoded gate: {}\n".format(self.HARDCODEDGATE)
             s+= "MetaNode threshold: {}\n".format(self.metaNodeThr)
@@ -149,6 +164,10 @@ class Config(object):
             self.frequency = 100
             self.metaNodeThr = 0.001
             self.metaNetDifThr = 0.002
+        if configNummer & FIXFIRSTTHREETRAININGRUNS:
+            self.fixedFirstThreeTrains = True
+        else:
+            self.fixedFirstThreeTrains = False
         if configNummer & HARDCODEDACT:
             self.HARDCODEDACTUATOR = True
         else:
@@ -161,6 +180,10 @@ class Config(object):
             self.startRunRange = 0.7
         else:
             self.startRunRange = 0.5
+        if configNummer & USINGPREDICTIONBOOST:
+            self.predictionBoost = 1.5
+        else:
+            self.predictionBoost = 1.0
         pass
         
 config = Config()

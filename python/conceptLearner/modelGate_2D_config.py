@@ -30,7 +30,7 @@ from itm import ITM
 import copy
 
 from operator import itemgetter
-from config import config
+from configuration import config
 
 GREEDY_TARGET = True
 
@@ -101,7 +101,7 @@ class Object(object):
         else:
             pred[0:2], v = common.globalPosVelChange(self.vec[2], pred[0:2], np.zeros(2))
         print "prediction for o: {}: {}".format(self.id, pred)
-        self.predVec = self.vec + pred#*1.5 #interestingly enough, *1.5 improves prediction accuracy quite a lot
+        self.predVec = self.vec + pred*config.predictionBoost #interestingly enough, *1.5 improves prediction accuracy quite a lot
         resO.vec = np.round(self.predVec, config.NUMDEC)
         resO.lastVec = np.copy(self.vec)
 #        print "resulting object: ", resO.vec[1:4]

@@ -19,7 +19,7 @@ import common
 from itm import ITM
 from sets import Set
 import copy
-from config import config
+from configuration import config
 
 
 class Object(object):

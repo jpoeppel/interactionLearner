@@ -25,8 +25,8 @@ from numpy.linalg import norm as npnorm
 
 import collections
 from operator import itemgetter
-from config import WINNER, BESTTWO, NEIGHBOUR
-from config import config
+from configuration import WINNER, BESTTWO, NEIGHBOUR
+from configuration import config
         
 class Node(object):
     __slots__=('inp','out','id','neig','A')
@@ -107,7 +107,6 @@ class ITM(object):
                 outputDim = npfloor(nplog10(outNorm))-1
             else:
                 outputDim = -3
-#            print "outputDim: ", outputDim
 #            if npdot(expOut-y,expOut-y) > 10**outputDim:
             if npnorm(expOut-y) > 10**outputDim:
 #            if npdot(w.inp-x,s.inp-x) > 0 and ndif > EMAX_2:

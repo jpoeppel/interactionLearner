@@ -80,7 +80,7 @@ class Config(object):
         self.fixedTrainSeed = False
         self.trainSeed = 1234
         self.startRunRange = 0.5
-        self.testPositions = np.arange(-0.35,0.35,0.349)#np.arange(-0.35,0.35,0.035)
+        self.testPositions = np.arange(-0.35,0.35,0.035) #np.arange(-0.35,0.35,0.349)#
         self.fixedFirstThreeTrains = False
         
         self.numTooSlow = 0

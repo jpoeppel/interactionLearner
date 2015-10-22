@@ -337,7 +337,7 @@ class GazeboInterface():
             act = newWS.actuator
             block = newWS.objectStates.values()[0]
         else:
-            for o in newWS.objectStates.values()[0]:
+            for o in newWS.objectStates.values():
                 if o.id == 8:
                     act = o
                 else:

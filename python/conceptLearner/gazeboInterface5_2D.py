@@ -34,8 +34,8 @@ import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
 
-GATE = True
-#GATE = False
+#GATE = True
+GATE = False
 
 if GATE:
     import modelGate_2D_config as model

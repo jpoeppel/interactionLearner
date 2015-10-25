@@ -43,12 +43,12 @@ testPosValues = {}
 
 for f in sorted(fileList, key=natSort):
     
-    if f.startswith(".") or "_config" in f or "ITM" in f:
+    if f.startswith(".") or "_config" in f or "ITM" in f or "old" in f:
         continue
-    if "Configuration_44" in f:
+    if "Configuration_40" in f or "Configuration_10" in f:
         continue
-#    if "gateModel" in f:
-#        continue
+    if not "gateModel" in f:
+        continue
     nameOnly = f.replace('.txt','')
     parts = nameOnly.split("_")
     numTrainRuns = int(parts[parts.index("TrainRuns")-1])
@@ -108,20 +108,23 @@ for f in sorted(fileList, key=natSort):
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
-pp = PdfPages("../gateEvaConfig12.pdf")
-
-
-fig, (ax0, ax1) = plt.subplots(nrows=2, sharex=True, figsize=(15,6))
-ax0.axhline(y=0, color ='lightgrey')
-ax0.errorbar(xs,ysOri, yerr=errorsOri, fmt='o')
-ax0.set_title('Mean orientational differences at the end of a run and their standard deviation.')
-ax1.axhline(y=0, color ='lightgrey')
-ax1.errorbar(xs,ysPos, yerr=errorsPos, fmt='o')
-ax1.set_title('Mean positional differences at the end of a run and their standard deviation.')
-ax1.set_xlim([0,35])
+#pp = PdfPages("../gateEvaConfig12.pdf")
+#
+#
+#fig, (ax0, ax1) = plt.subplots(nrows=2, sharex=True, figsize=(15,6))
+#ax0.axhline(y=0, color ='lightgrey')
+#ax0.errorbar(xs,ysOri, yerr=errorsOri, fmt='o')
+#ax0.set_title('Mean orientational differences at the end of a run and their standard deviation.')
+#ax1.axhline(y=0, color ='lightgrey')
+#ax1.errorbar(xs,ysPos, yerr=errorsPos, fmt='o')
+#ax1.set_title('Mean positional differences at the end of a run and their standard deviation.')
+#ax1.set_xlim([0,35])
 
 #pp.savefig()
 #pp.close()
+
+
+pp = PdfPages("../gateTestPosEval.pdf")
 
 numSubPlotRows = len(testPosValues)
 fig, axes = plt.subplots(numSubPlotRows, 2)
@@ -139,9 +142,16 @@ for row in axes:
     errorsOri = [resDict[j][3] for j in xrange(len(resDict))]
     row[0].errorbar(xs, ysPos, yerr = errorsPos, fmt='o')
     row[1].errorbar(xs, ysOri, yerr = errorsOri, fmt='o')
+    row[0].axhline(y=0, color ='lightgrey')
+    row[1].axhline(y=0, color ='lightgrey')
+    row[0].set_title("Positional difference with {} trainruns.".format(trainRunOrder[i]))
+    row[1].set_title("Orientation difference with {} trainruns.".format(trainRunOrder[i]))
 #    row[0].set_xlim([-0.4,0.4])
 #    row[1].set_xlim([-0.4,0.4])
     i+=1
 
-
+#plt.tight_layout()
+plt.subplots_adjust(hspace = 1)
+pp.savefig()
+pp.close()
 plt.show()

@@ -27,39 +27,69 @@ import re
 def natSort(s, _nsr=re.compile('([0-9]+)')):
     return [int(text) if text.isdigit() else text.lower() for text in re.split(_nsr, s)]
 
+class Experiment(object):
+    
+    def __init__(self):
+        self.name = ""
+        self.testPosValues = {}
+        self.trainRunOrder = []
+        self.trainStartPosX = {}
+        self.testStartPosX = {}
+
 directory = "../evalData/"
 #directory = "./"
 
 fileList = [f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory,f))]
 
-xs = []
 ysPos = []
 ysOri = []
 errorsPos = []
 errorsOri = []
 
-trainRunOrder = []
-testPosValues = {}
+
+#testPosValues = {}
+experiments = {}
+
+currentExperiment = None
 
 for f in sorted(fileList, key=natSort):
     
     if f.startswith(".") or "_config" in f or "ITM" in f or "old" in f:
         continue
-    if "Configuration_40" in f or "Configuration_10" in f:
-        continue
-    if not "gateModel" in f:
-        continue
+#    if "Configuration_40" in f or "Configuration_8" in f:
+#        continue
+#    if not "gateModel" in f:
+#        continue
     nameOnly = f.replace('.txt','')
     parts = nameOnly.split("_")
+    modelName = parts[0]
     numTrainRuns = int(parts[parts.index("TrainRuns")-1])
-    trainRunOrder.append(numTrainRuns)
     currentConfig = int(parts[parts.index("Configuration")+1])
-    xs.append(numTrainRuns)
+    if "_E" in f:
+        experimentSuffix = parts[-1]
+    else:
+        experimentSuffix = ""
+    experimentName = modelName+"_C_"+str(currentConfig)+experimentSuffix
+    if currentExperiment == None or experimentName != currentExperiment.name:
+        if experimentName in experiments:
+            currentExperiment = experiments[experimentName]
+        else:
+            currentExperiment = Experiment()
+            currentExperiment.name = experimentName
+            experiments[experimentName] = currentExperiment
+        
+#    trainRunOrder.append(numTrainRuns)
+    currentExperiment.trainRunOrder.append(numTrainRuns)
     #load data
     print "filename: ", directory+f
     data = np.loadtxt(directory+f, delimiter = ';')
     
     trainrows = data[:,1] == 1
+    
+    trainData = data[trainrows,:]
+    firstTrainFrames = trainData[:,3] == 0
+#    startingTrainPositionsX = trainData[firstTrainFrames,12]
+    currentExperiment.trainStartPosX[numTrainRuns] = np.copy(trainData[firstTrainFrames,12])
     
     testrows = np.invert(trainrows)
     testData = data[testrows,:]
@@ -70,7 +100,8 @@ for f in sorted(fileList, key=natSort):
     
     lastFrames = np.roll(firstFrames, -1) #TODO Test if this is always correct!    
 
-    startingPositionsX = testData[firstFrames,12]    
+#    startingPositionsX = testData[firstFrames,12]    
+    currentExperiment.testStartPosX[numTrainRuns] = testData[firstFrames,12] 
     
     #Consider filtering, i.e. only last frame
     actDifs = testDifs[lastFrames,12:14]
@@ -80,7 +111,6 @@ for f in sorted(fileList, key=natSort):
     keyPoint2Difs = testDifs[lastFrames,9:11]
     
     numTestRuns = int(np.max(testData[:,2]))+1
-    print numTestRuns
     testPosRes = {}
     startingTestPos = np.zeros(numTestRuns)
     #Consider each testpos separetly
@@ -93,8 +123,8 @@ for f in sorted(fileList, key=natSort):
         startPosMask = testData[:,2] == i
         startingTestPos[i] = np.mean(testData[firstFrames*startPosMask,12])
 #        print startingTestPos
-    testPosValues[numTrainRuns] = testPosRes
-        
+#    testPosValues[numTrainRuns] = testPosRes
+    currentExperiment.testPosValues[numTrainRuns] = testPosRes    
     
     
     
@@ -103,7 +133,7 @@ for f in sorted(fileList, key=natSort):
     errorsPos.append(np.std(np.linalg.norm(posDifs, axis=1)))
     errorsOri.append(np.std(oriDifs))
     
-    
+#    print "Starting pos: ", startingTrainPositionsX
     
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
@@ -124,34 +154,35 @@ from matplotlib.backends.backend_pdf import PdfPages
 #pp.close()
 
 
-pp = PdfPages("../gateTestPosEval.pdf")
+for e in experiments.values():
 
-numSubPlotRows = len(testPosValues)
-fig, axes = plt.subplots(numSubPlotRows, 2)
 
-i = 0
-for row in axes:
-    resDict = testPosValues[trainRunOrder[i]]
-    xs = startingTestPos
-    print "xs: ", xs
-    ysPos = [resDict[j][0] for j in xrange(len(resDict))]
-    print "trainRuns: ", trainRunOrder[i]
-    print "yPos: ", ysPos
-    errorsPos = [resDict[j][2] for j in xrange(len(resDict))]  
-    ysOri = [resDict[j][1] for j in xrange(len(resDict))]
-    errorsOri = [resDict[j][3] for j in xrange(len(resDict))]
-    row[0].errorbar(xs, ysPos, yerr = errorsPos, fmt='o')
-    row[1].errorbar(xs, ysOri, yerr = errorsOri, fmt='o')
-    row[0].axhline(y=0, color ='lightgrey')
-    row[1].axhline(y=0, color ='lightgrey')
-    row[0].set_title("Positional difference with {} trainruns.".format(trainRunOrder[i]))
-    row[1].set_title("Orientation difference with {} trainruns.".format(trainRunOrder[i]))
-#    row[0].set_xlim([-0.4,0.4])
-#    row[1].set_xlim([-0.4,0.4])
-    i+=1
-
-#plt.tight_layout()
-plt.subplots_adjust(hspace = 1)
-pp.savefig()
-pp.close()
+    pp = PdfPages("../pdfs/"+ e.name +".pdf")
+    
+    numSubPlotRows = len(e.testPosValues)
+    fig, axes = plt.subplots(numSubPlotRows, 2)
+    i = 0
+    for row in axes:
+        resDict = e.testPosValues[e.trainRunOrder[i]]
+        xs = startingTestPos
+        ysPos = [resDict[j][0] for j in xrange(len(resDict))]
+        errorsPos = [resDict[j][2] for j in xrange(len(resDict))]  
+        ysOri = [resDict[j][1] for j in xrange(len(resDict))]
+        errorsOri = [resDict[j][3] for j in xrange(len(resDict))]#
+        row[0].axhline(y=0, color ='lightgrey')
+        row[1].axhline(y=0, color ='lightgrey')
+        row[0].errorbar(xs, ysPos, yerr = errorsPos, fmt='o')
+        row[1].errorbar(xs, ysOri, yerr = errorsOri, fmt='o')
+        row[0].set_title("Positional difference with {} trainruns.".format(e.trainRunOrder[i]))
+        row[1].set_title("Orientation difference with {} trainruns.".format(e.trainRunOrder[i]))
+    #    row[0].set_xlim([-0.4,0.4])
+    #    row[1].set_xlim([-0.4,0.4])
+        i+=1
+    
+    #plt.tight_layout()
+    fig.subplots_adjust(hspace = 1)
+    fig.suptitle("Results for experiment " + e.name)
+    pp.savefig()
+    pp.close()
+    
 plt.show()

@@ -34,8 +34,8 @@ import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
 
-#GATE = True
-GATE = False
+GATE = True
+#GATE = False
 
 if GATE:
     import modelGate_2D_config as model
@@ -48,11 +48,12 @@ import configuration
 from configuration import config
 
 #Select used configuration
-CONFIGURATION = configuration.FIXFIRSTTHREETRAININGRUNS
+CONFIGURATION = configuration.LOWFREQ | configuration.FIXFIRSTTHREETRAININGRUNS
 config.switchToConfig(CONFIGURATION)
 
+FILEEXTENSION = "_E2"
 
-trainRuns = [1,2,3,5,10,20,30]
+trainRuns = [10,20,30]
 NUMBER_FOLDS = 20
 RECORD_SIMULATION = True
 
@@ -116,14 +117,15 @@ class GazeboInterface():
         if GATE:
             self.fileName = "gateModel_" + str(trainRuns[self.runNumber]) \
                     + "_TrainRuns_Mode" +  str(MODE) \
-                    + "_Configuration_" + str(self.configNummer)
+                    + "_Configuration_" + str(self.configNummer) + FILEEXTENSION
         else:
             self.fileName = "interactionModel_"+str(trainRuns[self.runNumber]) \
                 + "_TrainRuns_Mode" + str(MODE) \
-                + "_Configuration_" + str(self.configNummer)
+                + "_Configuration_" + str(self.configNummer) + FILEEXTENSION
         
         self.numTooSlow = 0
         self.resetErrors = 0
+
         
         if config.fixedTrainSeed:
             np.random.seed(config.trainSeed)
@@ -161,7 +163,6 @@ class GazeboInterface():
                 self.manager.advertise('/gazebo/default/sensor',
                     'gazebo.msgs.Sensor'))
                     
-        
         
         
                           
@@ -294,6 +295,7 @@ class GazeboInterface():
             return
         start = time.time()
         if self.startup:
+            self.changeUpdateRate(config.frequency)    
             self.resetWorld()
             self.startup= False
         elif self.ignore:
@@ -647,14 +649,16 @@ class GazeboInterface():
             self.worldModel = model.ModelGate()
             self.fileName = "gateModel_" + str(trainRuns[self.runNumber]) \
                         + "_TrainRuns_Mode" +  str(MODE) \
-                        + "_Configuration_" + str(self.configNummer)
+                        + "_Configuration_" + str(self.configNummer) + FILEEXTENSION
         else:
             self.worldModel = model.ModelInteraction()
             self.fileName = "interactionModel_"+str(trainRuns[self.runNumber]) \
                         + "_TrainRuns_Mode" + str(MODE) \
-                        + "_Configuration_" + str(self.configNummer)
+                        + "_Configuration_" + str(self.configNummer) + FILEEXTENSION
         if config.fixedTrainSeed:
             np.random.seed(config.trainSeed)
+        else:
+            np.random.seed()
         self.resetWorld()
             
     def updateModel(self, worldState, direction=np.array([0.0,0.5])):

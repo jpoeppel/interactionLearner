@@ -35,9 +35,6 @@ from configuration import config
 GREEDY_TARGET = True
 
 
-#mask = np.array([3,4,5,7,8,10,11])
-mask = np.array([0,1,2,3,4,5,6,7,8,9])
-
 class Object(object):
     
     def __init__(self):
@@ -55,12 +52,13 @@ class Object(object):
         vec = np.zeros(10)
         vec[0] = self.id
         vec[1] = other.id
+        #replaced computeDistanceClosing with generalDistClosing
         if config.USE_DYNS:
-            vec[2], vec[3] = common.computeDistanceClosing(self.id, self.vec[0:2],self.vec[3:5], 
+            vec[2], vec[3] = common.generalDistClosing(self.id, self.vec[0:2],self.vec[3:5], 
                         self.vec[2], other.id, other.vec[0:2], other.vec[3:5], other.vec[2])
             vec[4:6], vec[6:8], vec[8:10] = common.relPosVel(self.vec[0:3], self.vec[4:7], self.vec[3], other.vec[0:3], other.vec[4:7])
         else:
-            vec[2], vec[3] = common.computeDistanceClosing(self.id, self.vec[0:2],self.vec[0:2]-self.lastVec[0:2], 
+            vec[2], vec[3] = common.generalDistClosing(self.id, self.vec[0:2],self.vec[0:2]-self.lastVec[0:2], 
                         self.vec[2], other.id, other.vec[0:2], other.vec[0:2]-other.lastVec[0:2], other.vec[2])
             vec[4:6], vec[6:8], vec[8:10] = common.relPosVel(self.vec[0:2], self.vec[0:2]-self.lastVec[0:2], self.vec[2], other.vec[0:2], other.vec[0:2]-other.lastVec[0:2])
         
@@ -94,7 +92,7 @@ class Object(object):
 #        print "object before: ", resO.vec[1:4]
 #        print "relVec: ", self.getRelVec(other)[4:7]
         print "using itm for object prediction"
-        pred = predictor.test(self.getRelVec(other)[mask], testMode=config.predictorTestMode)
+        pred = predictor.test(self.getRelVec(other), testMode=config.predictorTestMode)
 #        pred = predictor.test(self.getRelVec(other))
         if config.USE_DYNS:
             pred[0:2], pred[3:5] = common.globalPosVelChange(self.vec[2], pred[0:2], pred[3:5])
@@ -146,8 +144,8 @@ class Object(object):
         return "{}".format(self.id)
         
     def getKeyPoints(self):
-        WIDTH = {15: 0.25, 8: 0.025} #Width from the middle point
-        DEPTH = {15: 0.05, 8: 0.025} #Height from the middle point
+        WIDTH = {27: 0.25, 15: 0.25, 8: 0.025} #Width from the middle point
+        DEPTH = {27: 0.25, 15: 0.05, 8: 0.025} #Height from the middle point
         p1x = WIDTH[self.id]
         p2x = -p1x
         p1y = DEPTH[self.id]
@@ -252,6 +250,8 @@ class WorldState(object):
         
     def parseModels(self, models):
         for m in models:
+#            print "name: ", m.name
+#            print "id: ", m.id
             if m.name == "ground_plane" or "wall" in m.name or "Shadow" in m.name:
                 continue
             else:
@@ -603,7 +603,7 @@ class Predictor(object):
         if np.linalg.norm(dif) == 0.0:
             print "training with zero dif: ", dif
             raise NotImplementedError
-        self.predictors[intState[0]].update(intState[mask], dif, 
+        self.predictors[intState[0]].update(intState, dif, 
                                             etaIn= config.predictorEtaIn, 
                                             etaOut= config.predictorEtaOut, 
                                             etaA= config.predictorEtaA, 
@@ -823,7 +823,8 @@ class ModelGate(object):
         newWS = WorldState()
 #        newWS.actuator = self.actuator.predict(action)
         #Necessary when using the newly parsed ws since otherwise a not learned itm is used
-        ws.actuator.predictor = self.actuator.predictor 
+        if self.actuator != None:
+            ws.actuator.predictor = self.actuator.predictor 
         #Alternatively do this, arguably nicer
 #        newWS.actuator = self.actuator.predict(action)
         newWS.actuator = ws.actuator.predict(action)

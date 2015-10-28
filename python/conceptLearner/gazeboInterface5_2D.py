@@ -48,14 +48,14 @@ import configuration
 from configuration import config
 
 #Select used configuration
-CONFIGURATION = configuration.LOWFREQ | configuration.FIXFIRSTTHREETRAININGRUNS
+CONFIGURATION = configuration.FIXFIRSTTHREETRAININGRUNS | configuration.HARDCODEDGATE
 config.switchToConfig(CONFIGURATION)
 
-FILEEXTENSION = "_E2"
+FILEEXTENSION = "_E3"
 
-trainRuns = [10,20,30]
-NUMBER_FOLDS = 20
-RECORD_SIMULATION = True
+trainRuns = [30]
+NUMBER_FOLDS = 2
+RECORD_SIMULATION = False
 
 logging.basicConfig()
 
@@ -67,7 +67,7 @@ PUSHTASKSIMULATION = 2
 PUSHTASKSIMULATION2 = 3
 MOVE_TO_TARGET = 4
 
-MODE = PUSHTASKSIMULATION
+MODE = PUSHTASKSIMULATION2
 #MODE = FREE_EXPLORATION
 #MODE = MOVE_TO_TARGET
 
@@ -211,7 +211,7 @@ class GazeboInterface():
         Function to send the last prediction to gazebo. This will move the shadow model
         positions.
         """
-        names = {15:"blockA", 8: "gripper"}
+        names = {27: "blockB", 15:"blockA", 8: "gripper"}
         msg = pygazebo.msg.modelState_v_pb2.ModelState_V()
         if GATE:
             msg.models.extend([self.getModelState("gripperShadow", self.lastPrediction.actuator.vec[0:2], self.lastPrediction.actuator.vec[2])])
@@ -335,25 +335,27 @@ class GazeboInterface():
 #            raise TypeError("Execution took too long")
             
     def checkPositions(self, newWS):
+        blocks = []
         if GATE:
             act = newWS.actuator
-            block = newWS.objectStates.values()[0]
+            blocks = newWS.objectStates.values()
         else:
             for o in newWS.objectStates.values():
                 if o.id == 8:
                     act = o
                 else:
-                    block = o
+                    blocks.append(o)
         if np.linalg.norm(act.vec-self.lastStartConfig[8]) > 0.01:
             self.resetErrors += 1
             self.sendPose("gripper", np.concatenate((self.lastStartConfig[8][:2],[0.03])), self.lastStartConfig[8][2])
             self.startedRun = True
             return False
-        if np.linalg.norm(block.vec-self.lastStartConfig[15]) > 0.01:
-            self.resetErrors += 1
-            self.sendPose("blockA", np.concatenate((self.lastStartConfig[15][:2],[0.05])), self.lastStartConfig[15][2])
-            self.startedRun = True
-            return False
+        for block in blocks:
+            if np.linalg.norm(block.vec-self.lastStartConfig[block.id]) > 0.01:
+                self.resetErrors += 1
+                self.sendPose("blockA", np.concatenate((self.lastStartConfig[block.id][:2],[0.05])), self.lastStartConfig[block.id][2])
+                self.startedRun = True
+                return False
         return True
         
 
@@ -496,7 +498,7 @@ class GazeboInterface():
             elif self.trainRun == 2:
                 posX = 0
                 
-        self.lastStartConfig = {8:np.array([posX,0.0,0.0]), 15:np.array([0.0,0.25,0.0])}
+        self.lastStartConfig = {8:np.array([posX,0.0,0.0]), 15:np.array([0.0,0.25,0.0]), 27:np.array([-0.3,0.35,0.0])}
             
         self.sendPose("gripper", np.array([posX,0.0,0.03]), 0.0)
         self.stepCounter = 0
@@ -507,7 +509,7 @@ class GazeboInterface():
         self.runStarted = True
         posX = config.testPositions[self.testRun]
         
-        self.lastStartConfig = {8:np.array([posX,0.0,0.0]), 15:np.array([0.0,0.25,0.0])}
+        self.lastStartConfig = {8:np.array([posX,0.0,0.0]), 15:np.array([0.0,0.25,0.0]), 27:np.array([-0.3,0.35,0.0])}
         
         self.sendPose("gripper", np.array([posX, 0.0,0.03]), 0.0)
         self.stepCounter = 0
@@ -544,7 +546,7 @@ class GazeboInterface():
                 self.resetWorld()
                 self.runStarted = False
         else:
-            self.startRun(0.7)
+            self.startTestRun()
             self.direction = np.array([0.0,0.5])
             return
         if self.testRun < NUM_TEST_RUNS:

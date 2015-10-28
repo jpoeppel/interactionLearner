@@ -157,5 +157,75 @@
       </link>
       <static>0</static>
     </model>
+<!--
+    <model name='blockB'>
+      <pose>-0.3 0.35 0.05 0 0 0</pose>
+      <link name='link'>
+        <inertial>
+          <mass>1</mass>
+         <inertia>
+            <ixx>1.66667e-03</ixx>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyy>0.0216667</iyy>
+            <iyz>0</iyz>
+            <izz>0.0216667</izz>
+          </inertia>
+        </inertial>
+        <collision name='collision'>
+          <geometry>
+            <box>
+              <size>0.5 0.1 0.1</size>
+            </box>
+          </geometry>
+          <surface>
+              <friction>
+               <ode>
+                <mu>0.6</mu>
+                <mu2>0.5</mu2>
+                <fdir1>0.000000 0.000000 0.000000</fdir1>
+                <slip1>0.000000</slip1>
+                <slip2>0.000000</slip2>
+               </ode>
+              </friction>
+         </surface>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <box>
+              <size>0.5 0.1 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <script>
+              <uri>file://media/materials/scripts/gazebo.material</uri>
+              <name>Gazebo/Green</name>
+            </script>
+          </material>
+        </visual>
+      </link>
+      <static>0</static>
+    </model>
+    <model name='blockBShadow'>
+      <pose>-0.3 0.35 0.05 0 0 0</pose>
+      <link name='link'>
+        <visual name='visual'>
+          <geometry>
+            <box>
+              <size>0.5 0.1 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <script>
+              <uri>file://media/materials/scripts/gazebo.material</uri>
+              <name>Gazebo/GreenTransparent</name>
+            </script>
+          </material>
+        </visual>
+        <gravity>0</gravity>
+      </link>
+      <static>0</static>
+    </model>-->
   </world>
 </sdf>

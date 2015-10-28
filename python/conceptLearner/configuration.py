@@ -48,8 +48,8 @@ class Config(object):
         self.actuatorEtaA = 0.0
         self.actuatorTestMode = None
         #Gate general settings
-        self.HARDCODEDACTUATOR = True
-        self.HARDCODEDGATE = True
+        self.HARDCODEDACTUATOR = False
+        self.HARDCODEDGATE = False
         self.metaNetIndexThr = 0.01
         self.predictionBoost = 1.0
         #ITM Settings interaction
@@ -80,7 +80,7 @@ class Config(object):
         self.fixedTrainSeed = False
         self.trainSeed = 1234
         self.startRunRange = 0.5
-        self.testPositions = np.arange(-0.35,0.35,0.035) #np.arange(-0.35,0.35,0.349)#
+        self.testPositions = np.arange(-0.35,0.351,0.035) #np.arange(-0.35,0.35,0.349)#
         self.fixedFirstThreeTrains = False
         
         self.numTooSlow = 0

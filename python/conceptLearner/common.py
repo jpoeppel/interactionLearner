@@ -150,7 +150,7 @@ def invertTransMatrix(matrix):
     return invTrans                      
                                           
                      
-def dist(center, edge1, edge2, ang, ref):
+def dist(center, edge1, edge2, ang, ref, radius=0.0):
 #    if len(edge1) == 2 and len(ref) == 3:
 #        edge1 = np.concatenate((edge1,[0]))
 #    if len(edge2) == 2 and len(ref) == 3:
@@ -168,14 +168,14 @@ def dist(center, edge1, edge2, ang, ref):
     w = (edge2N+center)
     l2 = npdot(v-w, v-w)
     if l2 == 0.0:
-        return np.sqrt(npdot(v-ref, v-ref)), v
+        return np.sqrt(npdot(v-ref, v-ref)), v, ref
     t = npdot(ref-v, w-v) / l2
     if t < 0.0:
-        return np.sqrt(npdot(v-ref,v-ref)), v
+        return np.sqrt(npdot(v-ref,v-ref)), v, ref
     elif t > 1.0:
-        return np.sqrt(npdot(w-ref,w-ref)), w
+        return np.sqrt(npdot(w-ref,w-ref)), w, ref
     projection = v + t * (w - v)
-    return np.sqrt(npdot(ref-projection, ref-projection)), projection
+    return np.sqrt(npdot(ref-projection, ref-projection))-radius, projection, ref
     
     
 def relPos(p1, ang,  p2):
@@ -284,6 +284,70 @@ def globalPosVel(p1, ang, relPos, relVel):
     return newPos, newVel
     
 
+def distPointSeg(v, w, ref, radius=0.0):
+    l2 = npdot(v-w, v-w)
+    if l2 == 0.0:
+        return np.sqrt(npdot(v-ref, v-ref))-radius, v, ref
+    t = npdot(ref-v, w-v) / l2
+    if t < 0.0:
+        return np.sqrt(npdot(v-ref,v-ref))-radius, v, ref
+    elif t > 1.0:
+        return np.sqrt(npdot(w-ref,w-ref))-radius, w, ref
+    projection = v + t * (w - v)
+    return np.sqrt(npdot(ref-projection, ref-projection))-radius, projection, ref
+    
+def generalDistClosing(id1, p1, v1, ang1, id2, p2, v2, ang2):
+    localEdges = {27: [(-0.25,0.05),(-0.25,-0.05),(0.25,-0.05),(0.25,0.05)], 
+                       15: [(-0.25,0.05),(-0.25,-0.05),(0.25,-0.05),(0.25,0.05)], 
+                        8: [(0.0,0.0)]}
+    segmentIds = {27: [[0,1],[1,2],[2,3],[3,0]],
+                  15: [[0,1],[1,2],[2,3],[3,0]],
+                  8: []}
+    radii = {27: 0.0, 15: 0.0, 8: 0.025}
+    vel = (v2-v1)[:2]
+    
+    ca = math.cos(ang1)
+    sa = math.sin(ang1)
+    r = np.array([[ca, -sa], 
+                  [sa, ca]])
+    edges1 = [npdot(r, e)+p1 for e in localEdges[id1]]
+    ca = math.cos(ang2)
+    sa = math.sin(ang2)
+    r = np.array([[ca, -sa], 
+                  [sa, ca]])
+    edges2 = [npdot(r, e)+p2 for e in localEdges[id2]]
+    
+    dpList = [distPointSeg(edges2[s[0]], edges2[s[1]], ref, radius=radii[id1]) for ref in edges1 for s in segmentIds[id2]]
+    dpList2 = [distPointSeg(edges1[s[0]], edges1[s[1]], ref, radius=radii[id2]) for ref in edges2 for s in segmentIds[id1]]
+    
+    sortedL = sorted(dpList, key = itemgetter(0))
+    sortedL2 = sorted(dpList2, key = itemgetter(0))
+            
+    if len(sortedL) > 0 and len(sortedL2) > 0:
+        if sortedL[0][0] < sortedL2[0][0]:
+            minDist = sortedL[0][0]
+            normal = sortedL[0][1]-sortedL[0][2]
+        else:
+            minDist = sortedL2[0][0]
+            normal = sortedL2[0][2]-sortedL2[0][1]
+    else:
+        if len(sortedL) > 0:
+            minDist = sortedL[0][0]
+            normal = sortedL[0][1]-sortedL[0][2]
+        elif len(sortedL2) > 0:
+            minDist = sortedL2[0][0]
+            normal = sortedL2[0][2]-sortedL2[0][1]
+        else:
+            minDist = 0
+            normal = np.zeros(2)
+
+    
+#    normal = (sortedL[0][2]-sortedL[0][1])
+    norm = np.linalg.norm(normal)
+    if norm > 0.0:
+        normal /= np.linalg.norm(normal)
+    return np.round(max(minDist,0.0), config.NUMDEC), np.round(npdot(normal, vel), config.NUMDEC)
+    
 
 def computeDistanceClosing(id1, p1, v1, ang1, id2, p2, v2, ang2):
     edges  = {15: [(-0.25,0.05),(-0.25,-0.05),(0.25,-0.05),(0.25,0.05)], 8: [(0.0,0.0)]}

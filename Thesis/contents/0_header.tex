@@ -46,6 +46,7 @@
 
 % Paket um Grafiken im Dokument einbetten zu können.
 \usepackage{graphicx}
+\graphicspath{{images/}}
 
 % PDF-Merkmale
 \usepackage[
@@ -61,9 +62,9 @@
 ]{hyperref}
 
 % Schriften
-%\defaultfontfeatures{Mapping=tex-text}
-%\setmainfont[ItalicFont={FagoNo}, BoldFont={FagoNoLf-Bold}]{FreeSerif} %{GoudyOlSt BT}
-%\setsansfont{FagoNo}
+\defaultfontfeatures{Mapping=tex-text}
+\setmainfont[ItalicFont={FagoNo}, BoldFont={FagoNoLf-Bold}]{Latin Modern Roman} %{GoudyOlSt BT}
+\setsansfont{FagoNo}
 %{\setmonofont{Arial}\fontsize{48pt}{\baselineskip}\selectfont}
 %\usepackage{default}
 
@@ -136,6 +137,10 @@
     xrightmargin=0.02\textwidth % margin right
 }
 
+\usepackage{amsmath}
+%\DeclareMathOperator*{\argmin}{arg\,min}
+\newcommand{\argmin}{\operatornamewithlimits{argmin}}
+
 % Tabellen
 \usepackage{array}                  % Paket für erweiterte Tabelleneigenschaften
 \usepackage{multirow}               % Zusammengefaßte Reihen in Tabellen ermöglichen
@@ -166,7 +171,14 @@
 % Silbentrennung für Wörter, die nicht vom Babel-Paket erkannt werden
 \hyphenation{Dezi-mal-trenn-zeichen In-stal-la-ti-ons-as-sis-tent}
 
+%Abkürzungen
+%\usepackage{acronym}
 
+%Glossary and Acronyms
+
+\usepackage[nomain,toc,acronyms]{glossaries}
+\input{contents/A_acronyms}
+\makeglossaries
 % Überschriften anpassen
 %\usepackage{titlesec}
 %\titleformat{\subsection}{\bfseries\large\sffamily\itshape}{}{0em}{\thesubsection~}

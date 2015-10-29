@@ -1,0 +1,61 @@
+\chapter{State of the art \label{chap:stateOfTheArt}}
+
+
+%What kinds of interaction models are there
+%Incremental/online models
+%Memory based approaches
+%What have others tried to solve this/similar problems?
+
+Because of the importance for robotics, a lot of research is being done regarding object interactions. 
+Nishide et al. trained a \gls{rnn} in order to predict object dynamics directly from the visual input of a camera \cite{nishide2008predicting}.
+In order to solve this more difficult problem they train their system roughly 20 minutes on prerecorded data.
+In \cite{levine2015learning} Levine et al. achieved great results in learning  policies of complex dynamics %TODO \gls{policy}.
+such as assembling plastic toys. They require much fewer training iterations than earlier policy search approaches, i.e in \cite{otherPolicySearchs}.
+However, the main difference to the given problem for this thesis is that Levine et al. fix the manipulated object to the actuator.
+
+
+
+
+\begin{itemize}
+	\item \cite{pushing} Paper using similar idea of instance based memory in order to predict pushing
+	\begin{itemize}
+		\item restricted to only pushing interactions (no getting closer etc learned by model)
+		\item is mainly used to move object to target position
+		\item General strategy is the same as in my model: First figure out preconditions, then perform best action
+		\item Uses nearest neighbor to find best action
+		\item Works for complex shaped objects
+		\item Paper only shows results based on position, not orientation
+		
+	\end{itemize}
+	\item \cite{nishide2008predicting} RNN and HNN system that learns interactions between objects from camera images
+	\begin{itemize}
+		\item Tries to solve more complex problem (includes feature extraction from images in the system)
+		\item But is learned in a batch mode. Prerecorded by controlling the robot and training on recorded images (~ 20min offline)
+		\item They call it \textit{active sensing} regardless
+	\end{itemize}
+	\item \cite{baranes2013active} Robot architecture for active, online learning of forward and inverse models
+	\begin{itemize}
+		\item Limited to only the robot, not including external objects and their interactions
+		\item Highlights some of the challenges when trying to (actively) learn online
+	\end{itemize}
+	\item \cite{flanagan2006control} Recent (2006) paper about human object manipulation control strategies
+	\item \cite{moldovan2012learning} Learning object affordances with probabilistic model. Actually extends to multiple objects
+	\item \cite{levine2015learning} Impressive (batch) results of object manipulation.
+	\begin{itemize}
+		\item Restriction is that objects are fixed to robot
+		\item Basically \textit{only} learns a trajectory
+	\end{itemize}
+	\item \cite{contactPrediction} Exemplar-based learning of contact/support interaction between (multiple) objects.
+	\begin{itemize}
+		\item Contact distributions are estimated from contact points extracted from the point clouds of objects
+		\item Similarity between distributions determines whether the given contact allows a special interaction
+		\item Binary classification if a certain interaction is possible/happening
+		\item Does not make predictions about the future state of the interacted objects
+		\item Has not been trained online, but rather with previously labeled training data
+	\end{itemize}
+	\item TODO
+	\begin{itemize}
+		\item Look at experience graphs
+		\item Can be mentioned here as well (\cite{phillips2012graphs}) as somewhat similar idea regarding the use of previous experiences, maybe better in introduction?
+	\end{itemize}
+\end{itemize}

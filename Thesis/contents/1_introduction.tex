@@ -1,38 +1,82 @@
 \chapter{Introduction}
 
-Robotic research is both fueled by the desire to better understand the human cognition as well as the desire to 
-create tools that improve our everyday life. Starting from industry machines that have become more and more capable
-in their abilities to perform their designated tasks autonomously, robots and virtual agents are becoming 
-more popular in our everyday life. Lawn mower or vacuum cleaning robots are just two inventions that have become increasingly popular in recent years \cite{LawnMowerIncrease}. In addition to such specialized machines, researches are trying to develop general purpose robots that are capable of performing a multitude of tasks, including object manipulation and interaction with other agents. Although a complete system meeting such standards has not been developed yet, the researches around the world are making progress in distinct subproblems such as object recognition \cite{HondaObject} or trajectory learning \cite{pancake}.
+%Motivate necessity
+%State goals
+%Structure of thesis
+%What is the problem that we try to solve?
+%Why is it relevant to solve it?
 
-%\section{Problem formulation}
 
-Currently, robots are mostly trained to perform one specific set of tasks offline with previously recorded data \cite{TODO}. %TODO Find citetion!
-In most cases the performance improves with the amount of data available for training. However, there are two major problems with the current approach. Firstly, especially in robotics, gathering data is usually very expensive. A lot research is being performed to try to reduce the required amount of data (e.g \cite{lessData}). Secondly, such an approach limits the system to the abilities that it learned from the presented training data. Although modern learning approaches can show good generalization performances \cite{generalisationPerformance}, there is currently no learning approach that can for example learn to open a bottle from training data that was recorded moving blocks. Acquiring training data for all possible tasks the robot is supposed to perform during its lifetime is infeasible at best. For that reason, online learning has become very important in recent robotics research \cite{list_of_online_learnes}. When performing online learning, especially when it is performed life-long, i.e. during the entire lifetime of the robot, additional challenges arise, such as meeting performance criteria and the stability-plasticity-dilemma \cite{stabilityPlasitcity}. Modern robot architecture consist of a multitude of separate components. Online learning can be used in different parts of a complete architecture, potentially even improving the performance of other components since they can adapt to changes dynamically \cite{Example_for_learning_components}.
+%TODO delete? Most likely not good...
+%The defining quality that any agent, artificial or natural, requires is learning. Also used for many different 
+%phenomenons, the term learning at its core means adaptation. The agent or some part of it adapts in order to
+%better deal with its environment. Natural agents, especially humans, display impressive learning capabilities,
+%allowing them to quickly adapt to ever changing environments and new tasks.
+%
+%In recent years, machine learning has come a long way in understanding and reproducing some of the learning
+%capabilities of humans. We now have a wide range of different techniques and algorithms that can yield good
+%classification and regression results. %TODO make glossary to explain what classification and regression is
+%In introduction to these can for example be found in book by Bishop \cite{bishop}.
+%
+%The quality of the results achieved by machine learning is however more dependent on the chosen representation
+%of the problem then on the actual technique used. For example it is generally not sufficient to use the raw audio signals 
+%for speech recognition \cite{speechRecog}. Instead most speech recognizers use carefully selected pre-computed
+%features that allow the underlying machine learner to correctly distinguish the words. 
+%
+%Because finding the best features is as challenging as learning a problem itself, a lot of focus as recently 
+%shifted to deep learning \cite{deepLearning}. Deep learning is a technique that is inspired by the human brain and refers to
+%training neural networks with many thousands of artificial neurons. Properly trained, these networks are capable of finding 
+%relevant features in the presented data by themselves \cite{deepLearningFeatures}. Currently the biggest
+%problem with deep learning is the required amount of training before the network can be used successfully. Although recent
+%advances such as the development of Hinton's dropout technique \cite{dropout} allows to train bigger networks with fewer data,
+%this criteria still limits the potential use cases of deep learning and neural networks in general.
 
-Object manipulation is a very important task for many robots since it allows 
-them to interact with their environment. Human children are capable of learning 
-simple object manipulation at a very young age with only a relatively limited 
-amount of training. %TODO source!
-Furthermore, humans are able to generalize what they have learned to quickly 
-acquire the knowledge about how to manipulate never before seen objects. 
-Understanding how the human brain achieves these learning performances as well 
-as enabling this tasks to robots has become the goal for many researchers 
-\cite{list_of_object_manipulation}. %TODO more here!
 
-This thesis presents an online learning model to learn simple object interaction through self-driven exploration.
 
-%TODO
-TODO: Mention
+[TODO General introduction here]
+
+Robotics research has advanced far enough that researchers are now 
+trying to develop multi-purpose robots. While the hardware for such robots
+is constantly improving, the usability of modern robots is currently more
+limited by their software. Multi-purpose machines do not have the luxury of 
+being limited to restricted, well known environments. Providing suitable and
+sufficient training data for all possible scenarios a multi-purpose robot
+might encounter is infeasible at best. Therefore, instead of trying to train
+the machine beforehand, it might be better to provide it with the means to
+adapt to new situations on its own. This idea falls under the concept of 
+(lifelong) online adaptation or online learning. 
+
+Apart from the general challenges in machine learning, such as generalization 
+performance, lifelong online learning introduces even more challenges, such as the 
+stability-plasticity-dilemma \cite{stability-plasticity}. Furthermore, in order to be able to 
+continuously upgrade itself, the model needs to work in an open loop with its environment. 
+Depending on the actual purpose of the robot this might add additional constraints for the update 
+and query times of the used model. %Why use memory based?
+The family of memory based machine learning approaches usually 
+does not suffer from the stability-plasticity-dilemma due to their inherently local nature.  
+Furthermore, their local nature allows them to be easily updated incrementally. Their biggest disadvantage for lifelong learning is that their update and query time usually increase with the amount of training data. Nevertheless, in the scope of this thesis, a memory based regression and classification model has been adapted and tested for its suitability for this task.
+
+[TODO why object interaction etc]
+
+
+As a smaller test environment, this thesis concentrates on incrementally learning simple object 
+interactions. Since object interactions are hard to model manually, providing a robot with the 
+capabilities of learning such interactions would be quite beneficial for multi-purpose robots.
+By starting with as little prior world knowledge as possible, the model needs to adapt to a mostly 
+unknown scenario on its own. 
+
+Within this environment, this thesis' focus can be summarized as follows: 
+
 \begin{itemize}
-\item reasons/motivation for Memory-based approach (one-shot learning), check 
-with concept section about memory based models
-\item Tasks: Prediction/Forward model and planning/inverse model
-
+	\item Prediction and planning with minimal amount of prior world knowledge
+	\item Interactive, online learning
+	\item Suitability of memory based models for lifelong learning
 \end{itemize}
 
-%The inverse model is supposed to return (parts of) the input when given a 
-%desired output. In this case, a certain target configuration of an interaction 
-%is given, and the model should return an action that reduces the distance to 
-%this target. 
+Chapter \ref{chap:stateOfTheArt} gives an overview about how researches are 
+currently approaching these questions. The concepts this thesis contributes 
+are presented in chapter \ref{chap:concept}. Chapter \ref{chap:modelReal} 
+describes how these concepts were realized before chapter \ref{chap:evaluation} 
+presents the evaluation of these realizations. Finally, these results are discussed in chapter 
+\ref{chap:conclusion}.
 

@@ -60,7 +60,7 @@ for f in sorted(fileList, key=natSort):
 #        continue
 #    if not "gateModel" in f:
 #        continue
-    if not "E2" in f:
+    if not "Symmetric" in f:
         continue
     nameOnly = f.replace('.txt','')
     parts = nameOnly.split("_")

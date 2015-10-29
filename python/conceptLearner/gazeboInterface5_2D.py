@@ -34,8 +34,8 @@ import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
 
-GATE = True
-#GATE = False
+#GATE = True
+GATE = False
 
 if GATE:
     import modelGate_2D_config as model
@@ -48,14 +48,14 @@ import configuration
 from configuration import config
 
 #Select used configuration
-CONFIGURATION = configuration.FIXFIRSTTHREETRAININGRUNS | configuration.HARDCODEDGATE
+CONFIGURATION = configuration.FIXFIRSTTHREETRAININGRUNS 
 config.switchToConfig(CONFIGURATION)
 
-FILEEXTENSION = "_E3"
+FILEEXTENSION = "_SymmetricTests"
 
-trainRuns = [30]
-NUMBER_FOLDS = 2
-RECORD_SIMULATION = False
+trainRuns = [1,2,3,5,10,20,30]
+NUMBER_FOLDS = 20
+RECORD_SIMULATION = True
 
 logging.basicConfig()
 
@@ -67,7 +67,7 @@ PUSHTASKSIMULATION = 2
 PUSHTASKSIMULATION2 = 3
 MOVE_TO_TARGET = 4
 
-MODE = PUSHTASKSIMULATION2
+MODE = PUSHTASKSIMULATION
 #MODE = FREE_EXPLORATION
 #MODE = MOVE_TO_TARGET
 

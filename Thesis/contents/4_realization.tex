@@ -51,19 +51,23 @@ The naive way for this model to work is to simply store all recorded episodes an
 
 The realization consists mainly of the parts that are visualized in figure \ref{fig:GateOverview}. 
 
-Listing \ref{lst:gatePrediction} shows how a prediction for one object is performed. 
+Algorithm \ref{alg:gatePrediction} shows how a prediction for one object is performed. 
 
-\begin{lstlisting}[caption={Prediction pseudocode.},label=lst:gatePrediction]
-Input: Predicted actuator state from action primitive, object state
-Output: Predicted object state
 
-relFeature = computeRelativeFeatures(objectState, actuatorState)
-if Gate(relFeatures):
-	predictedChange = getPrediction(relFeatures)
-	return add(objectState, predictedChange)
-else:
-	return objectState
-\end{lstlisting}
+\begin{algorithm}
+	\KwIn{Predicted actuator state from action primitive, object state}
+	\KwOut{Predicted object state}
+	\BlankLine
+	relFeature = computeRelativeFeatures(objectState, actuatorState)\\
+	\eIf{Gate(relFeatures)}{
+		predictedChange = getPrediction(relFeatures) \\
+		return add(objectState, predictedChange)
+		}{
+		return objectState
+		}	
+	\caption{Prediction pseudocode}
+	\label{alg:gatePrediction}
+\end{algorithm}
 
 The pseudo function \textit{getPrediction} first selects the responsible forward model before the change is predicted. This selection is being performed based on the identifier of the reference object. If no local model has been trained for the reference object, the predictor tries to find a forward model that is responsible for similar objects. If no suitable forward model can be found, a zero change prediction is returned. This means that the object state remains unchanged.
 
@@ -140,37 +144,38 @@ The gate trains a binary classifier on the relative interaction features about i
 \section{Used technologies \label{sec:technologies}}
 
 \subsection{Adapted instantaneous topological map \label{sec:ITM}}
-%TODO Make vectors visible in equations! Add pseudo code at the beginning to show general process
-
+%TODO Add pseudo code at the beginning to show general process or nice figure!
+%TODO find better name! Consider calling it something closer to kNN since that is kind of what it becomes
+The underlying regression and classification model that is used throughout this thesis is an adaptation of the \acrfull{itm} which will be called \acrfull{aitm} throughout this thesis.
 The \gls{itm} \cite{itm} is an adaptation of the \gls{gng} \cite{gng} algorithm to create topological maps. Instead of \glspl{gng} global update rules for inserting new nodes in the map, the \gls{itm} uses local update rules in order to be better suited for correlated inputs. 
-In order to be applicable to classification and regression, the \gls{itm} was further extended by an output function using the idea of \gls{llm} \cite{LLM}. In order to extend a topological map with an output function, each node represent the corresponding output vector $w^i_{out}$ along its input vector $w^i_{in}$. The \gls{llm} extends each node further with a local linear mapping $A^i$. This matrix is used to improve the function approximation within each Voronoi cell. With this, the output of each node given an input $x$ is computed by equation \ref{eq:llmOut}:
+In order to be applicable to classification and regression, the \gls{itm} was further extended by an output function using the idea of \gls{llm} \cite{LLM}. In order to extend a topological map with an output function, each node represent the corresponding output vector $\vec{w}^i_{out}$ along its input vector $\vec{w}^i_{in}$. The \gls{llm} extends each node further with a local linear mapping $A^i$. This matrix is used to improve the function approximation within each Voronoi cell. With this, the output of each node given an input vector $\vec{x}$ is computed by equation \ref{eq:llmOut}:
 
 \begin{equation}
-y^i(x) = w^i_{out} + A^i \cdot (x-w^i_{in})
+\vec{y}^i(\vec{x}) = \vec{w}^i_{out} + A^i \cdot (\vec{x}-\vec{w}^i_{in})
 \label{eq:llmOut}
 \end{equation}
 
-The output function for the net can be computed in multiple ways. The simplest method is to use the output of the winning node, i.e. the output of the node whose input vector $w^i_{in}$ is closes to the given input $x$. In order to reduce the effect of the metric problem when finding the closest node, the outputs of multiple nodes can also be mixed together. The evaluations in this thesis interpolate the output functions of the two closest nodes:
+The output function for the net can be computed in multiple ways. The simplest method is to use the output of the winning node, i.e. the output of the node whose input vector $\vec{w}^i_{in}$ is closes to the given input $\vec{x}$. In order to reduce the effect of the metric problem when finding the closest node, the outputs of multiple nodes can also be mixed together. The evaluations in this thesis interpolate the output functions of the two closest nodes:
 
 \begin{equation}
-y_{net}(x) =  \frac{1}{k_n+k_s} \cdot (k_n \cdot (w^n_{out} + A^n \cdot (x-w^n_{in})) + k_s \cdot  (w^s_{out} + A^s \cdot (x-w^s_{in})))
+\vec{y}_{net}(\vec{x}) =  \frac{1}{k_n+k_s} \cdot \left[ k_n \cdot \left(\vec{w}^n_{out} + A^n \cdot \left(\vec{x}-\vec{w}^n_{in}\right)\right) + k_s \cdot  \left(\vec{w}^s_{out} + A^s \cdot \left(\vec{x}-\vec{w}^s_{in}\right)\right)\right]
 \end{equation}
 
 where $k_n$ and $k_s$ are the weights or importance for the nearest and the second node respectively. These weights are computed as follows:
 
 \begin{equation}
 \begin{split}
-k_n = \exp(\frac{||x-w^n_{in}||}{\sigma^2}) \\
-k_s = \exp(\frac{||x-w^s_{in}||}{\sigma^2}) 
+k_n = \exp\left(\frac{||\vec{x}-\vec{w}^n_{in}||}{\sigma^2}\right) \\
+k_s = \exp\left(\frac{||\vec{x}-\vec{w}^s_{in}||}{\sigma^2}\right) 
 \end{split}
 \end{equation}
 
-$\sigma$ determines the influence radius of each node, just like in radial basis networks \cite{rbf}. The nearest node $n$ and the second closest node $s$ are determined by comparing the input vectors of all nodes in $W$ with the given input vector $x$:
+$\sigma$ determines the influence radius of each node, just like in radial basis networks \cite{rbf}. The nearest node $n$ and the second closest node $s$ are determined by comparing the input vectors of all nodes in $W$ with the given input vector $\vec{x}$:
 
 \begin{equation}
 \begin{split}
-	nearest: n = \argmin_{c\in W} ||(x - w^c_{in})|| \\
-	second: s = \argmin_{c\in W\backslash\{n\}} ||(x - w^c_{in})||
+	nearest: n = \argmin_{c\in W} ||(\vec{x} - \vec{w}^c_{in})|| \\
+	second: s = \argmin_{c\in W\backslash\{n\}} ||(\vec{x} - \vec{w}^c_{in})||
 \end{split}
 \label{eq:itmNearest}
 \end{equation}
@@ -179,28 +184,39 @@ During training, the network receives an input-output pair and updates its nodes
 
 \begin{equation}
 \begin{split}
-\Delta w^n_{in} = \eta_{in} \cdot (x^\alpha - w^n_{in}) \\
-\Delta w^n_{out} = \eta_{out} \cdot (y^\alpha - y^n(x^\alpha)) + A^n \cdot \delta w^n_{in} \\
-\Delta A^n = \eta_A \cdot (y^\alpha - y^n(x^\alpha)) \frac{(x^\alpha - w^n_{in})^t}{||x^\alpha - w^n_{in}||^2}
+\Delta \vec{w}^n_{in} = \eta_{in} \cdot (\vec{x}^\alpha - \vec{w}^n_{in}) \\
+\Delta \vec{w}^n_{out} = \eta_{out} \cdot (\vec{y}^\alpha - \vec{y}^n(\vec{x}^\alpha)) + A^n \cdot \delta \vec{w}^n_{in} \\
+\Delta A^n = \eta_A \cdot (\vec{y}^\alpha - \vec{y}^n(\vec{x}^\alpha)) \frac{(\vec{x}^\alpha - \vec{w}^n_{in})^t}{||\vec{x}^\alpha - \vec{w}^n_{in}||^2}
 \end{split}
 \end{equation}
 
-The initial matrix $A$ is a zero matrix in the proper dimensions. The learning rates $\eta_{in}, \eta_{out}$ and $\eta_A$ are meta parameter that need to be determined. In case $\eta_A$ is set to 0, no linear approximation is learned for each Voronoi cell.
+The initial matrix $A$ is a zero matrix with proper dimensions. The learning rates $\eta_{in}, \eta_{out}$ and $\eta_A$ are meta parameter that need to be determined. In case $\eta_A$ is set to 0, no linear approximation is learned for each Voronoi cell. This means, that each cell has only the constant output of $\vec{w}^n_{out}$.
 
-After the winning node has been updated, the classical \gls{itm} algorithm uses local relations between the new input, the winning node and the second node in order to determine if a new node should be inserted or if some node should be deleted. As long as there are no big jumps in consecutive training samples, this approach works quite well. However, when resetting the environment between consecutive training runs, larger gabs can arise. Furthermore, this network has already been extended by an output function which can now also be used during training. This adaption of the \gls{itm} inserts new nodes into the network if the current network output varies too much from the target output, i.e if:
+After the winning node has been updated, the classical \gls{itm} algorithm uses local relations between the new input, the winning node and the second node in order to determine if a new node should be inserted or if some node should be deleted. As long as there are no big jumps in consecutive training samples, this approach works quite well. However, when resetting the environment between consecutive training runs, larger gabs can arise. Furthermore, this network has already been extended by an output function which can now also be used during training. This adapted \gls{itm} inserts new nodes into the network if the current network output varies too much from the target output, i.e if:
 
 \begin{equation}
-||y^net(x^\alpha)-y^\alpha|| > \epsilon_{ITM}
+||\vec{y}^{net}(\vec{x}^\alpha)-\vec{y}^\alpha|| > \epsilon_{ITM}
 \end{equation}
 
-The threshold $\epsilon_{ITM}$ is dynamically computed, based on the dimensionality of the target output. %TODO example
+The threshold $\epsilon_{ITM} = 10^d$ is dynamically computed, based on the order of magnitude $d$ of the target output norm: %TODO example
 
-\begin{itemize}
-	\item Benefit of dynamic threshold
-	\item node deletion
-	\item Node connections
-	\item Any good figures to visualize this more?
-\end{itemize}
+\begin{equation}
+d = \begin{cases}
+\lfloor\log_{10}(||\vec{y}^\alpha||)\rfloor-1 & \text{if $||\vec{y}^\alpha|| > 0$} \\
+-k & \text{otherwise}
+\end{cases}
+\end{equation}
+
+When the output has a norm of $0$ a fixed threshold $10^k$ is chosen. Ideally $k$ should represent the average order of magnitude of the input. This average can be computed incrementally from the non-zero output norms. The benefit of such a dynamic threshold is that it automatically adapts to different use cases. For example, when the \gls{aitm} is used for classification, the output values will be class labels in the form of positive natural numbers. In this case $d=0$ which results in a threshold of 1. In regression tasks however, the output values will be real numbers. It is obvious that different thresholds are required for both types of use case. The \gls{aitm} assumes that the orders of magnitude of the output within one use case are generally rather similar and can be used as an approximation of the desired accuracy.
+
+%TODO Subject to change
+With every update the two winning nodes are connected as neighbors. Node deletions are performed just as in the traditional \gls{itm}: Second winners are removed if they are too far away from the winning node. Furthermore, isolated nodes will be deleted. A node is considered isolated if it does not have any neighbors left. Neighbor connections are removed if the second winner in an update can replace a previous neighbor:
+
+\begin{equation}
+\forall c \in N(n): \text{If~} (\vec{w}^n_{in}-\vec{w}^s_{in}) \cdot (\vec{w}^c_{in}-\vec{w}^s_{in}) < 0 \text{~remove connection (n,c)}
+\end{equation}
+
+$N$ denotes the set of neighbors of the winning node $n$.
 
 \subsection{Abstract inverse model}
 %TODO

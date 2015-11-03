@@ -1,4 +1,4 @@
-\chapter{State of the art \label{chap:stateOfTheArt}}
+\chapter{Related Work \label{chap:stateOfTheArt}}
 
 
 %What kinds of interaction models are there
@@ -6,56 +6,85 @@
 %Memory based approaches
 %What have others tried to solve this/similar problems?
 
-Because of the importance for robotics, a lot of research is being done regarding object interactions. 
-Nishide et al. trained a \gls{rnn} in order to predict object dynamics directly from the visual input of a camera \cite{nishide2008predicting}.
-In order to solve this more difficult problem they train their system roughly 20 minutes on prerecorded data.
-In \cite{levine2015learning} Levine et al. achieved great results in learning  policies of complex dynamics %TODO \gls{policy}.
-such as assembling plastic toys. They require much fewer training iterations than earlier policy search approaches, i.e in \cite{otherPolicySearchs}.
-However, the main difference to the given problem for this thesis is that Levine et al. fix the manipulated object to the actuator.
+\section{Memory based models}
 
+In machine learning, one generally assumes that data, for example class labels, is given by some function $f^*$. Given some training data $D$ with $d_i =(x_i,y_i)$ where $x_i$ represents the given input and $y_i$ the corresponding output, one tries to estimate $f^*$. 
+Although different algorithms make approximate $f^*$ differently, they can be categorized in two general families: The first one tries to detect \textit{correlations} between features in order to make predictions. The simplest example for this is given by the linear regression \cite{linearRegression} where they find weights $w_i$ so that $f = \sum w_i * x_i$. 
 
+The other family focuses more on \textit{similarities} in the input space instead of feature correlations. Maybe the most prominent example for this is the \gls{knn} regression \cite{knn}. Previously seen training data is stored and compared to new input data. The input data is then labeled according to the $k$ closest stored instances. These instances are also often called prototypes, if only a few instances are used to represent a subspace in the input space. Since the closest instance is determined by similarity, the used features and metric is usually critical for these methods \cite{importanceOfMetric/Features}. Because this often requires careful preprocessing of the used features and metric this can be considered the biggest disadvantage of these methods. However, there has also been a lot of research in automatically adapting the used metric while training in order to better fit the data, e.g. by Hammer et al \cite{lvq}. Unfortunately, online metric adaptation often needs a lot of iterations before yielding satisfying results. 
 
+Another disadvantage of memory based models is the memory consumption over time. Since the training examples need to be stored in order to be retrieved later, a lot of memory can be consumed. This can also lead to increased query and update times, since these scale linearly with the number of stored instances. Geva et al. \cite{protReduction} already showed 1991 that the number of required instances can be reduced depending on the used algorithm. Extending the area of influence of the given instances, for example by using \glspl{llm} \cite{LLM}, can further decrease the number of required instances.
 
-\begin{itemize}
-	\item \cite{pushing} Paper using similar idea of instance based memory in order to predict pushing
-	\begin{itemize}
-		\item restricted to only pushing interactions (no getting closer etc learned by model)
-		\item is mainly used to move object to target position
-		\item General strategy is the same as in my model: First figure out preconditions, then perform best action
-		\item Uses nearest neighbor to find best action
-		\item Works for complex shaped objects
-		\item Paper only shows results based on position, not orientation
-		
-	\end{itemize}
-	\item \cite{nishide2008predicting} RNN and HNN system that learns interactions between objects from camera images
-	\begin{itemize}
-		\item Tries to solve more complex problem (includes feature extraction from images in the system)
-		\item But is learned in a batch mode. Prerecorded by controlling the robot and training on recorded images (~ 20min offline)
-		\item They call it \textit{active sensing} regardless
-	\end{itemize}
-	\item \cite{baranes2013active} Robot architecture for active, online learning of forward and inverse models
-	\begin{itemize}
-		\item Limited to only the robot, not including external objects and their interactions
-		\item Highlights some of the challenges when trying to (actively) learn online
-	\end{itemize}
-	\item \cite{flanagan2006control} Recent (2006) paper about human object manipulation control strategies
-	\item \cite{moldovan2012learning} Learning object affordances with probabilistic model. Actually extends to multiple objects
-	\item \cite{levine2015learning} Impressive (batch) results of object manipulation.
-	\begin{itemize}
-		\item Restriction is that objects are fixed to robot
-		\item Basically \textit{only} learns a trajectory
-	\end{itemize}
-	\item \cite{contactPrediction} Exemplar-based learning of contact/support interaction between (multiple) objects.
-	\begin{itemize}
-		\item Contact distributions are estimated from contact points extracted from the point clouds of objects
-		\item Similarity between distributions determines whether the given contact allows a special interaction
-		\item Binary classification if a certain interaction is possible/happening
-		\item Does not make predictions about the future state of the interacted objects
-		\item Has not been trained online, but rather with previously labeled training data
-	\end{itemize}
-	\item TODO
-	\begin{itemize}
-		\item Look at experience graphs
-		\item Can be mentioned here as well (\cite{phillips2012graphs}) as somewhat similar idea regarding the use of previous experiences, maybe better in introduction?
-	\end{itemize}
-\end{itemize}
+The advantages of memory, or instance based models is that they are local by design. This means that their output only depends on a small part, located around the given input, of the model. Likewise, when they are updated by adding or removing some stored instances, they do so based on local criteria. This is also the reason that memory based models usually do not suffer from the catastrophic forgetting phenomenon.
+
+For the implementation of the concepts developed in this thesis, an adaptation of the \gls{gng} using \gls{llm} as output function is used as underlying regression model. The adapted \gls{itm} is explained in section \ref{sec:ITM} in detail.
+
+%TODO consider putting it in, when we actually talk about exploration
+%\section{Learning forward and inverse models}
+%
+%Much research in the field of robotics has gone into learning forward and inverse models for robot control \cite{listOfControlPaper}. 
+%
+%
+%\item \cite{baranes2013active} Robot architecture for active, online learning of forward and inverse models
+%\begin{itemize}
+%	\item Limited to only the robot, not including external objects and their interactions
+%	\item Highlights some of the challenges when trying to (actively) learn online
+%\end{itemize}
+
+\section{Learning object interactions}
+
+Because of the importance for robotics, a lot of research is being done regarding object interactions.  However, most systems are trained in an offline fashion \cite{nishide2008predicting, moldovan2012learning, contactPrediction}. Out of these, the works of Moldovan et al. and Kroemer et al. are most notable:
+Moldovan et al. use a probabilistic approach to learn affordance models useful for object interactions in \cite{moldovan2012learning}. Affordances, as introduced by Gibson \cite{affordances}, describe the relations between object, actions and effects. Moldovan et al. are able to extend their approach to multiple object scenarios. The biggest difference of their approach to the here presented one, apart from the required offline training and tuning, is that it uses more prior knowledge in order to construct a suitable \gls{bn}.
+
+More recently, Kroemer et al. developed a memory based model that uses the similarities between contact distributions between objects in order to classify different kind of interactions in \cite{contactPrediction}. In their work an interaction is for example if one object supports another object or if an object can be lifted given a certain grasp configuration. The approach of Kroemer et al. also works with multiple objects since only the contact distributions between two objects were considered. Unfortunately, their approach is limited to binary predictions of predefined interaction classes. The robot still needs to learn a suitable forward model. Furthermore, their proposed sampling approach showed poor performance and is likely to become infeasible in unconstrained complex environments.
+
+Learning object interaction incrementally has also been done:
+In \cite{levine2015learning} Levine et al. achieved great results in learning policies of complex dynamics %TODO \gls{policy}.
+such as assembling plastic toys. They require much fewer training iterations than earlier policy search approaches, i.e in \cite{otherPolicySearchs}. They achieve this by training linear-Gaussian controllers on trajectories which are later combined by a guided policy search component.
+However, the main difference to the given problem for this thesis is that Levine et al. consider the objects already firmly grasped which eliminates most of the dynamics in the interaction between the grasped object and the actuator.
+
+The most similar work to this thesis both in terms of setting and in their approach has been done by 
+Lau et al. in \cite{pushing}. The authors use \gls{knn} regression to make predictions about pushing an object. They also provide an algorithm to extract suitable actions that allow to push the object towards a specified target. Unfortunately, the authors restrict their model to the pushing interaction: Moving the actuator, here the entire circular mobile robot, around or towards the object is not part of the learned model but provided instead. Furthermore, while they describe their approach to work with position and orientation, they only provide results for position. Although, developed from a different point of view, the work presented here can be considered an extension to their work, especially the proposed alternative inverse model (see section \ref{sec:invModel}).
+
+%\begin{itemize}
+%	\item \cite{pushing} Paper using similar idea of instance based memory in order to predict pushing
+%	\begin{itemize}
+%		\item restricted to only pushing interactions (no getting closer etc learned by model)
+%		\item is mainly used to move object to target position
+%		\item General strategy is the same as in my model: First figure out preconditions, then perform best action
+%		\item Uses nearest neighbor to find best action
+%		\item Works for complex shaped objects
+%		\item Paper only shows results based on position, not orientation
+%		
+%	\end{itemize}
+%	\item \cite{nishide2008predicting} RNN and HNN system that learns interactions between objects from camera images
+%	\begin{itemize}
+%		\item Tries to solve more complex problem (includes feature extraction from images in the system)
+%		\item But is learned in a batch mode. Prerecorded by controlling the robot and training on recorded images (~ 20min offline)
+%		\item They call it \textit{active sensing} regardless
+%	\end{itemize}
+%	\item \cite{baranes2013active} Robot architecture for active, online learning of forward and inverse models
+%	\begin{itemize}
+%		\item Limited to only the robot, not including external objects and their interactions
+%		\item Highlights some of the challenges when trying to (actively) learn online
+%	\end{itemize}
+%	\item \cite{flanagan2006control} Recent (2006) paper about human object manipulation control strategies
+%	\item \cite{moldovan2012learning} Learning object affordances with probabilistic model. Actually extends to multiple objects
+%	\item \cite{levine2015learning} Impressive (batch) results of object manipulation.
+%	\begin{itemize}
+%		\item Restriction is that objects are fixed to robot
+%		\item Basically \textit{only} learns a trajectory
+%	\end{itemize}
+%	\item \cite{contactPrediction} Exemplar-based learning of contact/support interaction between (multiple) objects.
+%	\begin{itemize}
+%		\item Contact distributions are estimated from contact points extracted from the point clouds of objects
+%		\item Similarity between distributions determines whether the given contact allows a special interaction
+%		\item Binary classification if a certain interaction is possible/happening
+%		\item Does not make predictions about the future state of the interacted objects
+%		\item Has not been trained online, but rather with previously labeled training data
+%	\end{itemize}
+%	\begin{itemize}
+%		\item Look at experience graphs
+%		\item Can be mentioned here as well (\cite{phillips2012graphs}) as somewhat similar idea regarding the use of previous experiences, maybe better in introduction?
+%	\end{itemize}
+%\end{itemize}

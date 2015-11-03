@@ -113,33 +113,47 @@
 \usepackage[Lenny]{sty/fncychapleo}
 
 % Paket um Quelltext sauber zu formatieren.
-\usepackage[savemem]{listings}
-% Einstellungen für das 'listings' Paket.
-\lstloadlanguages{C}            % Sprache laden, notwendig wegen Option 'savemem'
-\lstset{
-	language=C,                 % Sprache des Quelltexts ist C
-	numbers=left,               % Zelennummern links
-	stepnumber=1,               % Jede Zeile numerieren.
-	numbersep=5pt,              % 5pt Abstand zum Quellcode
-	numberstyle=\tiny,          % Zeichengröße 'tiny' für die Nummern.
-	breaklines=true,            % Zeilen umbrechen, wenn notwendig.
-	breakautoindent=true,       % Nach dem Zeilenumbruch Zeile einrücken.
-	postbreak=\space,           % Bei Leerzeichen umbrechen.
-	tabsize=2,                  % Tabulatorgröße (Indent) ist 2
-	basicstyle=\ttfamily\scriptsize, % Schrift
-	showspaces=false,           % Leerzeichen nicht anzeigen.
-	showstringspaces=false,     % Leerzeichen auch in Zeichenketten ('') nicht anzeigen.
-	extendedchars=true,         % Alle Zeichen vom Latin1 Zeichensatz anzeigen.
-	backgroundcolor=\color{ListingBackground}, % Hintergrundfarbe des Quelltexts setzen.
-	captionpos=b,               % Caption unten
-    %linewidth=0.9\textwidth,   % base line width
-    xleftmargin=0.02\textwidth, % margin left
-    xrightmargin=0.02\textwidth % margin right
-}
+%\usepackage[savemem]{listings}
+%% Einstellungen für das 'listings' Paket.
+%\lstloadlanguages{C}            % Sprache laden, notwendig wegen Option 'savemem'
+%\lstset{
+%	language=C,                 % Sprache des Quelltexts ist C
+%	numbers=left,               % Zelennummern links
+%	stepnumber=1,               % Jede Zeile numerieren.
+%	numbersep=5pt,              % 5pt Abstand zum Quellcode
+%	numberstyle=\tiny,          % Zeichengröße 'tiny' für die Nummern.
+%	breaklines=true,            % Zeilen umbrechen, wenn notwendig.
+%	breakautoindent=true,       % Nach dem Zeilenumbruch Zeile einrücken.
+%	postbreak=\space,           % Bei Leerzeichen umbrechen.
+%	tabsize=2,                  % Tabulatorgröße (Indent) ist 2
+%	basicstyle=\ttfamily\scriptsize, % Schrift
+%	showspaces=false,           % Leerzeichen nicht anzeigen.
+%	showstringspaces=false,     % Leerzeichen auch in Zeichenketten ('') nicht anzeigen.
+%	extendedchars=true,         % Alle Zeichen vom Latin1 Zeichensatz anzeigen.
+%	backgroundcolor=\color{ListingBackground}, % Hintergrundfarbe des Quelltexts setzen.
+%	captionpos=b,               % Caption unten
+%    %linewidth=0.9\textwidth,   % base line width
+%    xleftmargin=0.02\textwidth, % margin left
+%    xrightmargin=0.02\textwidth % margin right
+%}
+
+
+\usepackage[linesnumbered]{algorithm2e}
+\SetAlFnt{\ttfamily\small}
 
 \usepackage{amsmath}
 %\DeclareMathOperator*{\argmin}{arg\,min}
 \newcommand{\argmin}{\operatornamewithlimits{argmin}}
+
+\usepackage[e]{esvect}
+\makeatletter
+\def\traitfill@#1#2#3#4{%
+  $\m@th\mkern2mu\relax#4#1\mkern-1.5mu%
+   \cleaders\hbox{$#4\mkern0mu#2\mkern0mu$}\hfill%
+   \mkern-1.5mu#3$%
+}
+ \makeatother
+\renewcommand{\vec}[1]{\bar{#1}}
 
 % Tabellen
 \usepackage{array}                  % Paket für erweiterte Tabelleneigenschaften
@@ -182,7 +196,6 @@
 % Überschriften anpassen
 %\usepackage{titlesec}
 %\titleformat{\subsection}{\bfseries\large\sffamily\itshape}{}{0em}{\thesubsection~}
-
 % Folgende Dinge tut man in TeX NICHT, da das Ganze gegen die Grundregeln des
 % Textsatzes verstößt. Wer meint, es trotzdem verwenden zu müssen, um ein "Word"-ähnlicheres 
 % Satzbild zu bekommen, sollte mit dem Verantwortlichen über Sinn oder Unsinn dieses 

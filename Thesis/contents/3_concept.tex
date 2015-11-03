@@ -5,17 +5,15 @@
 %Present equal concepts with theoretical pro's and cons
 %What are the general ideas that we try to solve the problem with?
 
-This chapter presents the concepts that were developed for this thesis in order
-to meet the goals stated in the introduction. Before introducing the general ideas 
-to solve the problem, it is first described in section \ref{sec:problem}. Section 
-\ref{sec:pairInt} describes 
-the idea of only working in the interaction space. The alternative approach of 
-modeling object states directly is described in section \ref{sec:gate}.
+Unlike in isolated classification or regression tasks, it is not enough to employ one specialized machine learning algorithm in to solve the given problem. Since the model is supposed to interact with its environment and update itself while experiencing new interactions, a more important complex model is required. While the chosen underlying regression and classification methods need to fulfill certain conditions and greatly influence the resulting model performance, they could easily replaced by suitable alternatives. Even more important is the architecture around them, that organizes the information coming from the environment and adapts where necessary. This chapter presents the general concepts behind the two developed models and the way the information is organized.
+
+First a more detailed specification about the problem is given in section \ref{sec:problem}. Afterwards,
+section \ref{sec:pairInt} describes the first developed concepts working solely in what is called the interaction space in this thesis. The alternative approach of modeling object states directly is described in section \ref{sec:gate}.
 
 \section{Problem specification \label{sec:problem}}
 
-The goal of this thesis is to provide possible models that learn simple interactions between physical objects. In the scope of this thesis, these interactions are limited to pushing contacts between objects in two dimensions. An overview about the situation can be seen in figure \ref{fig:overview}. %TODO pushing contacts not really correct, sounds like I only deal with the moments where they are already connected
-One object, the actuator, can be controlled by the model through known action primitives. The results of these actions however are not necessarily known to the model beforehand. Consequently, the model might be required to learn a forward model of its actuator as well as the pushing interactions. Apart from the actuator at least one more object is present in the environment. Given a certain state of the environment and a selection action primitive, the model is supposed to make accurate predictions about the state of the environment after the action has been performed. Since the actuator, or some other object, might push objects that are not directly controllable through actions, the state of all objects in the scene need to be predicted. 
+As stated in the introduction, the goal of this thesis is to provide possible models that incrementally learn simple interactions between physical objects. Without any training the model should be able to interact with the environment as visualized in figure \ref{fig:overview}. %TODO pushing contacts not really correct, sounds like I only deal with the moments where they are already connected
+One object, the actuator, can be controlled by the model through known action primitives. The results of these actions however are not necessarily known to the model beforehand. Consequently, the model might be required to learn a forward model of its actuator as well as the pushing interactions. Apart from the actuator at least one more object is present in the environment. Given a certain state of the environment and a selected action primitive, the model is supposed to make accurate predictions about the state of the environment after the action has been performed. Since the actuator, or some other object, might push objects that are not directly controllable through actions, the state of all objects in the scene need to be predicted. 
 
 Furthermore, when a specific target state for an object is given, the inverse model should select an action primitive, that will bring the objects in the environment closer to the target state. The inverse model needs to include the pushing interactions, since only the actuator can be controlled directly. It might be required to bring the actuator in a suitable position before another object can be pushed in the correct direction. %TODO sounds strange
 
@@ -28,7 +26,7 @@ Furthermore, when a specific target state for an object is given, the inverse mo
 
 \section{Modeling pairwise interactions \label{sec:pairInt}}
 
-The first idea tries to find distinct subspaces in the \textit{interaction space} between two objects. In this context, the interaction space represents the space of all interactions between two objects. This includes their relative placement and movement to each other, as well as their influence, for example by pushing, on each other. Instead of modeling and learning forward and inverse models for each object, only the pairwise interaction space between two objects is considered.  
+The first approach tries to find distinct subspaces in the \textit{interaction space} between two objects. In this context, the interaction space represents the space of all interactions between two objects. This includes their relative placement and movement to each other, as well as their influence, for example by pushing, on each other. Instead of modeling and learning forward and inverse models for each object, only the pairwise interaction space between two objects is considered.  
 
 For every object pair an \textit{interaction state} is considered. This interaction state represents one object's state relative to the second object's state. This includes for example transforming each objects position and orientation to the local coordinate system of the second object. %For the realization, described in section \ref{sec:pairRealization}, he actuator is not used as reference.
 The predicted object states are extracted from the predicted interaction states.
@@ -44,7 +42,7 @@ At each update step the current interaction states for all object pairs in the e
 $e^i$ represents the i's episode that has been stored yet. $e^i_{preState}$ means only the previous interaction state of the episode, while $e^i_{action}$ represents the used action in that episode.
 The norm $||a,b||_e$ is a special norm used to allow different weighting of the features from the previous state and the action. For planning, the action difference can be swapped with the difference between the resulting state of each episode and the desired target state.
 
-Once the most similar episode has been found, the desired information can be extracted from it. That is the resulting state for prediction or the action for planning. The formula above represents a nearest neighbor search on all episodes. Although such an approach can work, it quickly becomes infeasible when the number of stored episode keeps growing. Since the nearest neighbor search scales linearly with the number of stores examples it is unsuitable for lifelong learning. 
+Once the most similar episode has been found, the desired information can be extracted from it. That is the resulting state for prediction or the action for planning. The formula above represents a nearest neighbor search on all episodes. Although such an approach can work, it quickly becomes infeasible when the number of stored episode keeps growing. Since the nearest neighbor search scales linearly with the number of stored examples it is unsuitable for lifelong learning. 
 
 As mentioned above, the idea of this concept is to split the interaction space into subspaces and train local models for each of these subspaces. An overview of the structure can be seen in figure \ref{fig:PairOverview}.
 The episodes corresponding to the same subspace are collected in \textit{abstract collections} which are further explained in section \ref{sec:ACs}.
@@ -72,7 +70,7 @@ idea is that these collections correspond to different interaction scenarios.
 Consider an exemplary interaction state with the named attributes distance and angle.
 The distance represents the closest distance between the two objects represented by the interaction state. The angle gives the angular direction the second object is located with respect to the local coordinate system of the reference object. The set containing only the distance represents all interactions where one object moves straight towards or away from the other object. The set where nothing changes would signal a pushing interaction, when an action is being performed.
 
-Since each distinct interaction scenario results in a different set of changing attributes, the interaction space is split into subspaces by these collection. The resulting collections create an abstract representation for each of these interaction scenarios.
+Since each distinct interaction scenario results in a different set of changing attributes, the interaction space is split into subspaces by these collections. The resulting collections create an abstract representation for each of these interaction scenarios.
 
 These collections can then train their respective local forward and inverse models. These can be simple nearest neighbor structures as mentioned above. Alternatively, any suitable regression model can be trained. Depending on the model this can reduce the amount of episodes that need to be stored as well. Furthermore, each collection can perform local optimizations such as automatic feature selection.
 
@@ -179,7 +177,7 @@ The more interesting process of reaching a target configuration for a non actuat
 	\label{fig:GatePlanning}
 \end{figure}
 
-First the current difference state is computed from the given target configuration and the current object state. This difference state is then used to query the responsible inverse model. Since only the actuator can be influenced by actions directly, these local inverse models do not directly return action primitives. Instead they return preconditions in the form of the relative interaction features that result in a change that reduces the difference to the target configuration. The current actuator state is then compared to these preconditions. If the actuator is already in a configuration where it meets these preconditions, an action primitive can be derived from the local features.
+First the current difference state is computed from the given target configuration and the current object state. This difference state is then used to query the responsible inverse model. Since only the actuator can be influenced by actions directly, these local inverse models do not directly return action primitives. Instead they return preconditions in the form of the relative interaction features that result in a change that reduces the difference to the target configuration. The current actuator state is then compared to these preconditions. If the actuator is already in a configuration where it meets these preconditions, an action primitive can be derived from the local features. In most situations this will however not be the case. The given preconditions will often require the actuator to be in a different position relative to the object that is to be moved. In these cases, the suitable position for the actuator, is used as a intermediate target. Considering the current object's position, an action is calculated to move the actuator towards the intermediate target. This might result in a circling movement of the actuator around the object. Moving the actuator directly towards the intermediate target position, might result in moving the object in a more unfavorable position and is therefore avoided. Since these steps are performed at every timestep, the model can quickly adapt to changes in the environment.
 
 %TODO
 [TODO is this realization?]

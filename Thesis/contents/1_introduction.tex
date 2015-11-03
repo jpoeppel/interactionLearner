@@ -31,52 +31,35 @@
 %advances such as the development of Hinton's dropout technique \cite{dropout} allows to train bigger networks with fewer data,
 %this criteria still limits the potential use cases of deep learning and neural networks in general.
 
+After decades of research a vast amount of powerful tools have been developed for machine learning. A good overview can be found the book by Bishop \cite{bishop}. Each of these methods has its own advantages and disadvantages and are applicable to certain situations. Currently, research in machine learning is often performed by choosing a problem, e.g. image recognition or movement control, and trying to find and tune the most successful method to solve the chosen problem. This way the researchers were able to create better classifiers for image recognition (e.g. \cite{imageRecList}) and better controllers for complex movements (e.g.\cite{movementList}).
+%TODO Adrianas Anmerkung: 1. Im ersten Absatz würde ich das "e.g. image recognition or movement
+%control" weglassen. Das kommt direkt im nächsten Satz schon wieder
+%(und image recognition im 3. Absatz noch einmal), das stört dann etwas
+%den Lesefluss, wenn man so denkt "häh, déjà vu?!"
 
 
-[TODO General introduction here]
+In most of these cases the machine is trained to solve one specific problem. Depending on the chosen methods it is not possible to extend the machines knowledge easily without retraining the entire system afterwards because of the stability-plasticity-dilemma \cite{stability-plasticity}. More precisely because of the phenomenon of catastrophic forgetting \cite{catastrophicForgetting1}.
 
-Robotics research has advanced far enough that researchers are now 
-trying to develop multi-purpose robots. While the hardware for such robots
-is constantly improving, the usability of modern robots is currently more
-limited by their software. Multi-purpose machines do not have the luxury of 
-being limited to restricted, well known environments. Providing suitable and
-sufficient training data for all possible scenarios a multi-purpose robot
-might encounter is infeasible at best. Therefore, instead of trying to train
-the machine beforehand, it might be better to provide it with the means to
-adapt to new situations on its own. This idea falls under the concept of 
-(lifelong) online adaptation or online learning. 
+With advances in robotic hardware and the successful application of machine learning in specialized tasks, such as image recognition, the goal of robotic research trends towards multi-purpose robots again. However, the biggest problem for multi-purpose machines is that the current approach to machine learning is not applicable. Since the number of tasks the robot has to face is not known in advance, suitable tools cannot be training in advance. Furthermore, even if one would attempt to train specialized parts for all kinds of problems, acquiring sufficient and accurate training data beforehand is infeasible at best. 
+%TODO glossary for model or some footnode on what is meant by model
+Therefore, instead of trying to train the machine beforehand, it might be better to provide it with the means to adapt to new situations on its own while it is encountering them. This requires what is called incremental or online learning. Instead of adapting to previously recorded training data, the robot adapts its model to the continuous stream of data while it is already using what it learned beforehand.
 
-Apart from the general challenges in machine learning, such as generalization 
-performance, lifelong online learning introduces even more challenges, such as the 
-stability-plasticity-dilemma \cite{stability-plasticity}. Furthermore, in order to be able to 
-continuously upgrade itself, the model needs to work in an open loop with its environment. 
-Depending on the actual purpose of the robot this might add additional constraints for the update 
-and query times of the used model. %Why use memory based?
-The family of memory based machine learning approaches usually 
-does not suffer from the stability-plasticity-dilemma due to their inherently local nature.  
-Furthermore, their local nature allows them to be easily updated incrementally. Their biggest disadvantage for lifelong learning is that their update and query time usually increase with the amount of training data. Nevertheless, in the scope of this thesis, a memory based regression and classification model has been adapted and tested for its suitability for this task.
+Instead of challenging the entire problem of incrementally learning an unlimited number of arbitrary tasks, this thesis concentrates on the incremental learning of one task without prior training. 
+While there are multiple machine learning methods that allow incremental updates, not all of them are suitable for this kind of task. First of all, the method should be as independent on prior knowledge as possible so that it can be used for a wide variety of task the robot might encounter. Furthermore, the update and query times of the chosen method need to be quick enough to allow continuous interaction with the environment. On top of that, the chosen method should not suffer from the catastrophic forgetting effect since the robot would constantly keep updating it.
 
-[TODO why object interaction etc]
+One important aspect of general purpose robotics is object manipulation. In order to successfully interact with the objects in its environment the robot needs to learn what kind of interactions are possible and what their effects are. 
+Furthermore, object interactions are hard to model manually as they follow complex dynamics. On top of that, different object can behave completely differently, so that knowledge acquired in previous training sessions might not be useful later on. It is for these reasons object interactions make an ideal target for online self adaptation. 
+In this thesis a smaller subspace of all the possible object interactions is considered by focusing on pushing interactions between an actuator controlled by action primitives and some object in the environment. 
+The proposed concepts need to provide a forward model as well as an inverse model. The forward model makes predictions about the state of all entities in the environment after an action primitives as been performed. The inverse model provides an action primitive that is used to reach a specified target configuration within the environment.
+In order to avoid the catastrophic forgetting phenomenon as well as allow one-shot learning a memory based approach is used for this thesis. Another reason for a memory based approach is that it allows easy incremental updates and provides good predictions with only very little training data.
 
+The goal of this thesis can summarized to provide and evaluate simple models that:
 
-As a smaller test environment, this thesis concentrates on incrementally learning simple object 
-interactions. Since object interactions are hard to model manually, providing a robot with the 
-capabilities of learning such interactions would be quite beneficial for multi-purpose robots.
-By starting with as little prior world knowledge as possible, the model needs to adapt to a mostly 
-unknown scenario on its own. 
+\begin{enumerate}
+	\item Update themselves incrementally during the interaction
+	\item Allow prediction and planning of simple object interactions with minimal domain knowledge
+	\item Allow lifelong learning
+\end{enumerate}
 
-Within this environment, this thesis' focus can be summarized as follows: 
-
-\begin{itemize}
-	\item Prediction and planning with minimal amount of prior world knowledge
-	\item Interactive, online learning
-	\item Suitability of memory based models for lifelong learning
-\end{itemize}
-
-Chapter \ref{chap:stateOfTheArt} gives an overview about how researches are 
-currently approaching these questions. The concepts this thesis contributes 
-are presented in chapter \ref{chap:concept}. Chapter \ref{chap:modelReal} 
-describes how these concepts were realized before chapter \ref{chap:evaluation} 
-presents the evaluation of these realizations. Finally, these results are discussed in chapter 
-\ref{chap:conclusion}.
+This thesis is structured as follows: In chapter \ref{chap:stateOfTheArt} an overview over memory based learning as well as recently proposed models for learning object interactions for robotics is given. Two concepts were developed in order to fulfill the stated goals. Their general idea is described in \ref{chap:concept} before concrete implementation details are given in chapter \ref{chap:modelReal}. These models are then evaluated with regards to their prediction and planning performance in chapter \ref{chap:evaluation}. Finally, this thesis concludes with a discussion of these results in chapter \ref{chap:conclusion}.
 

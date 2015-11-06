@@ -8,6 +8,11 @@
 %How did we realize/achieve the ideas?
 %Present what kind of assumptions/prior knowledge is made!!
 
+\begin{itemize}
+	\item Actual architectures resemble concepts closely
+	\item Crux lies in the regression model (AITM)
+\end{itemize}
+
 In order to evaluate the developed ideas, prototypes of the two concepts described in the previous section have been implemented in Python. Relevant decisions and assumptions made for the implementation are highlighted and explained in this chapter. 
 
 Section \ref{sec:basics} starts with describing common design decisions made that apply to both concepts. Afterwards the relevant implementations details regarding the two prototypes are presented in section \ref{sec:pairRealization} for the interaction state concept and in section \ref{sec:gateRealization} for the object state concept. Finally, section \ref{sec:technologies} describes the used technologies such as the underlying regression and classification model in detail.
@@ -37,9 +42,17 @@ In order to meet the goals of incremental lifelong online learning, a regression
 
 \section{Modeling pairwise interaction \label{sec:pairRealization}}
 
+\begin{itemize}
+	\item only \gls{aitm} was used for everything
+	\item feature selection? (currently not implemented in latest version)
+	\item 
+\end{itemize}
+
+
 The pairwise interaction model is based on the interaction space between two objects as already described in the concept chapter \ref{sec:pairInt}. The model itself only operates on interaction features which are computed from the given object states. These features and their computation are detailed in section \ref{sec:intFeatures}. As mentioned above, the model receives a constant stream of updates from its environment regarding the interaction states. Consecutive interaction states are group in \textit{episodes} along with the last action primitive the model executed. 
 
 The naive way for this model to work is to simply store all recorded episodes and perform nearest neighbor search for prediction and planning using equation \ref{eq:bestEpisode}. The simplest norm for $||a,b||_e$ is given by the euclidean norm of the vector resulting from appending $b$ to $a$. However, the euclidean norm assumes all features to be equally important and equally scaled, which is often not the case.
+
 
 
 

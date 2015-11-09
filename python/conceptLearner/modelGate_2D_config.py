@@ -132,13 +132,13 @@ class Object(object):
         elif dist > 0.06:
             return -0.4*relPos/np.linalg.norm(relPos)
         else:
-            tangent = np.array([-relPos[1], relPos[0], 0.0])
-            if direction != None and np.any(tanged*direction < 0):
+            tangent = np.array([-relPos[1], relPos[0]])
+            if direction != None and np.any(tanget*direction < 0):
                 return -0.4*tangent/np.linalg.norm(tangent)
             else:
                 return 0.4*tangent/np.linalg.norm(tangent)
         
-        return np.array([0.0,0.0,0.0])
+        return np.array([0.0,0.0])
         
     def __repr__(self):
         return "{}".format(self.id)
@@ -385,14 +385,15 @@ class MetaNode(object):
     def getPreconditions(self):
         res = np.zeros(self.lenPreCons)
         res2 = np.zeros(self.lenPreCons)
-        l = sorted([(k, v) for k,v in self.signCombinations.items()], key=itemgetter(1), reverse=True)
+#        l = sorted([(k, v) for k,v in self.signCombinations.items()], key=itemgetter(1), reverse=True)
+        l = sorted([(k,self.signCombinations[k]/self.signCombinationNumbers[k]) for k in self.signCombinations.keys()], key=itemgetter(1), reverse=True)
         if len(l) > 1:
             comb1 = l[0][0].split(";")
             comb2 = l[1][0].split(";")
             pre1 = self.signCombinationSums[l[0][0]]
             pre2 = self.signCombinationSums[l[1][0]]
-            w1 = self.signCombinations[l[0][0]]
-            w2 = self.signCombinations[l[1][0]]
+            w1 = self.signCombinations[l[0][0]]#/self.signCombinationNumbers[l[0][0]]
+            w2 = self.signCombinations[l[1][0]]#/self.signCombinationNumbers[l[1][0]]
             for i in xrange(len(comb1)):
                 if comb1[i] == comb2[i] or comb1[i] == '0' or comb2[i] == '0':
                     res[i] = (pre1[i]+pre2[i])/(w1+w2)
@@ -498,6 +499,7 @@ class MetaNetwork(object):
         
                 
     def getPreconditions(self, targetDifs):
+        #TODO reset curSecIndex as well to avoid secondary oscilation!!
         res = self.preConsSize
         if GREEDY_TARGET:
             if self.curIndex != None:
@@ -657,6 +659,7 @@ class ModelGate(object):
         
     def isTargetReached(self):
         targetO = self.curObjects[self.target.id]
+        print "targetO.vec: ", targetO.vec
         difVec = targetO.vec-self.target.vec
         norm = np.linalg.norm(difVec)
         print "dif norm: ", norm
@@ -750,13 +753,12 @@ class ModelGate(object):
         """
         if self.target is None:
 #            return self.explore()
-            return np.array([0.0,0.0,0.0])
-            pass
+            return np.array([0.0,0.0])
         else:
             if self.isTargetReached():
                 print "target reached"
                 self.target = None
-                return np.array([0.0,0.0,0.0])
+                return np.array([0.0,0.0])
             else:
                 targetO = self.curObjects[self.target.id]
                 # Determine difference vector, the object should follow

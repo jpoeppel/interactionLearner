@@ -42,7 +42,7 @@ class Config(object):
         self.gateClassifierEtaOut = 0.0
         self.gateClassifierEtaA = 0.0
         self.gateClassifierTestMode = 0 #Winner
-        self.gateMask = [2,3,6,7]
+        self.gateMask = [2,3,6,7] #dist, clos, rVx, rVy
         self.actuatorEtaIn = 0.0
         self.actuatorEtaOut = 0.1
         self.actuatorEtaA = 0.0
@@ -80,7 +80,7 @@ class Config(object):
         self.fixedTrainSeed = False
         self.trainSeed = 1234
         self.startRunRange = 0.5
-        self.testPositions = np.arange(-0.35,0.351,0.035) #np.arange(-0.35,0.35,0.349)#
+        self.testPositions = np.arange(-0.35,0.351,0.035)# np.array([-0.25,0.0,0.25])# #np.arange(-0.35,0.35,0.349)#
         self.fixedFirstThreeTrains = False
         
         self.numTooSlow = 0

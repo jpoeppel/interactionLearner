@@ -53,9 +53,9 @@ config.switchToConfig(CONFIGURATION)
 
 FILEEXTENSION = "_SymmetricTests"
 
-trainRuns = [1,2,3,5,10,20,30]
-NUMBER_FOLDS = 20
-RECORD_SIMULATION = True
+trainRuns = [3]
+NUMBER_FOLDS = 5
+RECORD_SIMULATION = False
 
 logging.basicConfig()
 
@@ -72,7 +72,7 @@ MODE = PUSHTASKSIMULATION
 #MODE = MOVE_TO_TARGET
 
 
-NUM_TRAIN_RUNS = 3
+NUM_TRAIN_RUNS = 8
 NUM_TEST_RUNS = len(config.testPositions)
 
 class GazeboInterface():
@@ -743,7 +743,7 @@ class GazeboInterface():
     def setRandomTarget(self):
         target = model.Object()
         target.id = 15
-        target.vec = np.zeros(4)
+        target.vec = np.zeros(3)
         target.vec[0:2] = (np.random.rand(2)-0.5)*2.0
         target.vec[2] = (np.random.rand()-0.5)*2*np.pi
         self.worldModel.setTarget(target)
@@ -752,9 +752,9 @@ class GazeboInterface():
         target = model.Object()
         target.id = 15
         if model.USE_DYNS:
-            target.vec = np.array([-0.5, 0.4, 0.05, 1.8 ,0.0,0.0,0.0])
+            target.vec = np.array([-0.5, 0.4, 1.8 ,0.0,0.0])
         else:
-            target.vec = np.array([0.75, -0.4, 0.05, -1.0])#, 0.0,0.0,0.0, 0.0])
+            target.vec = np.array([0.75, -0.4, -1.0])#, 0.0,0.0,0.0, 0.0])
         self.worldModel.setTarget(target)
     
     def stop(self):

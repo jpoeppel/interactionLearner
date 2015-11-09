@@ -75,6 +75,10 @@ The pairwise interaction model basically only uses the interaction state and the
 	\label{tab:pairInteractionFeatures}
 \end{table}
 
+Furthermore, the interaction state contains the information required for the transformations. Specifically, the matrix $T$ to transform from the local coordinate frame back to the global 
+frame, its inverse $T^{-1}$ and the orientation of the reference object in the global coordinate frame.
+In this case all features are computed by transforming the global features of both objects given by the environment to the local coordinate frame. Consider two objects $o_1$ and $o_2$ with positions $p_1$ and $p_2$ and orientations $\alpha_1$ and $\alpha_2$ respectively. First the transformation matrices $T$ and $T^{-1}$ are computed from the reference object's position and orientation:
+
 
 \section{Object space with gating function \label{sec:gateRealization}}
 

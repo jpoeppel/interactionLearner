@@ -13,52 +13,67 @@
 	\item Crux lies in the regression model (AITM)
 \end{itemize}
 
-In order to evaluate the developed ideas, prototypes of the two concepts described in the previous section have been implemented in Python. Relevant decisions and assumptions made for the implementation are highlighted and explained in this chapter. 
+In order to evaluate the developed ideas, prototypes of the two concepts described in the previous section have been implemented in Python. Both prototypes are developed as such that they can be evaluated in the same way in the next chapter. The implementations try to follow the presented concepts very closely. As such the general data flow is the same as was presented in the figures  \ref{fig:PairPrediction}, \ref{fig:GatePrediction} and \ref{fig:GatePlanning}.
+Relevant decisions and assumptions made specifically for the implementation are highlighted and explained in this chapter.
 
-Section \ref{sec:basics} starts with describing common design decisions made that apply to both concepts. Afterwards the relevant implementations details regarding the two prototypes are presented in section \ref{sec:pairRealization} for the interaction state concept and in section \ref{sec:gateRealization} for the object state concept. Finally, section \ref{sec:technologies} describes the used technologies such as the underlying regression and classification model in detail.
+Section \ref{sec:basics} starts with describing common design decisions made that apply to both concepts. Afterwards the relevant implementations details regarding the two prototypes are presented in section \ref{sec:pairRealization} for the interaction state concept and in section \ref{sec:gateRealization} for the object state concept. Finally, section \ref{sec:technologies} describes the used technologies such as the underlying regression and classification model and the implementation of the inverse model in detail.
 
 \section{Basics \label{sec:basics}}
 
-The following descriptions and assumptions are accurate for all realizations independent of the underlying concept.
+%The following descriptions and assumptions are accurate for all realizations independent of the underlying concept.
 
-\subsection{Single timestep}
+\begin{itemize}
+\item Action primitives
+\item 
+\end{itemize}
 
-One way to learn pushing interactions is to learn the trajectories of entire interactions. While this is possible, for example with a Hidden Markov Model \cite{hmm} and has been done successfully by [TODO look up name] \cite{hmmTrajectory}, it requires labeled training data. More precisely, it requires the models to know when a trajectory starts and when it finishes. Since the model presented here are supposed to learn incrementally by self exploration or at least in an online manner without being provided labeled data from the outside, the models would need to derive the start and endpoints of an interaction automatically. 
-
-The models presented here do not predict entire interactions but rather make small predictions at each timestep in order to avoid the need for such segmentation. This also means that these models are coupled closely to their environment and get updates at each timestep. The actual duration between two updates is not predetermined or restricted by the models presented here. The longer the duration between updates, the more the object states change during an interaction. 
+%\subsection{Single timestep}
+%TODO consider if this makes sense/is required
+%One way to learn pushing interactions is to learn the trajectories of entire interactions. While this is possible, for example with a Hidden Markov Model \cite{hmm} and has been done successfully by [TODO look up name] \cite{hmmTrajectory}, it requires labeled training data. %TODO
+%More precisely, it requires the models to know when a trajectory starts and when it finishes. Since the model presented here are supposed to learn incrementally by self exploration or at least in an online manner without being provided labeled data from the outside, the models would need to derive the start and endpoints of an interaction automatically. 
+%
+%The models presented here do not predict entire interactions but rather make small predictions at each timestep in order to avoid the need for such segmentation. This also means that these models are coupled closely to their environment and get updates at each timestep. The actual duration between two updates is not predetermined or restricted by the models presented here. The longer the duration between updates, the more the object states change during an interaction. 
 %TODO maybe rearrange the sentences
 
 \subsection{Action primitives}
-The action primitives that are available to the model are setting the  two dimensional velocity of the actuator. Due to the environment used, the velocity cannot exceed a norm of $0.5m/s$. Other than that there are no restrictions on the velocity. 
-%TODO Maximum velocity is not really relevant to the model, so maybe not really the right place here?
+In the scope of this thesis, the action primitives allow to set the two dimensional velocity of the actuator. Although, velocities are set, the models assume that an action is selected and performed at every iteration. In general, the nature of the action is not all that important to the models as long as it can be represented as a vector. In this case a two dimensional vector is used representing the x- and y-velocity respectively. The velocities are given according to the global coordinate system of robot. 
 
 %TODO maybe like this: 
 %Similar to the above mentioned timestep, these models assume, that an action is primitive is %selected and performed at each timestep. This results in the assumption that 
 
 \subsection{Used regression and classification model}
 
-In order to meet the goals of incremental lifelong online learning, a regression and classification model is required that allows incremental, local updates. The locality is needed in order to avoid the catastrophic forgetting effect global models experience. As already mentioned in the introduction, this thesis decides to use a memory based model in order to meet these requirements. Unless stated otherwise, all classifiers and regression models, such as the forward model use the adapted ITM described in detail in section \ref{sec:ITM}.
-
+As already stated in the introduction and motivated in chapter \ref{chap:stateOfTheArt}, this thesis uses a memory based approach to learn the interactions. For this end, a special adaptation of the \gls{gng} has been developed which can be used for regression as well as classification tasks. This \gls{aitm}, explained in section \ref{sec:ITM}, is used for all regression and classification models used in both prototypes unless otherwise mentioned. 
 
 \section{Modeling pairwise interaction \label{sec:pairRealization}}
 
 \begin{itemize}
-	\item only \gls{aitm} was used for everything
 	\item feature selection? (currently not implemented in latest version)
-	\item 
 \end{itemize}
-
-
-The pairwise interaction model is based on the interaction space between two objects as already described in the concept chapter \ref{sec:pairInt}. The model itself only operates on interaction features which are computed from the given object states. These features and their computation are detailed in section \ref{sec:intFeatures}. As mentioned above, the model receives a constant stream of updates from its environment regarding the interaction states. Consecutive interaction states are group in \textit{episodes} along with the last action primitive the model executed. 
-
-The naive way for this model to work is to simply store all recorded episodes and perform nearest neighbor search for prediction and planning using equation \ref{eq:bestEpisode}. The simplest norm for $||a,b||_e$ is given by the euclidean norm of the vector resulting from appending $b$ to $a$. However, the euclidean norm assumes all features to be equally important and equally scaled, which is often not the case.
-
-
 
 
 
 \subsection{Used features \label{sec:intFeatures}}
 
+The pairwise interaction model basically only uses the interaction state and the action primitive vector as feature vectors. The actual composition of the interaction state depends on the objects that need to be represented. For this thesis, only simple objects are present in the scene which allows fairly simple interaction states as described in table \ref{tab:pairInteractionFeatures}.
+
+\begin{table}
+	\centering
+	\begin{tabular}{|c|c|}
+		\hline Feature & Description \\ 
+		\hline Id 1 & Identifier of the reference object \\ 
+		\hline Id 2 & Identifier of the second object \\ 
+		\hline Local x Position & Local x position of the reference object \\
+		\hline Local y Position & Local y position of the reference object \\
+		\hline Local orientation & Local orientation of the reference object \\
+		\hline Relative x Position & Relative x position of the second object \\
+		\hline Relative y Position & Relative y position of the second object \\
+		\hline Relative Orientation & Relative orientation of the second object \\
+		\hline 
+	\end{tabular} 
+	\caption{This table shows the features used to represent one interaction state. Relative positions and velocities refer to the coordinate system of the reference object.}
+	\label{tab:pairInteractionFeatures}
+\end{table}
 
 
 \section{Object space with gating function \label{sec:gateRealization}}
@@ -157,6 +172,36 @@ The gate trains a binary classifier on the relative interaction features about i
 
 \section{Used technologies \label{sec:technologies}}
 
+\subsection{Inverse Model \label{sec:invModelRealization}} %TODO better name!
+
+%TODO rework after moving here!!!
+
+A prototype is trained for each direction of each feature that changed in the object state during an update. Each prototype computes a weighted average of the preconditions that resulted in a feature change represented by it. The preconditions are weighted by the magnitude of the change. 
+
+Simply taking the average is however not possible as can be seen in figure \ref{fig:avgProblem}.
+
+\begin{figure}
+	\centering
+	\includegraphics{avgProblem.pdf}
+	\caption{Visualization of the averaging problem for point symmetric features. The circles represent the actuator while the rectangle represents a block object. Both pushing scenarios result in the same direction for orientation change of the object, however averaging the relative x and y positions would result in an invalid precondition.} 
+	\label{fig:avgProblem}
+\end{figure}
+
+For point symmetric features, such as relative x and y positions in the figure, averaging results in invalid preconditions. In this case, the averaged preconditions would want the actuator to be in the center of the block, which is neither possible nor would it result in an orientation change. In order to prevent this, two averages are computed for each feature. One for all positive values of that feature and one for all negatives. on top of that, all combination of feature signs are stored and weighted by the magnitude of the change. When returning the entire preconditions, the averages corresponding to the sign combination with the highest weight are returned. Table \ref{tab:signCombinations} shows the combinations visible in the example above. In case combination 1 has the highest weight, the positive average for the x position, the negative average for the y position and the positive average for the y velocity is used. 
+
+\begin{table}
+	\centering
+	\begin{tabular}{|c|c|c|}
+		\hline Feature & Combination 1 & Combination 2 \\ 
+		\hline x position & + & - \\ 
+		\hline y position & - & + \\ 
+		\hline y velocity & + & - \\ 
+		\hline 
+	\end{tabular} 
+	\caption{Table showing the sign combinations for the example in figure \ref{fig:avgProblem}}
+	\label{tab:signCombinations}
+\end{table}
+
 \subsection{Adapted instantaneous topological map \label{sec:ITM}}
 %TODO Add pseudo code at the beginning to show general process or nice figure!
 %TODO find better name! Consider calling it something closer to kNN since that is kind of what it becomes
@@ -232,6 +277,6 @@ With every update the two winning nodes are connected as neighbors. Node deletio
 
 $N$ denotes the set of neighbors of the winning node $n$.
 
-\subsection{Abstract inverse model}
-%TODO
-[TOOD maybe move description from concept here]
+%\subsection{Abstract inverse model}
+%%TODO
+%[TOOD maybe move description from concept here]

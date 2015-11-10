@@ -14,7 +14,7 @@
 \end{itemize}
 
 In order to evaluate the developed ideas, prototypes of the two concepts described in the previous section have been implemented in Python. Both prototypes are developed as such that they can be evaluated in the same way in the next chapter. The implementations try to follow the presented concepts very closely. As such the general data flow is the same as was presented in the figures  \ref{fig:PairPrediction}, \ref{fig:GatePrediction} and \ref{fig:GatePlanning}.
-Relevant decisions and assumptions made specifically for the implementation are highlighted and explained in this chapter.
+Relevant decisions and assumptions made specifically for the implementation are highlighted and explained in this chapter. %TODO maybe needs to be changed
 
 Section \ref{sec:basics} starts with describing common design decisions made that apply to both concepts. Afterwards the relevant implementations details regarding the two prototypes are presented in section \ref{sec:pairRealization} for the interaction state concept and in section \ref{sec:gateRealization} for the object state concept. Finally, section \ref{sec:technologies} describes the used technologies such as the underlying regression and classification model and the implementation of the inverse model in detail.
 
@@ -35,22 +35,109 @@ Section \ref{sec:basics} starts with describing common design decisions made tha
 %The models presented here do not predict entire interactions but rather make small predictions at each timestep in order to avoid the need for such segmentation. This also means that these models are coupled closely to their environment and get updates at each timestep. The actual duration between two updates is not predetermined or restricted by the models presented here. The longer the duration between updates, the more the object states change during an interaction. 
 %TODO maybe rearrange the sentences
 
+\subsection{Available information about objects}
+
+The kind of information that is provided by the environment obviously depends on the sensors that are available to the robot. From the information provided by these sensors, features can be computed. The models themselves are greatly independent on what features are actually used. In fact the models do not require any knowledge about what the features represent for prediction and none is provided. This allows the exact same model to be used in various settings with different features, for example if additional or different sensors are available. In order to yield good results, the used features obviously need to have the necessary expressiveness.
+
+Unfortunately, the model does need to have some partial knowledge about the features when it comes to planning as will be further explained in the corresponding sections of both models.
+
+These prototypes were evaluated using a physics simulation, further explained in section \ref{sec:simulation}. From this simulation the information in table \ref{tab:availInformation} is provided for each object at each update.
+
+\begin{table}[h!]
+	\centering
+	\begin{tabular*}{\textwidth}{@{\extracolsep{\fill} } l l}
+		\textbf{Feature} & \textbf{Description} \\ 
+		\hline \hline 
+		x Position & Global x position of the object \\
+		y Position & Global y position of the object \\
+		Orientation & Global orientation around the z-axis of the object \\
+		x Velocity & Global x velocity of the object \\
+		y Velocity & Global y velocity of the object \\
+		\hline 
+	\end{tabular*} 
+	\caption{Summary of all information about objects that is available at each update step from the environment in the given setting.}
+	\label{tab:availInformation}
+\end{table}
+
+Furthermore,  a unique identifier, the shape and size of the objects are known and can be used to compute additional features for the model. What kind of features are computed from this information is a design decision of the user of these models. Because of the dependence on the used metric in the underlying regression model, using more features might worsen the performance of the models. 
+
+
+
 \subsection{Action primitives}
 In the scope of this thesis, the action primitives allow to set the two dimensional velocity of the actuator. Although, velocities are set, the models assume that an action is selected and performed at every iteration. In general, the nature of the action is not all that important to the models as long as it can be represented as a vector. In this case a two dimensional vector is used representing the x- and y-velocity respectively. The velocities are given according to the global coordinate system of robot. 
-
-%TODO maybe like this: 
-%Similar to the above mentioned timestep, these models assume, that an action is primitive is %selected and performed at each timestep. This results in the assumption that 
 
 \subsection{Used regression and classification model}
 
 As already stated in the introduction and motivated in chapter \ref{chap:stateOfTheArt}, this thesis uses a memory based approach to learn the interactions. For this end, a special adaptation of the \gls{gng} has been developed which can be used for regression as well as classification tasks. This \gls{aitm}, explained in section \ref{sec:ITM}, is used for all regression and classification models used in both prototypes unless otherwise mentioned. 
 
+\subsection{Using local features and predicting differences}
+%TODO rewrite
+\begin{itemize}
+\item Local features make the assumption that everything behaves the same regardless of the configuration
+\item Difference prediction needs to be used when using local features
+\item Difference prediction is also possible with global features and without the assumption
+\item Difference prediction reduces output space, not sure if I want to write about this
+\end{itemize}
+Both prototypes only use local features as inputs for their trained regression and classification models as can be seen in sections \ref{sec:intFeatures} and \ref {sec:gateFeatures}.
+This means that in the interaction states as well as the Relative Interaction Features of the object state model represent all features relative to some reference object's coordinate frame. The great advantage of this approach is that the interactions can be learned regardless of the object's actual configuration in the environment. %TODO
+
+
+Both concepts describe that the local models predict the next state of the interaction and object states respectively. In the realization presented here, only the changes in the states are predicted instead of the actual resulting states. 
+
+Using only differences greatly reduces the complexity of the problem. Instead of learning the interaction behavior of objects at every configuration in the environment separately, it is sufficient to learn the behavior independent of the configuration. In fact training data from all different configurations can be used to learn about the same interaction. Consequently, generalization about different configurations in the environment come for free. 
+
+%TODO consider if the following is even true. Can't predicting differences even be used with environment effects?
+Learning on the differences makes the assumption that similar interactions behave in the same way regardless of the actual configuration. Considering the given situation this assumes that an object will always move in the same way no matter where and how it is located in the environment. In other words, the effects of an interaction are only dependent on the relation between the objects involved and not on their global attributes. For the given task of pushing interactions this assumption will hold true as long as the environment only has a constant effect on the objects. The environment used for the evaluations, described in section \ref{sec:environment}, fulfills these conditions since it only affects the objects through gravity and friction, which are constant throughout the entire environment. 
+
+In more realistic environments, where this assumption does not hold true, the differences can still be used. However, in this case, the used input features need to contain the information about the influence of the environment or the current object configuration. 
+
+
+
 \section{Modeling pairwise interaction \label{sec:pairRealization}}
 
-\begin{itemize}
-	\item feature selection? (currently not implemented in latest version)
-\end{itemize}
+%\begin{itemize}
+%	\item feature selection? (currently not implemented in latest version)
+%\end{itemize}
 
+The implementation of the pairwise interaction model also contains the components visualized in figure \ref{fig:PairOverview}. From these components, three different parts are trained:
+The Abstract Collection Selector trains a classifier that selects any of the $n$ learned Abstract Collections. Within each Abstract Collections, there exist a local forward model which performs the predictions. Additionally, the Abstract Collections contain an inverse model, which return preconditions that result in a specific change of the interaction state. The forward model as well as the selector both use the same underlying mechanism with the \gls{aitm}. For the reasons explained in section \ref{sec:invModel}, the special inverse model is used.
+
+Algorithm \ref{alg:intUpdate} explains the steps that are performed each time new information is received from the environment.
+
+\begin{algorithm}
+	\KwIn{New worldstate ws}
+	\KwIn{Used action a}
+	\KwData{Last worldstate ws$_\text{old}$}
+	\KwData{Set of Abstract Collections L}
+	\KwData{Abstract Collection Selector ACS}
+	\BlankLine
+	\ForEach{interaction state i $\in$ ws}{
+		newEpisode = Episode(i$_\text{old}$, a, i) \\
+		S = newEpisode.changedFeatures() \\
+		\tcc*[h]{Check if a corresponding AC already known} \\
+		\If{S $\notin$ L}{
+			newAC = AbstractCollection(S) \\
+			L = L $\cup$ newAC 
+		}
+		AC = L$_\text{S}$ \tcc*[f]{The Abstract Collection responsible for S} \\
+		update AC with newEpisode \\
+		update ACS with i$_\text{old}$, a and AC
+	}
+	\caption{Prediction of the update steps in the pairwise interaction model.}
+	\label{alg:intUpdate}
+\end{algorithm}
+
+The changed feature set S is basically computed according to equation \ref{eq:difSet}. However, it is important to note, that the $Post$ state needs to be transformed to the same coordinate frame as the $Pre$ state before computing the differences. The exact computation is shown in section \ref{sec:episodes} where the structure of these episodes is explained.
+
+When updating an Abstract Collection both its forward and inverse model need to be updated. The forward model as well as the inverse model are trained using the combination of the old interaction state i$_\text{old}$ and the action primitive a as input and the difference vector d between the old interaction state and the new one as desired output. The exact training of the \gls{aitm} is explained in section \ref{sec:ITM} while the training of the inverse model is explained in section \ref{sec:invModelRealization}.
+
+The Abstract Collection Selector is trained on the same combination of i$_\text{old}$ and a as input, but it uses the identifier of the responsible Abstract Collection as desired output.
+Since the selector also uses the \gls{aitm} as classifier, the exact update rules are explained below.
+
+When used for the prediction the model follows the process visualized in figure \ref{fig:PairPrediction} and described in section \ref{sec:pairPrediction}. The only difference is that, only changes are predicted by the local forward models. Learning on the differences instead of the actual results, allows to abstract from the actual scenario. That way all pushing interactions that result in a similar orientation can be treated the same
+
+
+%The model itself only works on interaction states and action primitives. The specific structure and content of these features is explained in section \ref{sec:intFeatures}.
 
 
 \subsection{Used features \label{sec:intFeatures}}
@@ -59,21 +146,71 @@ The pairwise interaction model basically only uses the interaction state and the
 
 \begin{table}
 	\centering
-	\begin{tabular}{|c|c|}
-		\hline Feature & Description \\ 
-		\hline Id 1 & Identifier of the reference object \\ 
-		\hline Id 2 & Identifier of the second object \\ 
-		\hline Local x Position & Local x position of the reference object \\
-		\hline Local y Position & Local y position of the reference object \\
-		\hline Local orientation & Local orientation of the reference object \\
-		\hline Relative x Position & Relative x position of the second object \\
-		\hline Relative y Position & Relative y position of the second object \\
-		\hline Relative Orientation & Relative orientation of the second object \\
+	\begin{tabular*}{\textwidth}{@{\extracolsep{\fill} } l l}
+		\textbf{Feature} & \textbf{Description} \\ 
+		\hline \hline 
+		 Id 1 & Identifier of the reference object \\ 
+		 Id 2 & Identifier of the second object \\ 
+		 Local x Position & Local x position of the reference object \\
+		 Local y Position & Local y position of the reference object \\
+		 Local Orientation & Local orientation of the reference object \\
+		 Relative x Position & Relative x position of the second object \\
+		 Relative y Position & Relative y position of the second object \\
+		 Relative Orientation & Relative orientation of the second object \\
 		\hline 
-	\end{tabular} 
-	\caption{This table shows the features used to represent one interaction state. Relative positions and velocities refer to the coordinate system of the reference object.}
+	\end{tabular*} 
+	\caption{This table shows exemplary features used to represent one interaction state. Relative positions and velocities refer to the coordinate system of the reference object.}
 	\label{tab:pairInteractionFeatures}
 \end{table}
+
+Furthermore, the interaction state contains the information required for the transformations. Specifically, the matrix $T$ to transform from the local coordinate frame back to the global 
+frame, its inverse $T^{-1}$ and the orientation of the reference object in the global coordinate frame.
+
+The model assumes, that these interaction states come directly from the environment. Transformations from and to the actual object states need to be performed outside of the actual model. This is achieved by introducing a \textit{Worldstate}. From the point of view of the model, this world state is simply a collection of all interaction states in the environment. At each update from the environment, a new Worldstate is computed from the information provided. The model predicts a new Worldstate by making predictions about all interaction states that are included in a given Worldstate. Since one is usually more interested in the actual object states, the model finalizes the Worldstate after all interaction states have been predicted. This finalization extracts the object state predictions from the predicted interaction states. 
+
+The interaction states are computed as follows:
+In this case all features are computed by transforming the global features of both objects given by the environment to the local coordinate frame. Consider two objects $o_1$ and $o_2$ with positions $\vec{p}_1$ and $\vec{p}_2$ and orientations $\alpha_1$ and $\alpha_2$ respectively. First the transformation matrices $T$ and $T^{-1}$ are computed from the reference object's position and orientation:
+
+\begin{equation}
+T = \begin{pmatrix}
+\cos(\alpha_1) & -\sin(\alpha_1) & px_1 \\
+\sin(\alpha_) & \cos(\alpha_1) & py_1 \\
+0.0 & 0.0 & 1.0
+\end{pmatrix}
+\qquad
+T^{-1} = inv(T)
+\end{equation}
+
+$px_1$, $py_1$ correspond to the $x$ and $y$ dimensions of the position $\vec{p}_1$. With the help of the transformation matrix $T^{-1}$ it is possible to compute the local positions, e.g.:
+
+\begin{equation}
+\vec{p}' = T^{-1} \times \vec{p_1}^*
+\end{equation}
+
+where $\vec{p}_1^*$ is the homogeneous vector of $\vec{p}_1$. Since $\vec{p}'$ is also in homogeneous coordinates, only the first two components are used for the interaction state. The local and relative orientations are computed by subtracting the orientation of the reference object from the given orientations. In fact by doing this, all local fields in the interaction state will be zero after the computation. However, these fields are still required. The Abstract Collections predict the change in the current interaction state. In order to extract the predicted object states from the interaction state, changes in the reference object need to be predicted as well. 
+
+The object states are extracted by using the inverse transformation. Since the structure of the interaction states are known outside of the model, the predicted local position $\vec{q}$ can easily be extracted. Using the homogeneous coordinates $\vec{q}^*$ of $\vec{q}$, the prediction for the actual object's position $\vec{p}_{pred}$ can be computed:
+
+\begin{equation}
+\vec{p}_{pred}^* = T \times \vec{q}^*
+\end{equation}
+
+Velocities can be computed analog if needed.
+In order to get the global orientation, the reference object's orientation simply needs to be added to the predicted orientation. 
+
+\subsection{Episodes \label{sec:episodes}}
+
+\begin{itemize}
+\item Explain difference computation
+\end{itemize}
+
+
+
+
+
+
+
+
 
 
 \section{Object space with gating function \label{sec:gateRealization}}
@@ -101,7 +238,7 @@ Algorithm \ref{alg:gatePrediction} shows how a prediction for one object is perf
 The pseudo function \textit{getPrediction} first selects the responsible forward model before the change is predicted. This selection is being performed based on the identifier of the reference object. If no local model has been trained for the reference object, the predictor tries to find a forward model that is responsible for similar objects. If no suitable forward model can be found, a zero change prediction is returned. This means that the object state remains unchanged.
 
 
-\subsection{Used features}
+\subsection{Used features \label{sec:gateFeatures}}
 
 This model uses different kind of feature representations. The object states consist of their object specific features. The once that are most important are dynamic features, meaning the features that can actually change. These features are summarized in table \ref{tab:gateObjectFeatures}.
 
@@ -173,6 +310,12 @@ The gate trains a binary classifier on the relative interaction features about i
 \section{Used technologies \label{sec:technologies}}
 
 \subsection{Inverse Model \label{sec:invModelRealization}} %TODO better name!
+
+\begin{itemize}
+\item Training
+\item Averaging
+\item structure
+\end{itemize}
 
 %TODO rework after moving here!!!
 

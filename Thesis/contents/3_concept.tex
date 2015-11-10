@@ -76,6 +76,7 @@ The interaction space can be split in a multitude of subspaces. Ideally, one wou
 The clustering of episodes suggested here is based on the set of features that changed between the previous state and the resulting state while performing an action. The set $S$ of features that changed is defined as follows 
 \begin{equation}
 S = \{f | f \in F ~ \wedge ~ ||Pre(f)-Post(f)|| > \epsilon_{Noise}\}
+\label{eq:difSet}
 \end{equation}
 where $F$ denotes the set of all features, $Pre(f), Post(f)$, the value of 
 feature $f$ in the initial and resulting state of the episode respectively. $\epsilon_{Noise}$ is a threshold to cancel out potential noise of the environment and should be set according to the accuracy of the used sensors.
@@ -90,7 +91,7 @@ These collections train their respective local forward and inverse models based 
 
 %The \gls{aitm} (see section \ref{sec:ITM}) used for the prototype implementation behaves similar to a \gls{knn}. 
 
-\subsection{Prediction with the Abstract Collection Selector}
+\subsection{Prediction with the Abstract Collection Selector \label{sec:pairPrediction}}
 %TODO consider removing DT here, since it is not used anymore and was never as good as what we have now
 Prediction within this architecture requires several steps. The general idea of the information flow when predicting one interaction state is visualized in figure \ref{fig:PairPrediction}. The model expects an interaction state that has been computed from the objects information provided by the environment. This interaction state is used together with the given action primitive as input for the Abstract Collection Selector. The selector needs to estimate which Abstract Collection is most likely responsible for the next interaction. In order to make this estimation, any suitable classifier, e.g. a decision tree \cite{DT}, is trained on all input-collection pairs the model experienced so far. 
 %TODO maybe remove/rewrite this following passage
@@ -178,8 +179,9 @@ The general process for predicting general objects is visualized in figure \ref{
 First the next actuator state is predicted as mentioned above using the selected action primitive.
 This predicted state is then used together with the current state of the object that is to be predicted to compute \textit{Relative Interaction Features}. These relative features are similar to the interaction state that was explained in the previous concept. However, since it is not necessary to extract the entire object states for both objects from these relative features, the dimensionality can be a lot lower than before. In fact, depending on the scenario, it may be sufficient to only represent the actuator in the local coordinate frame of the object. 
 The \textit{Gate} then uses these features to determine if the object will be influenced by the new actuator state. If the gate predicts no interaction between the object and the actuator, the current object state is returned. 
+On the other hand, if an interaction is predicted, the \textit{Predictor} uses the relative features to query the local forward model responsible for the current object to make the prediction. 
 
-On the other hand, if an interaction is predicted, the \textit{Predictor} uses the relative features to query the local forward model responsible for the current object to make a prediction. The local model predicts the changes in the object states instead of the final states. This allows the local models to be independent of the actual object states. The concept assumes, that an interaction between two objects behaves the same in different situations as long as their relative interaction features are the same. In order to get the actual predicted object state, these changes are added to the current object state.
+%The local model predicts the changes in the object states instead of the final states. This allows the local models to be independent of the actual object states. The concept assumes, that an interaction between two objects behaves the same in different situations as long as their relative interaction features are the same. In order to get the actual predicted object state, these changes are added to the current object state. %TODO might be doubled with the realization subsection, fix!
 
 When more then one object other than the actuator is present, the same process can be repeated. In order to predict interactions between two non actuator objects, a prediction chain is performed. First the actuator is predicted as described above. Afterwards, the objects that are directly influenced by the actuator are predicted. These predictions can then in turn be used as new \enquote{actuators} for interactions between them and other objects. 
 

@@ -349,6 +349,52 @@ def generalDistClosing(id1, p1, v1, ang1, id2, p2, v2, ang2):
     return np.round(max(minDist,0.0), config.NUMDEC), np.round(npdot(normal, vel), config.NUMDEC)
     
 
+def generalDist(id1, p1, ang1, id2, p2, ang2):
+    localEdges = {27: [(-0.25,0.05),(-0.25,-0.05),(0.25,-0.05),(0.25,0.05)], 
+                       15: [(-0.25,0.05),(-0.25,-0.05),(0.25,-0.05),(0.25,0.05)], 
+                        8: [(0.0,0.0)]}
+    segmentIds = {27: [[0,1],[1,2],[2,3],[3,0]],
+                  15: [[0,1],[1,2],[2,3],[3,0]],
+                  8: []}
+    radii = {27: 0.0, 15: 0.0, 8: 0.025}
+    
+    ca = math.cos(ang1)
+    sa = math.sin(ang1)
+    r = np.array([[ca, -sa], 
+                  [sa, ca]])
+    edges1 = [npdot(r, e)+p1 for e in localEdges[id1]]
+    ca = math.cos(ang2)
+    sa = math.sin(ang2)
+    r = np.array([[ca, -sa], 
+                  [sa, ca]])
+    edges2 = [npdot(r, e)+p2 for e in localEdges[id2]]
+    
+    dpList = [distPointSeg(edges2[s[0]], edges2[s[1]], ref, radius=radii[id1]) for ref in edges1 for s in segmentIds[id2]]
+    dpList2 = [distPointSeg(edges1[s[0]], edges1[s[1]], ref, radius=radii[id2]) for ref in edges2 for s in segmentIds[id1]]
+    
+    sortedL = sorted(dpList, key = itemgetter(0))
+    sortedL2 = sorted(dpList2, key = itemgetter(0))
+            
+    if len(sortedL) > 0 and len(sortedL2) > 0:
+        if sortedL[0][0] < sortedL2[0][0]:
+            minDist = sortedL[0][0]
+            normal = sortedL[0][1]-sortedL[0][2]
+        else:
+            minDist = sortedL2[0][0]
+            normal = sortedL2[0][2]-sortedL2[0][1]
+    else:
+        if len(sortedL) > 0:
+            minDist = sortedL[0][0]
+            normal = sortedL[0][1]-sortedL[0][2]
+        elif len(sortedL2) > 0:
+            minDist = sortedL2[0][0]
+            normal = sortedL2[0][2]-sortedL2[0][1]
+        else:
+            minDist = 0
+            normal = np.zeros(2)
+
+    return np.round(max(minDist,0.0), config.NUMDEC)
+
 def computeDistanceClosing(id1, p1, v1, ang1, id2, p2, v2, ang2):
     edges  = {15: [(-0.25,0.05),(-0.25,-0.05),(0.25,-0.05),(0.25,0.05)], 8: [(0.0,0.0)]}
     segments = {15: [(edges[15][0], edges[15][1]),(edges[15][1],edges[15][2]),(edges[15][2],edges[15][3]),(edges[15][3],edges[15][0])], 8:[]}    

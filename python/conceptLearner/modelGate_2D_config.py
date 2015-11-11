@@ -271,7 +271,7 @@ class Classifier(object):
         self.clas = ITM()
         self.isTrained = False
         
-    def train(self, o1vec, avec, label):
+    def train(self, o1vec, avec, label): #Consider removing avec here since it is not used, action already in the o1vec
         if config.HARDCODEDGATE:
             pass
         else:
@@ -597,7 +597,7 @@ class Predictor(object):
         else:
             print "No inverse model for objectId {}".format(objectId)
     
-    def update(self, intState, action, dif):
+    def update(self, intState, action, dif): #TODO: consider removing action here since it is not used
         if not intState[0] in self.predictors:
             #TODO check for close ones that can be used
             self.predictors[intState[0]] = ITM()
@@ -764,7 +764,7 @@ class ModelGate(object):
                 # Determine difference vector, the object should follow
 #                print "global dif vec: ", self.target.vec-targetO.vec
                 difVec = targetO.getLocalChangeVec(self.target)
-                difNorm = np.linalg.norm(difVec)
+#                difNorm = np.linalg.norm(difVec)
 #                print "difVec: ", difVec[:5]
                 pre = self.predictor.getAction(self.target.id, difVec)
                 if pre == None:
@@ -792,20 +792,20 @@ class ModelGate(object):
                         return targetO.circle(self.actuator)
                         
                 if np.linalg.norm(difPos) > 0.01:
-                    action = 0.3*difPos/np.linalg.norm(difPos)
-                    print "difpos action: ", action
-                    tmpAc = self.actuator.predict(action)
-                    if not self.gate.test(targetO, tmpAc, action):
+                    difPosAction = 0.3*difPos/np.linalg.norm(difPos)
+                    print "difpos action: ", difPosAction
+                    tmpAc = self.actuator.predict(difPosAction)
+                    if not self.gate.test(targetO, tmpAc, difPosAction):
                         print "doing difpos"
-                        return action
+                        return difPosAction
                     else:
-                        predRes = self.predictor.predict(targetO, tmpAc, action)
+                        predRes = self.predictor.predict(targetO, tmpAc, difPosAction)
                         if np.linalg.norm(predRes.vec-self.target.vec) > np.linalg.norm(targetO.vec-self.target.vec):
                             print "circlying since can't do difpos"
-                            return targetO.circle(self.actuator, action)
+                            return targetO.circle(self.actuator, difPosAction)
                         else:
                             print "doing difpos anyways"
-                            return action
+                            return difPosAction
 
                 print "using vel"
                 normVel = np.linalg.norm(vel)

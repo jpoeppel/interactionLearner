@@ -20,15 +20,20 @@ from itm import ITM
 from sets import Set
 import copy
 from configuration import config
+from operator import itemgetter
 
+GREEDY_TARGET = True
 
 class Object(object):
     
     def __init__(self):
         self.id = 0
-        self.vec = np.array([])
-        self.lastVec = np.array([])
-        pass
+        if config.USE_DYNS:
+            self.vec = np.zeros(6)
+            self.lastVec = np.zeros(6)
+        else:
+            self.vec = np.zeros(3)
+            self.lastVec = np.zeros(3)
     
     @classmethod
     def parse(cls, m):
@@ -49,17 +54,14 @@ class Object(object):
             res.vec[1] = npround(m.pose.position.y, config.NUMDEC) #posY
             res.vec[2] = npround(common.quaternionToEuler(np.array([m.pose.orientation.x,m.pose.orientation.y,
                                                 m.pose.orientation.z,m.pose.orientation.w])), config.NUMDEC)[2] #ori
-                                                
-                                                
         res.lastVec = npcopy(res.vec)
         return res
         
     @classmethod
     def fromInteractionState(cls, intState):
+        #TODO cannot be used with dynamics as is
         o1 = cls()
-        o1.vec = np.zeros(3)
         o2 = cls()
-        o2.vec = np.zeros(3)
         o1.id = int(intState.vec[0])
         o2.id = int(intState.vec[1])
         p1 = np.ones(3)
@@ -94,8 +96,8 @@ class InteractionState(object):
     
     def __init__(self):
         self.id = ""
-        self.vec = np.array([])
-        self.lastVec = np.array([])
+        self.vec = np.zeros(8)
+        self.lastVec = np.zeros(8)
         self.trans = None
         self.invTrans = None
         self.ori = 0.0
@@ -110,10 +112,10 @@ class InteractionState(object):
     
     @classmethod
     def fromObjectStates(cls, o1, o2):
+        #TODO Does currently not use dynamics
         res = cls()
         res.id = str(o1.id) + "," + str(o2.id)
         
-        res.vec = np.zeros(8)
         res.vec[0] = o1.id
         res.vec[1] = o2.id
 #        res.vec[2:5] = 0.0 #Does not need to be set since it will be zero in local coordinate system
@@ -129,6 +131,18 @@ class InteractionState(object):
         res.invTrans = common.invertTransMatrix(res.trans)
         res.ori = o1.vec[2]
         return res
+
+        
+    def circle(self):
+        o1,o2 = Object.fromInteractionState(self)
+        dist = common.generalDist(o1.id, o1.vec[0:2], o1.vec[2], o2.id, o2.vec[:2], o2.vec[2])
+        relPos = self.vec[5:7]
+        if dist < 0.04:
+            return 0.4*relPos/np.linalg.norm(relPos)
+        elif dist > 0.06:
+            return -0.4*relPos/np.linalg.norm(relPos)
+        tangent = np.array([-relPos[1], relPos[0]])
+        return -0.4*tangent/np.linalg.norm(tangent)
     
 class WorldState(object):
     
@@ -171,7 +185,6 @@ class WorldState(object):
             self.objectStates[o1.id] = o1
             self.objectStates[o2.id] = o2
             
-#        self.interactionStates = {}
         self.parseInteractions()
     
 class Action(object):
@@ -284,7 +297,7 @@ class MetaNode(object):
     def getPreconditions(self):
         res = np.zeros(self.lenPreCons)
         res2 = np.zeros(self.lenPreCons)
-        l = sorted([(k, v) for k,v in self.signCombinations.items()], key=itemgetter(1), reverse=True)
+        l = sorted([(k,self.signCombinations[k]/self.signCombinationNumbers[k]) for k in self.signCombinations.keys()], key=itemgetter(1), reverse=True)
         if len(l) > 1:
             comb1 = l[0][0].split(";")
             comb2 = l[1][0].split(";")
@@ -312,10 +325,6 @@ class MetaNetwork(object):
         self.preConsSize = None
         self.difSize = None
         self.targetIndex = None
-        self.preConsToCheck = None
-        self.preConsToTry = None
-        self.preConIndex = 4  #Currently hard coded to only look at position
-        self.tryNext = False
         pass
     
     def train(self, pre, difs):
@@ -342,62 +351,9 @@ class MetaNetwork(object):
                     self.targetIndex =None
                     self.preConIndex = 4  #For exploration
                     targetIndexFound = True
-                    
-        ### For exploration            
-        if self.preConsToTry != None:
-            print "precons similarity: ", np.linalg.norm(pre-self.preConsToTry)
-            print "given pres: ", pre
-            print "desired pres: ", self.preConsToTry
-        if self.preConsToTry != None and np.linalg.norm(pre-self.preConsToTry) < 0.01:
-            print "similar precons reached: ", np.linalg.norm(pre-self.preConsToTry)
-            if not targetIndexFound:
-                print "similar precons did not yield expected results."
-                print "targetIndex: ", self.targetIndex
-                print "actual difs: ", difs
-                self.tryNext = True
-
-                
-    def tobeNamed(self):
-        """
-            Function that tries to find preconditions that might increase its knowledge
-            about the obejct interaction.
-        """
-        if self.targetIndex == None:
-            curKeys = self.nodes.keys()
-            print "curKeys: ", curKeys
-            for i in xrange(self.difSize):
-                if str(1.0*i) in curKeys and not str(-1.0*i) in curKeys:
-                    self.targetIndex = str(-1.0*i)
-                    self.preConsToCheck = self.nodes[str(1.0*i)].getPreconditions()[0]
-                    break
-                if str(-1.0*i) in curKeys and not str(1.0*i) in curKeys:
-                    self.targetIndex = str(1.0*i)
-                    self.preConsToCheck = self.nodes[str(-1.0*i)].getPreconditions()[0]
-                    break
-                #TODO if no unkown key is left, look at "worst" key and improve that
-                # figure out a way to measure which one is worst
-        else:
-            if self.tryNext:
-                self.preConIndex += 1
-            if self.preConIndex == 7:#len(self.preConsToCheck):
-                self.targetIndex = None
-                self.preConIndex = 4    
-                return self.tobeNamed()
-                
-        if self.targetIndex == None:
-            print "No key found to improve"
-            return None
-                
-        print "targetIndex: ", self.targetIndex
-        self.preConsToTry = np.copy(self.preConsToCheck)
-        self.preConsToTry[self.preConIndex] *= -1
-            
-
-        return self.preConsToTry
-        
+                            
                 
     def getPreconditions(self, targetDifs):
-        res = self.preConsSize
         if GREEDY_TARGET:
             if self.curIndex != None:
                 ind = float(self.curIndex)
@@ -425,7 +381,7 @@ class MetaNetwork(object):
                     print "targetDifs: ", targetDifs
                     return None
                 else:
-                    self.curIndex = index
+#                    self.curIndex = index
                     print "precons for index: ", index
                     preCons1, preCons2 = self.nodes[index].getPreconditions()
                     
@@ -506,7 +462,7 @@ class ModelInteraction(object):
         self.featuresACMapping = {}
         self.training = True
         self.target = None
-        
+        self.targetFeatures = []
         pass    
     
     
@@ -530,15 +486,94 @@ class ModelInteraction(object):
             ----------
             target : Object
         """
-        self.target = target
+        #Create target interaction state from object
+        if target.id == 8:
+            raise NotImplementedError("Currently only non acutator objects can be set as targets.")
+        dummyObject = Object()
+        dummyObject.id = 8
+        self.target = InteractionState.fromObjectStates(target, dummyObject)
+        self.targetFeatures = [2,3,4]
+        
+    def isTargetReached(self):
+        targetInteraction = self.curInteractionStates[self.target.id]
+        episode = Episode(targetInteraction, Action(), self.target)
+        if np.linalg.norm(episode.difs[self.targetFeatures]) < 0.01:
+            return True
+        return False
         
     def getAction(self):
         if self.target is None:
 #            return self.explore()
-            return np.array([0.0,0.0,0.0])
+            return np.array([0.0,0.0])
         else:
-            #
-            pass
+            if self.isTargetReached():
+                self.target = None
+                print "Target reached!"
+                return np.zeros(2)
+            else:
+                targetInteraction = self.curInteractionStates[self.target.id]
+                #Create desired episode with zero action, in order to get required difference vector
+                desiredEpisode = Episode(targetInteraction, Action(), self.target)
+                #Only consider target differences
+                
+                targetChangingFeatures = [i for i in desiredEpisode.getChangingFeatures() if i in self.targetFeatures]
+                targetDifs = desiredEpisode.difs[self.targetFeatures]
+                maxIndex = np.argmax(abs(targetDifs))
+                maxFeature = targetChangingFeatures[maxIndex]
+                print "maxIndex: ", maxIndex
+                featuresString = ",".join(map(str,targetChangingFeatures))
+                print "targetChangingFeatures: ", targetChangingFeatures
+                print "available ACs: ", self.featuresACMapping.keys()
+                responsibleACs = []
+    #            if featuresString in self.featuresACMapping:
+    #                responsibleACs.append(self.abstractCollections[self.featuresACMapping[featuresString]])
+    #            else:
+                for k in self.featuresACMapping.keys():
+                    if str(maxFeature) in k:
+                        responsibleACs.append(self.abstractCollections[self.featuresACMapping[k]])
+                
+#                for ac in responsibleACs:
+#                    if str(maxIndex*np.sign(targetDifs[maxIndex])) in ac.inverseModel.nodes:
+                        
+                preConditions = None
+                i=0
+                while preConditions == None:
+                    preConditions = responsibleACs[i].getAction(targetDifs)
+                    i+=1
+                print "usedAC: ", i-1
+                print "Preconditions: ", preConditions
+                relTargetPos = preConditions[5:7]
+                globTargetPos = np.ones(3)
+                globTargetPos[:2] = np.copy(relTargetPos)
+                globTargetPos = np.dot(targetInteraction.trans, globTargetPos)[:2]
+                relAction = preConditions[8:10]
+                curRelPos = targetInteraction.vec[5:7]
+                globCurPos = np.ones(3)
+                globCurPos[:2] = np.copy(curRelPos)
+                globCurPos = np.dot(targetInteraction.trans, globCurPos)[:2]
+                print "global Target: ", globTargetPos
+                print "global Current: ", globCurPos
+                print "rel Target: ", relTargetPos
+                print "rel Pos: ", curRelPos
+                
+                difPos = globTargetPos-globCurPos
+                globAction = np.dot(targetInteraction.trans[:2,:2],relAction)
+                print "global Action: ", globAction
+                wrongSides = curRelPos*relTargetPos < 0
+                if np.any(wrongSides):
+                    if max(abs(relTargetPos[wrongSides]-curRelPos[wrongSides])) > 0.05:
+                        print "circling"
+                        return targetInteraction.circle()
+    
+    
+                if np.linalg.norm(difPos) > 0.05:
+                    print "doing difpos"
+                    return 0.3*difPos/np.linalg.norm(difPos)                
+                print "global action"
+                if np.linalg.norm(globAction) == 0.0:
+                    return globAction
+                return  0.3*globAction/np.linalg.norm(globAction)
+                pass
     
     def update(self, curWorldState, usedAction):
         for intId, intState in curWorldState.interactionStates.items():

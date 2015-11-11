@@ -66,12 +66,12 @@ class Config(object):
             self.episodeDifThr = 0.001
             self.frequency = 100
             self.metaNodeThr = 0.001
-            self.metaNetDifThr = 0.002
+            self.metaNetDifThr = 0.001 #0.002
         else:
             self.episodeDifThr = 0.01
             self.frequency = 10
             self.metaNodeThr = 0.01
-            self.metaNetDifThr = 0.02
+            self.metaNetDifThr = 0.01 #0.02
         #General
         self.USE_DYNS = False
         self.NUMDEC = 3

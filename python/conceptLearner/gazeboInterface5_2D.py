@@ -67,9 +67,9 @@ PUSHTASKSIMULATION = 2
 PUSHTASKSIMULATION2 = 3
 MOVE_TO_TARGET = 4
 
-MODE = PUSHTASKSIMULATION
+#MODE = PUSHTASKSIMULATION
 #MODE = FREE_EXPLORATION
-#MODE = MOVE_TO_TARGET
+MODE = MOVE_TO_TARGET
 
 
 NUM_TRAIN_RUNS = 8
@@ -737,15 +737,20 @@ class GazeboInterface():
 #            self.lastPrediction = self.worldModel.predict(worldState, self.lastAction)
 #            self.sendPrediction()
             if self.worldModel.target != None:
-                self.sendPose("blockAShadow", self.worldModel.target.vec[0:2], self.worldModel.target.vec[2])
+                if GATE:
+                    taget = self.worldModel.target
+                else:
+                    target, o2 = model.Object.fromInteractionState(self.worldModel.target)
+                self.sendPose("blockAShadow", target.vec[0:2], target.vec[2])
             
         
     def setRandomTarget(self):
         target = model.Object()
         target.id = 15
-        target.vec = np.zeros(3)
-        target.vec[0:2] = (np.random.rand(2)-0.5)*2.0
-        target.vec[2] = (np.random.rand()-0.5)*2*np.pi
+        target.vec = np.array([0.75, -0.4, -1.0])
+#        target.vec = np.zeros(3)
+#        target.vec[0:2] = (np.random.rand(2)-0.5)*2.0
+#        target.vec[2] = (np.random.rand()-0.5)*2*np.pi
         self.worldModel.setTarget(target)
 
     def setTarget(self):

@@ -9,7 +9,7 @@
 %TODO make sure to write things like abstract collection the same every time (ie abstract collection vs Abstract Collection) !!
 
 Instead of using only a single regression model that is constantly updated and queried, the robot needs some sort of architecture in order to deal with the continuous information stream. This architecture needs to organize the incoming data and determine what should be learned from these experiences. Furthermore, the architecture can combine different components in order to make the best use of what it has learned. 
-This chapter presents the two concepts that were developed in order to fulfill these tasks. These two concepts differentiate mainly in the way they represent the interactions that they learn about. The first concept, further described in section \ref{sec:pairInt} uses pairwise interactions two represent the objects in the environment. In the alternative approach, described in section \ref{sec:gate}, the objects are represented individually. Additionally, a gating function is introduced to distinguish when one object actually influences another. 
+This chapter presents the two concepts that were developed in order to fulfill these tasks. These two concepts differentiate mainly in the way they represent the interactions that they learn about. The first concept, further described in section \ref{sec:pairInt} uses pairwise interactions to represent the objects in the environment. In the alternative approach, described in section \ref{sec:gate}, the objects are represented individually. Additionally, a gating function is introduced to distinguish when one object actually influences another. 
 A special inverse model is proposed in section \ref{sec:invModel} that is tailored to the continuous interaction with the environment. %TODO more either here or in the introduction?
 Before going into the description of both concepts and the inverse model, section \ref{sec:problem} summarizes the actual problem these concepts need to solve. 
 
@@ -97,31 +97,34 @@ Prediction within this architecture requires several steps. The general idea of 
 %TODO maybe remove/rewrite this following passage
 The total number of collections is limited to the size of the superset of $F$, although in practice, not all possibilities are likely and only those collections are considered, that are already made up of more than $\epsilon_{min}$ training examples. This threshold is used to reduce the number of outliers when training the classifier. %TODO this threshold does not exist anymore in the current implementation!!
 
-After the most likely Abstract Collection has been selected, its forward model can be consulted for the prediction. The local model will also be queried using the interaction state together with the given action primitive as input. The output of the local model is the predicted interaction state. The prediction of the actual object states need to be extracted from this interaction state by reverting the initial transformation.
+After the most likely Abstract Collection has been selected, its forward model can be consulted for the prediction. The local model will also be queried using the interaction state together with the given action primitive as input. The output of the local model is the predicted interaction state. 
+More precisely, the local model predicts how the current interaction state changes. These predicted changes are then added to features of the given interaction state this Abstract Collection is responsible for.
+The prediction of the actual object states need to be extracted from this interaction state by reverting the initial transformation.
 
 \begin{figure}
 	\centering
-	\includegraphics[width=\textwidth]{PairwisePrediction.pdf}
-	\caption{Concept of prediction in the pairwise interaction space with Abstract Collections. First the interaction state is computed. This state is then fed to the model together with the chosen action primitive. The AC Selector uses those to select the responsible Abstract Collection. The collection then uses its forward model to predict the next interaction state. The actual predicted object states are finally extracted from this interaction state.} 
+	\includegraphics[width=\textwidth]{PairwisePrediction2.pdf}
+	\caption{Concept of prediction in the pairwise interaction space with Abstract Collections. First the interaction state is computed. This state is then fed to the model together with the chosen action primitive. The AC Selector uses those to select the responsible Abstract Collection. The collection then uses its forward model to predict the changes in the interaction state. These changes are added to the given interaction state in order to compute the resulting prediction. The actual predicted object states are finally extracted from this interaction state.} 
 	\label{fig:PairPrediction}
 \end{figure}
 
-\subsection{Planning}
+\subsection{Planning \label{sec:pairPlanning}}
 
 %TODO
-(TODO consider redoing the planning algorithm more similar to the way it is done
-in the most recent model, which works, maybe the same ideas can be employed 
-here)
+%(TODO consider redoing the planning algorithm more similar to the way it is done
+%in the most recent model, which works, maybe the same ideas can be employed 
+%here)
 
 In order to get a suitable action primitive given a target configuration, first the 
-difference set between the current situation and the target 
-configuration is computed. Afterwards, the Abstract Collection that corresponds to the same set of features is selected. In the case that this collection is not yet known, the 
-most similar collection is chosen instead. In this context, the most similar Abstract Collection is the one that covers most of the changed features in the computed difference set. If multiple alternatives exist, one Abstract Collection is chosen at random. 
+difference set between the current situation and the target configuration is computed. Afterwards, the Abstract Collection that corresponds to the same set of features is selected. In the case that this collection is not yet known, the most similar collection is chosen instead. In this context, the most similar Abstract Collection is the one that covers most of the changed features in the computed difference set. If multiple alternatives exist, the Abstract Collection responsible for the changes in the most features is chosen. This is because more changing features means that the inverse model has more degrees of freedom to reach the target.
 
-The selected Abstract Collection queries its own inverse model for the 
-action that produces the output most similar to the desired target configuration. 
+The selected Abstract Collection queries its own inverse model for preconditions that produce a change in the direction of the desired target configuration. 
+Since it might not be possible to move an object directly in the desired direction due to the current position of the actuator, simply returning the action primitive is not sufficient.
 
-The action is then checked by consulting the already trained forward models. In case the forward models predict that the selected action does not reduce the difference to the target, a different action needs to be selected. This is done by querying a different abstract collection. Alternatively, a random action can be performed in order to produce new episodes. These in turn would improve both the forward as well as the inverse models of their respective abstract collections.
+The preconditions need to be checked against the currently given configuration interaction state of the target object and the actuator. If these preconditions are mostly fulfilled an action primitive can be extracted, otherwise, an intermediate target needs to be determined. This intermediate target represents a configuration where the preconditions are met.
+
+%The action is then checked by consulting the already trained forward models. 
+%In case the forward models predict that the selected action does not reduce the difference to the target, a different action needs to be selected. This is done by querying a different abstract collection. Alternatively, a random action can be performed in order to produce new episodes. These in turn would improve both the forward as well as the inverse models of their respective abstract collections.
 
 \subsection{Theoretical discussion}
 %TODO do not really like this yet
@@ -164,7 +167,7 @@ The current state of each object, including the actuator, is always updated when
 	\label{fig:GateOverview}
 \end{figure}
 
-\subsection{Prediction}
+\subsection{Prediction \label{sec:gatePrediction}}
 
 Because of the assumption that objects other than the actuator cannot change without any interaction, the way prediction is performed differs between the different object types. The actuator simply queries its own forward model with the selected action primitive in order to predict the next actuator state. 
 The general process for predicting general objects is visualized in figure \ref{fig:GatePrediction}.
@@ -172,16 +175,19 @@ The general process for predicting general objects is visualized in figure \ref{
 \begin{figure}
 	\centering
 	\includegraphics[width=\textwidth]{GatePrediction.pdf}
-	\caption{Visualization of the prediction process for non actuator objects in the object space with gating concept. Using the predicted actuator state, relative interaction features are computed. These are used by the gate to determine if an interaction takes place or not. The responsible local forward model is used to predict the changes if an interaction is expected. From these changes the actual state prediction is computed.} 
+	\caption{Visualization of the prediction process for non actuator objects in the object space with gating concept. Using the predicted actuator state, relative interaction features are computed. These are used by the gate to determine if an interaction takes place or not. The responsible local forward model is used to predict %the new object state.}
+	changes if an interaction is expected. From these changes the actual state prediction is computed.} %TODO alternative
 	\label{fig:GatePrediction}
 \end{figure}
 
 First the next actuator state is predicted as mentioned above using the selected action primitive.
 This predicted state is then used together with the current state of the object that is to be predicted to compute \textit{Relative Interaction Features}. These relative features are similar to the interaction state that was explained in the previous concept. However, since it is not necessary to extract the entire object states for both objects from these relative features, the dimensionality can be a lot lower than before. In fact, depending on the scenario, it may be sufficient to only represent the actuator in the local coordinate frame of the object. 
 The \textit{Gate} then uses these features to determine if the object will be influenced by the new actuator state. If the gate predicts no interaction between the object and the actuator, the current object state is returned. 
-On the other hand, if an interaction is predicted, the \textit{Predictor} uses the relative features to query the local forward model responsible for the current object to make the prediction. 
-
-%The local model predicts the changes in the object states instead of the final states. This allows the local models to be independent of the actual object states. The concept assumes, that an interaction between two objects behaves the same in different situations as long as their relative interaction features are the same. In order to get the actual predicted object state, these changes are added to the current object state. %TODO might be doubled with the realization subsection, fix!
+On the other hand, if an interaction is predicted, the \textit{Predictor} uses the local forward model responsible for the current object. 
+%The local forward model predicts the next object state with the relative features.
+The local model predicts the changes in the object states instead of the final states. In order to get the actual predicted object state, these changes are added to the current object state.
+%TODO Alternative depending on where I talk about differences
+%This allows the local models to be independent of the actual object states. The concept assumes, that an interaction between two objects behaves the same in different situations as long as their relative interaction features are the same.  %TODO might be doubled with the realization subsection, fix!
 
 When more then one object other than the actuator is present, the same process can be repeated. In order to predict interactions between two non actuator objects, a prediction chain is performed. First the actuator is predicted as described above. Afterwards, the objects that are directly influenced by the actuator are predicted. These predictions can then in turn be used as new \enquote{actuators} for interactions between them and other objects. 
 
@@ -189,7 +195,7 @@ When more then one object other than the actuator is present, the same process c
 %(STILL TO TRY) In order to predict multi object interactions, the gate function can be used to first collect all involved objects before
 %invoking the appropriate predictor. (e.g. by interpolating the different input features).
 
-\subsection{Planning}
+\subsection{Planning \label{sec:gatePlanning}}
 
 Similar to prediction, planning is also performed differently depending on what kind of object is supposed to reach a given target configuration. In the case that the target object is the actuator, its inverse model is queried for an action primitive with the target configuration as input. 
 
@@ -210,15 +216,15 @@ Considering the current object's position, an action is calculated to move the a
 	
 \subsection{Theoretical discussion}
 
-Representing each object by itself has the advantage, that no transformations are required. Furthermore, no object depends on the accuracy of another object's state. However, the biggest disadvantage is that if the gate makes errors in the classification than this concept can easily predict impossible configurations. 
+Representing each object by itself has the advantage, that no transformations are required. Furthermore, no object depends on the accuracy of another object's state. However, the biggest disadvantage is that if the gate misclassifies then this concept can easily predict impossible configurations. 
 
-Apart from the representation, this concept makes some more assumptions about the scenario then the previous one. The assumption that object states can only change through interactions with an actuator also means that an object does not continue sliding after it has been pushed. This makes restrictions about the possible weights of the objects and speeds of the actions.
+Apart from the representation, this concept requires some more assumptions about the scenario then the previous one. The assumption that object states can only change through interactions with an actuator also means that an object does not continue sliding after it has been pushed. This restricts the possible weights of the objects and speeds of the actions.
 %TODO rework/extend
 
 \section{Time invariant inverse model \label{sec:invModel}}
 	
 %TODO redo after moving it here
-Directly searching in the forward regression model for the inverse has several disadvantages in the given scenario: Firstly, the difference state that is computed can have features magnitudes greater than any change the local models have been trained with. In fact any target configuration that requires multiple timesteps to reach is already outside the range of the changes the forward models can have seen. 
+Directly searching in the forward regression model for the inverse has several disadvantages in the given scenario: Firstly, the difference state that is computed can have features magnitudes greater than any change the local models have been trained with. In fact any target configuration, that requires multiple timesteps to reach, is already outside the range of the changes the forward models can have seen. %TODO try to split/shorten
 The inverse model would need to extrapolate into unknown regions in these cases. Secondly, the features in the target state are not necessarily normalized. Therefore, the model does not necessarily know if a reduction of the difference in one feature is better than in another. This especially becomes a problem once only actions can be found that decrease the difference in one feature at the cost of an increase in another feature. Consider the example where a target position and orientation is given for an object. There might be situations where the object needs to be turned away from the target orientation in order to reduce the distance to the target position. In this case the orientation would need to be more or less ignored when using the inverse model to search for an action.
 
 Furthermore, the output of the inverse model does not need to be as precise as the predictions of the forward model. This is mainly due to the fact that the inverse model is used to reach a target interactively. In the context of this thesis, there is no need to provide a sequence of precise action primitives that will then be executed blindly. Instead, as highlighted in figure \ref{fig:overview}, the model is tightly coupled with the environment. This means that the model is constantly updated and can adapt to changing situations. It is therefore sufficient for the inverse model to provide the means to make a step in the direction of the target configuration. In the context of the two concepts presented here, the means are not directly action primitives but rather preconditions that need to be fulfilled in order to be able to influence an object in a certain way.

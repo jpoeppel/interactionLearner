@@ -5,6 +5,7 @@
 %Incremental/online models
 %Memory based approaches
 %What have others tried to solve this/similar problems?
+%TODO get authors automatically
 
 %TODO mention at least one paper where a pairwise interaction representation is used!
 \section{Memory based models}
@@ -15,7 +16,7 @@ Although different algorithms approximate $f^*$ differently, they can be categor
 The other family focuses more on \textit{similarities} in the input space instead of feature correlations. Maybe the most prominent example for this is the \gls{knn} regression \cite{knn}. Previously seen training data is stored and compared to new input data. New input data $\vec{x}$ is then labeled according to the $k$ closest stored instances. The easiest form is to average the outputs of the $k$ closest instances around $\vec{x}$ (here denoted as the set $N(\vec{x}$)):
 \begin{equation}
 \vec{y}(\vec{x}) = \frac{1}{k} \sum_{\vec{y} \in N(\vec{x})} \vec{y}
-\end{equation}
+\end{equation} %TODO double y, change?
 
 These instances are also often called prototypes, if only a few instances are used to represent a subspace in the input space. Since the closest instance is determined by similarity, the used features and metric is usually critical for these methods \cite{importanceOfMetric/Features}. This dependence on careful preprocessing of the used features and metric can be considered the biggest disadvantage of these methods. However, there has also been a lot of research in automatically adapting the used metric while training in order to better fit the data, e.g. by Hammer et al. \cite{lvq}. Unfortunately, online metric adaptation often needs a lot of iterations before yielding satisfying results. 
 

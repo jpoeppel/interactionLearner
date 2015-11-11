@@ -148,12 +148,12 @@
 \usepackage[e]{esvect}
 \makeatletter
 \def\traitfill@#1#2#3#4{%
-  $\m@th\mkern2mu\relax#4#1\mkern-1.5mu%
+  $\m@th\mkern2mu\relax#4#1\mkern-6.0mu%
    \cleaders\hbox{$#4\mkern0mu#2\mkern0mu$}\hfill%
    \mkern-1.5mu#3$%
 }
  \makeatother
-\renewcommand{\vec}[1]{\bar{#1}}
+\renewcommand{\vec}[1]{\vv{#1}}
 
 % Tabellen
 \usepackage{array}                  % Paket für erweiterte Tabelleneigenschaften

@@ -126,15 +126,27 @@ class Object(object):
         
         relVec = self.getRelVec(otherObject)
         dist = relVec[2]
-        relPos = otherObject.vec[0:2] - self.vec[0:2]
+        posDif = otherObject.vec[0:2] - self.vec[0:2]
         if dist < 0.04:
-            return 0.4*relPos/np.linalg.norm(relPos)
+            return 0.4*posDif/np.linalg.norm(posDif)
         elif dist > 0.06:
-            return -0.4*relPos/np.linalg.norm(relPos)
+            return -0.4*posDif/np.linalg.norm(posDif)
         else:
-            tangent = np.array([-relPos[1], relPos[0]])
-            if direction != None and np.any(tanget*direction < 0):
-                return -0.4*tangent/np.linalg.norm(tangent)
+            tangent = np.array([-posDif[1], posDif[0]])
+            if direction != None:
+                angAct = np.arctan2(relVec[5],relVec[4])
+                angTarget = np.arctan2(direction[1],direction[0])
+                angDif = angTarget+np.pi - (angAct+np.pi)
+                if angDif > 0:
+                    if abs(angDif) < np.pi:
+                        return 0.4*tangent/np.linalg.norm(tangent)
+                    else:
+                        return -0.4*tangent/np.linalg.norm(tangent)
+                else:
+                    if abs(angDif) < np.pi:
+                        return -0.4*tangent/np.linalg.norm(tangent)
+                    else:
+                        return 0.4*tangent/np.linalg.norm(tangent)
             else:
                 return 0.4*tangent/np.linalg.norm(tangent)
         
@@ -372,28 +384,56 @@ class MetaNode(object):
                 curSigCom.append('1')
             else:
                 curSigCom.append('0')
+        curSigComInts = [int(i) for i in curSigCom]
         curSigCom = ";".join(curSigCom)
-        if curSigCom in self.signCombinations:
-            self.signCombinations[curSigCom] += dif
-            self.signCombinationSums[curSigCom] += dif*pre
-            self.signCombinationNumbers[curSigCom] += 1
+        keys = self.signCombinations.keys()
+        key = None
+        for k in keys:
+            kInts = [int(i) for i in k.split(';')]
+            correct = True
+            for i in xrange(len(kInts)):
+                if kInts[i]*curSigComInts[i] < 0:
+                    #wrong key
+                    correct = False
+                    break
+            if correct:
+                key = k
+                break
+        if key != None:
+            self.signCombinations[key] += dif
+            self.signCombinationSums[key] += dif*pre
+            self.signCombinationNumbers[key] += 1
         else:
             self.signCombinations[curSigCom] = dif
             self.signCombinationSums[curSigCom] = dif*pre
             self.signCombinationNumbers[curSigCom] = 1
+            
+                
+#        if curSigCom in self.signCombinations:
+#            self.signCombinations[curSigCom] += dif
+#            self.signCombinationSums[curSigCom] += dif*pre
+#            self.signCombinationNumbers[curSigCom] += 1
+#        else:
+#            self.signCombinations[curSigCom] = dif
+#            self.signCombinationSums[curSigCom] = dif*pre
+#            self.signCombinationNumbers[curSigCom] = 1
             
     def getPreconditions(self):
         res = np.zeros(self.lenPreCons)
         res2 = np.zeros(self.lenPreCons)
 #        l = sorted([(k, v) for k,v in self.signCombinations.items()], key=itemgetter(1), reverse=True)
         l = sorted([(k,self.signCombinations[k]/self.signCombinationNumbers[k]) for k in self.signCombinations.keys()], key=itemgetter(1), reverse=True)
-        if len(l) > 1:
+        if len(l) > 1 and self.signCombinations[l[1][0]]/self.signCombinations[l[0][0]] >0.5 :
             comb1 = l[0][0].split(";")
             comb2 = l[1][0].split(";")
             pre1 = self.signCombinationSums[l[0][0]]
             pre2 = self.signCombinationSums[l[1][0]]
             w1 = self.signCombinations[l[0][0]]#/self.signCombinationNumbers[l[0][0]]
             w2 = self.signCombinations[l[1][0]]#/self.signCombinationNumbers[l[1][0]]
+            print "comb1: ", comb1
+            print "comb2: ", comb2
+            print "comb1 w: ", w1
+            print "comb2 w: ", w2
             for i in xrange(len(comb1)):
                 if comb1[i] == comb2[i] or comb1[i] == '0' or comb2[i] == '0':
                     res[i] = (pre1[i]+pre2[i])/(w1+w2)
@@ -519,7 +559,9 @@ class MetaNetwork(object):
                 print "sortedDifs: ", sortedDifs
                 maxDif = sortedDifs[-1]
                 index = str(maxDif*np.sign(targetDifs[maxDif]))
-                self.curSecIndex =str(sortedDifs[-2]*np.sign(targetDifs[sortedDifs[-2]]))
+                if self.curSecIndex == None:
+                    self.curSecIndex =str(sortedDifs[-2]*np.sign(targetDifs[sortedDifs[-2]]))
+                    print "new CurSecIndex: ", self.curSecIndex
 #                print "targetDifs: ", targetDifs
 #                print "maxindex: ", index
                 if not index in self.nodes:
@@ -536,20 +578,30 @@ class MetaNetwork(object):
                 print "no alternative"
                 return preCons1
             else:
+                if self.curSecIndex != None:
+                    ind = float(self.curSecIndex)
+                    indSign = -1 if '-' in self.curSecIndex else 1
+                    if indSign == np.sign(targetDifs[abs(ind)]) and abs(targetDifs[abs(ind)]) > config.metaNetIndexThr:
+                        #keep second index
+                        pass
+                    else:
+                        print "resetting curSecIndex"
+                        self.curSecIndex = None
                 index2 = self.curSecIndex
+                print "index2: ", index2
                 if not index2 in self.nodes:
-                    print "using pre1"
+                    print "using pre1, no alternative"
                     return preCons1
                 else:
                     print "precons for index: ", index2
                     secCons1, secCons2 = self.nodes[index2].getPreconditions()
                     o1 = np.linalg.norm(secCons1-preCons1)
                     o2 = np.linalg.norm(secCons1-preCons2)
-#                    print "dist1: ", o1
-#                    print "dist2: ", o2
-#                    print "preCons1: ", preCons1
-#                    print "preCons2: ", preCons2
-#                    print "secCons1: ", secCons1
+                    print "dist1: ", o1
+                    print "dist2: ", o2
+                    print "preCons1: ", preCons1
+                    print "preCons2: ", preCons2
+                    print "secCons1: ", secCons1
                     if secCons2 == None:
                         if o1 <= o2:
                             print "using pre1"
@@ -610,7 +662,7 @@ class Predictor(object):
                                             etaOut= config.predictorEtaOut, 
                                             etaA= config.predictorEtaA, 
                                             testMode=config.predictorTestMode)
-        self.inverseModel[intState[0]].train(intState, dif)
+        self.inverseModel[intState[0]].train(intState[4:], dif)
 
 
 class ModelGate(object):
@@ -767,6 +819,7 @@ class ModelGate(object):
 #                difNorm = np.linalg.norm(difVec)
 #                print "difVec: ", difVec[:5]
                 pre = self.predictor.getAction(self.target.id, difVec)
+                pre = np.concatenate((np.zeros(4), pre))
                 if pre == None:
                     return self.explore()
                 relTargetPos = pre[4:6]
@@ -781,16 +834,20 @@ class ModelGate(object):
                 difPos = pos-self.actuator.vec[0:2]
 #                print "difpos norm: ", np.linalg.norm(difPos)
                 relVec = targetO.getRelVec(self.actuator)
+                
 #                relVec = targetO.getRelObjectVec(self.actuator)
                 relPos = relVec[4:6]
+                print "relPos: ", relPos
                 # Determine Actuator position that allows action in good direction
-                wrongSides = relPos*relTargetPos < 0
-                if np.any(wrongSides):
-                    if max(abs(relTargetPos[wrongSides]-relPos[wrongSides])) > 0.05:
-                     # Bring actuator into position so that it influences targetobject
-                        print "try circlying"
-                        return targetO.circle(self.actuator)
-                        
+#                wrongSides = relPos*relTargetPos < 0
+#                if np.any(wrongSides):
+#                    if max(abs(relTargetPos[wrongSides]-relPos[wrongSides])) > 0.05:
+#                     # Bring actuator into position so that it influences targetobject
+#                        print "try circlying"
+#                        return targetO.circle(self.actuator, 2*relTargetPos-relPos)
+                if np.linalg.norm(difPos) > 0.1:
+                    print "circling, too far"
+                    return targetO.circle(self.actuator, relTargetPos)
                 if np.linalg.norm(difPos) > 0.01:
                     difPosAction = 0.3*difPos/np.linalg.norm(difPos)
                     print "difpos action: ", difPosAction
@@ -802,7 +859,7 @@ class ModelGate(object):
                         predRes = self.predictor.predict(targetO, tmpAc, difPosAction)
                         if np.linalg.norm(predRes.vec-self.target.vec) > np.linalg.norm(targetO.vec-self.target.vec):
                             print "circlying since can't do difpos"
-                            return targetO.circle(self.actuator, difPosAction)
+                            return targetO.circle(self.actuator, relTargetPos)
                         else:
                             print "doing difpos anyways"
                             return difPosAction

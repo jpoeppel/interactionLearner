@@ -225,20 +225,27 @@ Finally, the set of changing features $S$ can then again be computed as stated i
 \subsection{From target object state to action primitives(?)\label{sec:pairPlanningReal}} %TODO change name
 
 [Subject to change] %TODO finalize once program runs decent
+%TODO Fix circling detection
 
 In most cases the robot will have to push a certain object to a given specification. It usually does not matter where the actuator is after the target is reached. Therefore, it would be best if a target object state could be provided instead of a target interaction state. However, the model itself does not know about object states. Therefore, this prototype implements a method to convert a given object state to an interaction state, where only the reference object is set. The secondary object is the actuator however the actuator features are not required. Instead, the features representing the reference object are remembered in order to only focus on these features when trying to reduce the distance to the target interaction state. 
 
 Once a target interaction state has been computed, the current interaction state between the reference object of interest and the actuator can be retrieved. Using the target interaction state as resulting state, an episode with an empty action is computed. The episode provides the difference vector between the current situation and the target configuration. Only the features remembered when constructing the target interaction states are considered from this difference vector. Effectively, these features correspond to the local differences in the object states. 
 
-Using this reduced difference vector, the model tries to find the Abstract Collection that is responsible for changes in the features of interest. Since these features are only a subset of the entire interaction state, there will usually not be an Abstract Collection that is responsible exactly for these features. Instead there will be several Abstract Collections, that are responsible for these features as well as other features. 
+Using this reduced difference vector, the model needs to find the Abstract Collection that is responsible for changes in the features of interest. Since these features are only a subset of the entire interaction state, there will usually not be an Abstract Collection that is responsible exactly for these features. Instead there will be several Abstract Collections, that are responsible for these features as well as other features. 
 
-Currently, all Abstract Collections, that also correspond to the features of interest, are queried for preconditions until valid preconditions are found. %TODO what are valid preconditions
+The greedy strategy of the developed inverse model does not work well with the space segmentation performed by the Abstract Collections.  
+Instead of training local inverse models in each Abstract Collection as described in the concept, this implementation only uses one global inverse model, that is trained with all experienced interactions. 
+Since the proposed inverse model does not scale with the number of training examples, but is only influences by the number of possible sign combinations (see section \ref{sec:invModelRealization} for details), this approach does not impact the model's performance.
+This global inverse returns suitable preconditions given a difference vector.
+%TODO still rough...
+%Currently, all Abstract Collections, that also correspond to the features of interest, are queried for preconditions until valid preconditions are found. %TODO what are valid preconditions
 
-Once preconditions have been retrieved from the inverse model, the current situation is compared to these preconditions. Most importantly, the current actuator position needs to be similar to the actuator position in the preconditions. This is checked by confirming that the signs in the relative positions are the same. The easiest way is to perform an element wise multiplication and check if any attribute goes below zero. If the actuator is indeed on the wrong side of the object, it needs to circle around the object. Unfortunately, this requires some world knowledge about the objects. In the given implementation, the user defined interaction states provide the ability to compute an action primitive that lets the actuator circle around the reference object at a fixed distance. 
+Once preconditions have been retrieved from the inverse model, the current situation is compared to these preconditions. Most importantly, the current actuator position needs to be similar to the actuator position in the preconditions. If the distance between these two positions is too great, the actuator is circled around the object. Unfortunately, this requires some world knowledge about the objects. In the given implementation, the user defined interaction states provide the ability to compute an action primitive that lets the actuator circle around the reference object at a fixed distance. %TODO describe circling? Appendix?
+Using this circling action allows the actuator to move towards the desired position without influencing the object.
 
-When the actuator is already on the correct side of the object, it needs to reduce the distance to the position defined in the preconditions. This can be done by simply following the direction between the target position and the current position. 
+Once the distance is below a threshold of 0.1\footnote{The threshold heavily depends on the given environment and the size of the objects. This threshold has been empirically determined and worked well in the evaluation environment described in section \ref{sec:environment}.}, the model assumes that the actuator is on the correct side of the object an can move directly towards the desired position. This can be done by simply following the direction between the target position and the current position.
 
-Once the actuator has come close the position defined by the preconditions, the actual desired action primitive can be computed. The preconditions already contain local action primitives that were encountered during training. These can be transformed to the global coordinate frame using the transformation matrix $T$ from the current interaction state as described above. 
+Once the actuator has come close\footnote{This implementation uses the threshold of 0.01 to determine when it is close enough.} the position defined by the preconditions, the actual desired action primitive can be computed. The preconditions already contain local action primitives that were encountered during training. These can be transformed to the global coordinate frame using the transformation matrix $T$ from the current interaction state as described above. 
 
 \section{Object space with gating function \label{sec:gateRealization}}
 
@@ -378,31 +385,34 @@ The distance between the two objects corresponds to the closest corner-edge dist
 \end{figure}
 
 \subsection{From target object state to action primitive(?) \label{sec:gatePlanningReal}} %TODO change name
-%TODO
-[TODO]
+%TODO Fix circling behavior
+[Subject to change]
 The overall process of computing a suitable action primitive that allows push an object towards a given target configuration is quite similar to the one in the previous model explained in section \ref{sec:pairPlanningReal}. However, due to the differences in representation, the process is actually easier in this model. First of all, since the model works directly with the object states, the target representation does not need to be changed. Furthermore, finding the responsible local inverse model is a lot easier in this model due to the separation by object group instead of changing interaction features. 
 
 The preconditions are received as visualized in figure \ref{fig:GatePlanning}: First the difference vector between the current object state and the target state is computed. Afterwards, the local inverse model responsible for the given object is queried for the preconditions given this difference vector. The actual computation of these preconditions is explained in section \ref{sec:invModelRealization}.
 
-Once the preconditions have been computed, the same analysis as in the other model needs to be performed. These preconditions are in the form of the relative interaction features described above. Unlike in the prediction case, the model needs to have knowledge about what some of the features represent. Specifically, the information about the local actuator position $p_{cond}$ need to be extracted from these preconditions. Afterwards, $p_{cond}$ can be compared with the local actuator position $p_{cur}$, extracted from the current relative interaction features between the object and the actuator. If these two positions have the same signs in all attributes, the actuator is at least on the correct side of the object according to the preconditions. In this case the direction towards $p_{cond}$ can be used as action primitive in case the actuator is not close enough yet. Otherwise, the actual action primitive needs to be extracted from the preconditions. While the action primitives were directly included in the preconditions in the interaction model, the action primitives from training are not known to the inverse model here. However, the relative interaction features include the relative velocity of the actuator. In the given scenario, this velocity equates to the action primitive, since the action primitives control the velocities. The local velocities need to be transformed to the global coordinate frame, using the transformation matrix $T$ as explained above.
+Once the preconditions have been computed, the same analysis as in the other model needs to be performed. These preconditions are in the form of the relative interaction features described above. Unlike in the prediction case, the model needs to have knowledge about what some of the features represent. Specifically, the information about the local actuator position $p_{cond}$ need to be extracted from these preconditions. Afterwards, $p_{cond}$ can be compared with the local actuator position $p_{cur}$, extracted from the current relative interaction features between the object and the actuator. 
+If these two positions are too far apart\footnote{This implementation considers an euclidean distance of 0.1 as too far apart. This threshold has proven to be suitable in the environment presented in section \ref{sec:environment}.} a circling action is performed. Unfortunately, this needs to be provided by the user since the model has no information about the shape of the objects or what circling means. In this implementation, each object state, that needs to be defined by the user anyways, provides a method that computes an action that circles the actuator around the object in a fixed distance. %TODO provide circling algo? in appendix?
+The model uses a circling action instead of directly moving towards the desired position, because the target position might be on another side of the object. When moving the actuator straight towards $p_{cond}$ the object might be influenced in a negative way.
 
-In the case that the actuator is not on the correct side of the object, a circling action is required. Unfortunately, this needs to be provided by the user since the model has no information about the shape of the objects or what circling means. In this implementation, each object state, that needs to be defined by the user anyways, provides a method that computes an action that circles the actuator around the object in a fixed distance. %TODO provide circling algo? in appendix?
+If these actuator is close but not close enough\footnote{This implementation considers a euclidean distance of < 0.01 as close enough.} the direction towards $p_{cond}$ can be used as action primitive. 
+However, it might be that some part of the object is still in the direct way to the target position. In order to avoid, moving the object in an unintended way, the direction is only followed if the gate predicts that the next action will not influence the block. Otherwise, the same circling movement as described above is performed.
+
+Once the actuator actually is close enough to $p_{cond}$, the actual action primitive needs to be extracted from the preconditions. While the action primitives were directly included in the preconditions in the interaction model, the action primitives from training are not known to the inverse model here. However, the relative interaction features include the relative velocity of the actuator. In the given scenario, this velocity equates to the action primitive, since the action primitives control the velocities. The local velocities need to be transformed to the global coordinate frame, using the transformation matrix $T$ as explained above.
+
 
 \section{Used technologies \label{sec:technologies}}
 
 \subsection{Time invariant inverse Model \label{sec:invModelRealization}} %TODO better name!
 
-\begin{itemize}
-\item Training
-\item Averaging
-\item structure
-\end{itemize}
+The special inverse model is designed to learn typical preconditions that result in a certain change in the features. It is less important how strong the change is, but rather in what direction (positive or negative) the feature changes. The idea behind this inverse model is that, for each feature and each direction of the feature change, the average precondition that results in such a change is computed. 
+These precondition depend on the actual model. In case of the interaction model, this is the combination of interaction state and action primitive, while the object state model used the relative interaction features. However, as described above, in both cases can this average be used to derive an action primitive.
 
-%TODO rework after moving here!!!
+The implementation of this inverse model consists of two parts: The network and its nodes. For each changing feature, the network experiences during training, a new node is created, representing the change in the given direction of that feature. In the example in figure \ref{fig:InverseModel}, three nodes are created: One for the position change upwards and two for the orientation change since both directions are experienced. While all three situations are used for the position node, the orientation nodes will only be trained on one example each. 
 
-A prototype is trained for each direction of each feature that changed in the object state during an update. Each prototype computes a weighted average of the preconditions that resulted in a feature change represented by it. The preconditions are weighted by the magnitude of the change. 
+The averaging is performed by weighting each input by the magnitude of the change in the feature represented by each node. In the given example, the middle scenario receives the biggest weight, since it changes the position more then the outer situations. 
 
-Simply taking the average is however not possible as can be seen in figure \ref{fig:avgProblem}.
+While this average works great in the given example for the positional node, it does not work for all features as can be seen in figure \ref{fig:avgProblem}.
 
 \begin{figure}
 	\centering
@@ -411,20 +421,125 @@ Simply taking the average is however not possible as can be seen in figure \ref{
 	\label{fig:avgProblem}
 \end{figure}
 
-For point symmetric features, such as relative x and y positions in the figure, averaging results in invalid preconditions. In this case, the averaged preconditions would want the actuator to be in the center of the block, which is neither possible nor would it result in an orientation change. In order to prevent this, two averages are computed for each feature. One for all positive values of that feature and one for all negatives. on top of that, all combination of feature signs are stored and weighted by the magnitude of the change. When returning the entire preconditions, the averages corresponding to the sign combination with the highest weight are returned. Table \ref{tab:signCombinations} shows the combinations visible in the example above. In case combination 1 has the highest weight, the positive average for the x position, the negative average for the y position and the positive average for the y velocity is used. 
+Consider the orientation node for positive rotation around the z-axis as shown in the figure. The magnitude of the change is identical in both situations, meaning that normally, the mean of both input features should be used as the average. In the given situation, this results in invalid preconditions, where the actuator would be supposed to be in the center of the object. Not only is that position not reachable, it also would not produce the desired change in orientation. 
+
+In order to prevent this, multiple averages are computed for each feature. Basically, the nodes store a separate average for each combination of signs in the input data. This model uses three different sign possibilities: \textit{+}, \textit{-} and \textit{0}\footnote{The sign is considered 0 if the feature $||f|| < \epsilon_{Node}$ is. This threshold depends on the expected change of the features.}.
+Going back to the example in figure \ref{fig:avgProblem}, assume that the following four input features are used: relative $x$ position, relative $y$ position and relative $x$ and $y$ velocities of the actuator. All feature are represented in the object's coordinate frame. Table \ref{tab:signCombinations} shows the sign combinations that are experienced in the two given situations. 
 
 \begin{table}
 	\centering
 	\begin{tabular}{|c|c|c|}
 		\hline Feature & Combination 1 & Combination 2 \\ 
-		\hline x position & + & - \\ 
-		\hline y position & - & + \\ 
-		\hline y velocity & + & - \\ 
+		\hline x position & \textit{+} & \textit{-} \\ 
+		\hline y position & \textit{-} & \textit{+} \\ 
+		\hline x velocity & \textit{0} & \textit{0} \\
+		\hline y velocity & \textit{+} & \textit{-} \\ 
 		\hline 
 	\end{tabular} 
-	\caption{Table showing the sign combinations for the example in figure \ref{fig:avgProblem}}
+	\caption{Table showing the sign combinations for the example in figure \ref{fig:avgProblem}.}
 	\label{tab:signCombinations}
 \end{table}
+
+In this case, averages for both possible combinations are updated in the node. More specifically, for each different combination the nodes stores the sum of the contributions, the sum of all inputs as well as the number of times this combination was experienced. 
+
+Unfortunately, noisy data will lead to the creation of multiple combinations that are basically equivalent. For example it might be, that due to some motor or sensor noise, a small x velocity was detected in one of the two situations. In that case a third combination with an x velocity sign different from \textit{0} is created as well. As long as this velocity is very small, this combination would still be valid. In the worst case noise can create invalid combinations. An example would be if the sensors pick up a change in the object's orientation although the actuator moved away from the object. Since the model cannot know what is a valid training example and what is invalid noise, all combinations are created equally.
+
+When the node is asked to return the averaged preconditions, it tries to find up to two valid combinations. These two combinations would ideally represent two valid alternatives, as in the example above. 
+First of all, the node tries to merge equivalent combinations. This is done, by making a special assumption about features with a \textit{0} sign: If a feature has been experienced to be close to \textit{0} for a given node, then it should be possible to average over all occurrences of this feature. In this sense, combinations are considered equivalent and are merged, if they do not have any opposing signs at any of their input features. 
+Table \ref{tab:signCombinations2} summarizes the sign combinations experienced from the three scenarios in the first example, presented in figure \ref{fig:InverseModel}.
+Since a \textit{0} does not oppose either a \textit{+} or a \textit{-}, all three combinations can be merged together.
+
+\begin{table}
+	\centering
+	\begin{tabular}{|c|c|c|c|}
+		\hline Feature & Combination 1 & Combination 2 & Combination 3 \\ 
+		\hline x position & \textit{+} & \textit{0} & \textit{-} \\ 
+		\hline y position & \textit{-} & \textit{-} & \textit{-} \\ 
+		\hline x velocity & \textit{0} & \textit{0} & \textit{0} \\
+		\hline y velocity & \textit{+} & \textit{+} & \textit{+} \\ 
+		\hline 
+	\end{tabular} 
+	\caption{Table showing the sign combinations for the example in figure \ref{fig:InverseModel}.}
+	\label{tab:signCombinations2}
+\end{table}
+
+The actual merging is described in algorithm \ref{alg:combinationMerging}. In order to avoid merging invalid combinations, the combinations are first filtered. This model assumes, that valid combinations are experienced more often than invalid ones that are results from noise. Especially, since small noise can also be filtered out by only considering feature changed above a certain threshold when training the nodes. That way, all combinations that have been experienced less often then the average number of experiences over all combinations are filtered out. 
+
+After equivalent combinations have been merged, the resulting input features might represent a new combination. This combination is computed and used as new hash for storing the resulting values. 
+
+\begin{algorithm}
+	\KwIn{List of combinations L}
+	\KwIn{Hashmap of combination weights W}
+	\KwIn{Hashmap of combination input sums I}
+	\KwIn{Hashmap of combination occurence numbers N}
+	
+	\KwOut{Hashmap of merged combination weights W$^*$}
+	\KwOut{Hashmap of merged combination input sums I$^*$}
+	\KwOut{Hashmap of merged combination occurence numbers N$^*$}
+	\BlankLine
+	usefulKeys = filterInvalidCombinations(L, N) \\
+	sortedKeys = sortByNumZeros(usefulKeys) \\
+	\While{sortedKeys not empty}{
+		currentKey = sortedKeys[0] \\
+		tmpWeight = 0 \\ %W[currentKey] \\
+		tmpSum = 0 \\ %I[currentKey] \\
+		tmpNumber = 0 \\ %N[currentKey] \\
+		\ForEach{key in sortedKeys}{
+			\If{isEquivalent(currentKey, key)}{
+				tmpWeight += W[key] \\
+				tmpSum += I[key] \\
+				tmpNumber += N[key] \\
+				remove key from sortedKeys \\
+			}
+		}
+		newKey = recomputeCombination(tmpSum, tmpWeight) \\
+		W$^*$ = tmpWeight \\
+		I$^*$ = tmpSum \\
+		N$^*$ = tmpNumber \\
+	}
+	\caption{Description of the merging process for combinations within a node.}
+	\label{alg:combinationMerging}
+\end{algorithm}
+
+If only one combination remained after the merging process, the preconditions from that combination are returned. Otherwise, the node sorts the resulting combinations based on their average contribution. This can easily be computed by dividing the total weight by the number of experiences for each combination.
+In that case the best two combinations are considered if their average contribution is not too far apart\footnote{In this implementation this means, that the second highest average contribution is not less then half of the highest average contribution.}.
+
+From the two combinations with the biggest contribution, two preconditions are computed as described in algorithm \ref{alg:averaging}.
+
+\begin{algorithm}
+	\KwIn{$\vec{pre}_1$ Input sum of the first combination}
+	\KwIn{$\vec{pre}_2$ Precondition sum of the second combination}
+	\KwIn{$w_1$ Total weight for the first combination}
+	\KwIn{$w_2$ Total weight for the second combination}
+	\KwIn{$\vec{comp}_1$ Vector containing feature signs for the first combination}
+	\KwIn{$\vec{comp}_2$ Vector containing feature signs for the second combination}
+	\KwOut{average$_1$}
+	\KwOut{average$_2$}
+	\BlankLine
+	size = len($\vec{comp}_1$) \\
+	\For{i = 1..size}{
+		c$_{1i}$ = $\vec{comp}_1$[i] \\
+		c$_{2i}$ = $\vec{comp}_2$[i] \\
+		\eIf{c$_{1i}$ == c$_{2i}$}{
+			average$_1$[i] = $\frac{pre_{1i} + pre_{2i}}{w_1+w_2}$ \\
+			average$_2$[i] = average$_1$[i] \\
+		}{
+			average$_1$[i] = $\frac{pre_{1i}}{w_1}$	\\
+			average$_1$[i] = $\frac{pre_{2i}}{w_2}$  
+		}  
+	}
+	\caption{Description of the averaging process within the nodes if at least two combinations are present.}
+	\label{alg:averaging}
+\end{algorithm}
+
+The nodes return two results where possible since there are cases, such as the example in figure \ref{fig:avgProblem}, where at least two different options are valid. When wanting to rotate the object, both preconditions visualized in the figure are valid options. Which one should be preferred needs to be determined by the network.
+
+The inverse model is queried to provide preconditions that reduce a given difference vector. Ideally, preconditions that reduce the difference in all features at the same time would be returned. However, averaging the preconditions returned by different nodes is prone to produce invalid preconditions. Furthermore, depending on the environment, it might not always be possible to reduce all features at the same time. 
+
+In order to avoid those problems, the network uses a greedy strategy of reducing the feature with the biggest difference\footnote{In order to avoid oscillations between different features and preconditons, the network remembers the selected feature until the sign in the difference flips or the feature difference $||f|| < \epsilon_{Index}$. Again this threshold depends on the expected change of features in the environment}. While the features are not normalized the biggest numerical value might not correlate to what humans regard as a big distance, this approach works quite well considering the model does not have any knowledge about the features characteristics. 
+Once the feature with the biggest difference has been chosen, the corresponding node returns up to two possible preconditions. The same is done for the second biggest feature. By comparing the norm between the preconditions it is possible to determine which precondition for the first feature is closer to the precondition of the second feature. By choosing the closer one, the network ensures that the actuator uses a favorable alternative with respect to the next feature difference that is to be reduced. 
+In case both alternatives for the first feature are deemed equally good, the first preconditions are used since these correspond to a greater change in the desired feature.
+
 
 \subsection{Adapted instantaneous topological map \label{sec:ITM}}
 %TODO Add pseudo code at the beginning to show general process or nice figure!
@@ -501,6 +616,3 @@ With every update the two winning nodes are connected as neighbors. Node deletio
 
 $N$ denotes the set of neighbors of the winning node $n$.
 
-%\subsection{Abstract inverse model}
-%%TODO
-%[TOOD maybe move description from concept here]

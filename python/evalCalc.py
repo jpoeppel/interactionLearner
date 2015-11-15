@@ -46,6 +46,8 @@ ysOri = []
 errorsPos = []
 errorsOri = []
 
+ABSOLUT_ORIS = True
+
 
 #testPosValues = {}
 experiments = {}
@@ -54,14 +56,14 @@ currentExperiment = None
 
 for f in sorted(fileList, key=natSort):
     
-    if f.startswith(".") or "_config" in f or "ITM" in f or "old" in f:
+    if f.startswith(".") or "_config" in f or "ITMInformation" in f or "old" in f:
         continue
 #    if "Configuration_40" in f or "Configuration_8" in f:
 #        continue
 #    if not "gateModel" in f:
 #        continue
-    if not "Symmetric" in f:
-        continue
+#    if "Symmetric" in f:
+#        continue
     nameOnly = f.replace('.txt','')
     parts = nameOnly.split("_")
     modelName = parts[0]
@@ -103,7 +105,7 @@ for f in sorted(fileList, key=natSort):
     lastFrames = np.roll(firstFrames, -1) #TODO Test if this is always correct!    
 
 #    startingPositionsX = testData[firstFrames,12]    
-    currentExperiment.testStartPosX[numTrainRuns] = testData[firstFrames,12] 
+#    currentExperiment.testStartPosX[numTrainRuns] = testData[firstFrames,12] 
     
     #Consider filtering, i.e. only last frame
     actDifs = testDifs[lastFrames,12:14]
@@ -119,21 +121,22 @@ for f in sorted(fileList, key=natSort):
     for i in xrange(numTestRuns):
         iMask = testData[lastFrames,2] == i
         posDifsTmp = posDifs[iMask]
-        oriDifsTmp = oriDifs[iMask]
+        if ABSOLUT_ORIS:
+            oriDifsTmp = np.abs(oriDifs[iMask])
+        else:
+            oriDifsTmp = oriDifs[iMask]
         testPosRes[i] = (np.mean(np.linalg.norm(posDifsTmp, axis=1)), np.mean(oriDifsTmp), 
                         np.std(np.linalg.norm(posDifsTmp, axis=1)), np.std(oriDifsTmp))
         startPosMask = testData[:,2] == i
         startingTestPos[i] = np.mean(testData[firstFrames*startPosMask,12])
-#        print startingTestPos
-#    testPosValues[numTrainRuns] = testPosRes
+        
     currentExperiment.testPosValues[numTrainRuns] = testPosRes    
+    currentExperiment.testStartPosX[numTrainRuns] = startingTestPos
     
-    
-    
-    ysPos.append(np.mean(np.linalg.norm(posDifs, axis=1)))
-    ysOri.append(np.mean(oriDifs))
-    errorsPos.append(np.std(np.linalg.norm(posDifs, axis=1)))
-    errorsOri.append(np.std(oriDifs))
+#    ysPos.append(np.mean(np.linalg.norm(posDifs, axis=1)))
+#    ysOri.append(np.mean(oriDifs))
+#    errorsPos.append(np.std(np.linalg.norm(posDifs, axis=1)))
+#    errorsOri.append(np.std(oriDifs))
     
 #    print "Starting pos: ", startingTrainPositionsX
     
@@ -156,35 +159,65 @@ from matplotlib.backends.backend_pdf import PdfPages
 #pp.close()
 
 
+def plotRow(e, row, rowI):
+    resDict = e.testPosValues[e.trainRunOrder[rowI]]
+    xs = e.testStartPosX[e.trainRunOrder[rowI]]
+    ysPos = [resDict[j][0] for j in xrange(len(resDict))]
+    errorsPos = [resDict[j][2] for j in xrange(len(resDict))]  
+    ysOri = [resDict[j][1] for j in xrange(len(resDict))]
+    errorsOri = [resDict[j][3] for j in xrange(len(resDict))]#
+    row[0].axhline(y=0, color ='lightgrey')
+    row[1].axhline(y=0, color ='lightgrey')
+    row[0].errorbar(xs, ysPos, yerr = errorsPos, fmt='o')
+    row[1].errorbar(xs, ysOri, yerr = errorsOri, fmt='o')
+    row[0].set_title("Positional difference with {} trainruns.".format(e.trainRunOrder[rowI]))
+    row[1].set_title("Orientation difference with {} trainruns.".format(e.trainRunOrder[rowI]))
+
+def eachTestPosSep(e):
+    numSubPlotRows = len(e.testPosValues)
+    fig, axes = plt.subplots(numSubPlotRows, 2)
+    if numSubPlotRows == 1:
+        plotRow(e, axes, 0)
+    else:
+        i = 0
+        for row in axes:
+            plotRow(e, row, i)
+            i+=1
+    fig.subplots_adjust(hspace = 1)
+    fig.suptitle("Results for experiment " + e.name)
+    
+def learnCurve(e):
+    fig, row = plt.subplots(1,2)
+    xs = e.trainRunOrder
+    ysPos = []
+    ysOri = []
+    errorsPos = []
+    errorsOri = []
+    for trainRun in e.trainRunOrder:
+        resDict = e.testPosValues[trainRun]
+        ysPos.append(np.mean([resDict[j][0] for j in xrange(len(resDict))]))
+        errorsPos.append(np.mean([resDict[j][2] for j in xrange(len(resDict))])) 
+        ysOri.append(np.mean([resDict[j][1] for j in xrange(len(resDict))]))
+        errorsOri.append(np.mean([resDict[j][3] for j in xrange(len(resDict))]))
+    row[0].errorbar(xs, ysPos, yerr= errorsPos, fmt='o')
+    row[1].errorbar(xs, ysOri, yerr = errorsOri, fmt='o')
+    row[0].set_title("Positional difference against num trainruns.")
+    row[1].set_title("Orientational difference against num trainruns.")
+    row[0].set_xlim(0,35)
+    row[1].set_xlim(0,35)
+    fig.suptitle("Learn curve for experiment " + e.name)
+
 for e in experiments.values():
 
 
-    pp = PdfPages("../pdfs/"+ e.name +".pdf")
+#    pp = PdfPages("../pdfs/"+ e.name +".pdf")
     
-    numSubPlotRows = len(e.testPosValues)
-    fig, axes = plt.subplots(numSubPlotRows, 2)
-    i = 0
-    for row in axes:
-        resDict = e.testPosValues[e.trainRunOrder[i]]
-        xs = startingTestPos
-        ysPos = [resDict[j][0] for j in xrange(len(resDict))]
-        errorsPos = [resDict[j][2] for j in xrange(len(resDict))]  
-        ysOri = [resDict[j][1] for j in xrange(len(resDict))]
-        errorsOri = [resDict[j][3] for j in xrange(len(resDict))]#
-        row[0].axhline(y=0, color ='lightgrey')
-        row[1].axhline(y=0, color ='lightgrey')
-        row[0].errorbar(xs, ysPos, yerr = errorsPos, fmt='o')
-        row[1].errorbar(xs, ysOri, yerr = errorsOri, fmt='o')
-        row[0].set_title("Positional difference with {} trainruns.".format(e.trainRunOrder[i]))
-        row[1].set_title("Orientation difference with {} trainruns.".format(e.trainRunOrder[i]))
-    #    row[0].set_xlim([-0.4,0.4])
-    #    row[1].set_xlim([-0.4,0.4])
-        i+=1
+#    learnCurve(e)
+    eachTestPosSep(e)
     
     #plt.tight_layout()
-    fig.subplots_adjust(hspace = 1)
-    fig.suptitle("Results for experiment " + e.name)
-    pp.savefig()
-    pp.close()
+
+#    pp.savefig()
+#    pp.close()
     
 plt.show()

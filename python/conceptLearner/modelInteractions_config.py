@@ -17,12 +17,10 @@ from numpy import copy as npcopy
 from numpy import round as npround
 import common
 from itm import ITM
-from sets import Set
 import copy
 from configuration import config
-from operator import itemgetter
+from inverseModel import MetaNetwork
 
-GREEDY_TARGET = True
 
 class Object(object):
     
@@ -120,11 +118,6 @@ class InteractionState(object):
         res.vec[1] = o2.id
 #        res.vec[2:5] = 0.0 #Does not need to be set since it will be zero in local coordinate system
         res.vec[5:7] = common.relPos(o1.vec[0:2], o1.vec[2], o2.vec[0:2])
-#        res.vec[7] = o1.vec[2]
-        """ Remove for now since this will most likely break itm performance...
-            Can however only be removed under the assumption that the gripper always has 
-            orientation 0
-        """
         res.vec[7] = o2.vec[2]-o1.vec[2] 
         res.lastVec = npcopy(res.vec)
         res.trans = common.eulerPosToTransformation(o1.vec[2],o1.vec[0:2])
@@ -133,16 +126,39 @@ class InteractionState(object):
         return res
 
         
-    def circle(self):
+    def circle(self, toTarget = None):
         o1,o2 = Object.fromInteractionState(self)
         dist = common.generalDist(o1.id, o1.vec[0:2], o1.vec[2], o2.id, o2.vec[:2], o2.vec[2])
         relPos = self.vec[5:7]
+        globRelPos = np.dot(self.trans[:-1,:-1], relPos)
         if dist < 0.04:
-            return 0.4*relPos/np.linalg.norm(relPos)
+            return 0.4*globRelPos/np.linalg.norm(globRelPos)
         elif dist > 0.06:
-            return -0.4*relPos/np.linalg.norm(relPos)
-        tangent = np.array([-relPos[1], relPos[0]])
-        return -0.4*tangent/np.linalg.norm(tangent)
+            return -0.4*globRelPos/np.linalg.norm(globRelPos)
+        tangent = np.array([-globRelPos[1], globRelPos[0]])
+        if toTarget != None:
+            angAct = np.arctan2(relPos[1],relPos[0])
+            angTarget = np.arctan2(toTarget[1],toTarget[0])
+            angDif = angTarget+np.pi - (angAct+np.pi)
+            print "angDif: ", angDif
+            if angDif > 0:
+                if abs(angDif) < np.pi:
+                    print "circling pos"
+                    return 0.4*tangent/np.linalg.norm(tangent)
+                else:
+                    print "circling neg"
+                    return -0.4*tangent/np.linalg.norm(tangent)
+            else:
+                if abs(angDif) < np.pi:
+                    print "circling neg"
+                    return -0.4*tangent/np.linalg.norm(tangent)
+                else:
+                    print "circling pos"
+                    return 0.4*tangent/np.linalg.norm(tangent)
+            
+            return -0.4*tangent/np.linalg.norm(tangent)
+        else:
+            return 0.4*tangent/np.linalg.norm(tangent)
     
 class WorldState(object):
     
@@ -255,175 +271,6 @@ class AbstractCollection(object):
     def getAction(self, difs):
         return self.inverseModel.getPreconditions(difs)
 
-class MetaNode(object):
-
-    def __init__(self):
-        self.signCombinations= {}
-        self.signCombinationSums= {}
-        self.signCombinationNumbers = {}
-        self.lenPreCons = 0
-        pass
-
-    def train(self, pre, dif):
-        """
-        Parameters
-        ----------
-        pre : np.ndarray
-            Vector of preconditions
-        dif : float
-            Absolut difference value of the feature
-        """
-        #Compare incoming pres and find the things they have in common/are relevant for a given dif
-        lPre = len(pre)
-        self.lenPreCons = lPre
-        curSigCom = []
-        for i in xrange(lPre):
-            if pre[i] < -config.metaNodeThr:
-                curSigCom.append('-1')
-            elif pre[i] > config.metaNodeThr:
-                curSigCom.append('1')
-            else:
-                curSigCom.append('0')
-        curSigCom = ";".join(curSigCom)
-        if curSigCom in self.signCombinations:
-            self.signCombinations[curSigCom] += dif
-            self.signCombinationSums[curSigCom] += dif*pre
-            self.signCombinationNumbers[curSigCom] += 1
-        else:
-            self.signCombinations[curSigCom] = dif
-            self.signCombinationSums[curSigCom] = dif*pre
-            self.signCombinationNumbers[curSigCom] = 1
-            
-    def getPreconditions(self):
-        res = np.zeros(self.lenPreCons)
-        res2 = np.zeros(self.lenPreCons)
-        l = sorted([(k,self.signCombinations[k]/self.signCombinationNumbers[k]) for k in self.signCombinations.keys()], key=itemgetter(1), reverse=True)
-        if len(l) > 1:
-            comb1 = l[0][0].split(";")
-            comb2 = l[1][0].split(";")
-            pre1 = self.signCombinationSums[l[0][0]]
-            pre2 = self.signCombinationSums[l[1][0]]
-            w1 = self.signCombinations[l[0][0]]
-            w2 = self.signCombinations[l[1][0]]
-            for i in xrange(len(comb1)):
-                if comb1[i] == comb2[i] or comb1[i] == '0' or comb2[i] == '0':
-                    res[i] = (pre1[i]+pre2[i])/(w1+w2)
-                    res2[i] = res[i]
-                else:
-                    res[i] = pre1[i]/w1
-                    res2[i] = pre2[i]/w2
-            return res, res2
-        else:
-            return self.signCombinationSums[l[0][0]]/self.signCombinations[l[0][0]], None
-            
-class MetaNetwork(object):
-    
-    def __init__(self):
-        self.nodes = {}
-        self.curIndex = None
-        self.curSecIndex = None
-        self.preConsSize = None
-        self.difSize = None
-        self.targetIndex = None
-        pass
-    
-    def train(self, pre, difs):
-        if self.preConsSize == None:
-            self.preConsSize = len(pre)
-        if self.difSize == None:
-            self.difSize = len(difs)
-        targetIndexFound = False
-#        print "difs: ", difs
-#        print "training network with pre: ", pre
-        for i in xrange(len(difs)):
-            #It appears smaller values break inverse model since the weights can 
-            #get swapped for point symmetric preconditions
-            if abs(difs[i]) > config.metaNetDifThr: 
-                index = str(i*np.sign(difs[i]))
-                if not index in self.nodes:
-                    self.nodes[index] = MetaNode()
-#                print "training index: {} with dif: {}".format(index, difs[i])
-#                print "precons: ",pre[[4,5,6,10,11]]
-                self.nodes[index].train(pre,abs(difs[i]))
-
-                if self.targetIndex != None and index == self.targetIndex:
-                    print "target: {} successfully found.".format(index)
-                    self.targetIndex =None
-                    self.preConIndex = 4  #For exploration
-                    targetIndexFound = True
-                            
-                
-    def getPreconditions(self, targetDifs):
-        if GREEDY_TARGET:
-            if self.curIndex != None:
-                ind = float(self.curIndex)
-                indSign = -1 if '-'in self.curIndex else 1
-                #Consider making this a ratio of maximum/total difs so that it avoids jumping back and forth when it is already quite close to target
-                if indSign == np.sign(targetDifs[abs(ind)]) and abs(targetDifs[abs(ind)]) > config.metaNetIndexThr: 
-                    print "working on curIndex: ", self.curIndex
-                    preCons1, preCons2 = self.nodes[self.curIndex].getPreconditions()
-                else:
-                    self.curIndex = None
-                    
-            
-            if self.curIndex == None:
-                print "target difs: ", targetDifs
-                sortedDifs = np.argsort(abs(targetDifs))     
-                print "sortedDifs: ", sortedDifs
-                maxDif = sortedDifs[-1]
-                index = str(maxDif*np.sign(targetDifs[maxDif]))
-                self.curSecIndex =str(sortedDifs[-2]*np.sign(targetDifs[sortedDifs[-2]]))
-#                print "targetDifs: ", targetDifs
-#                print "maxindex: ", index
-                if not index in self.nodes:
-                    print "index i {} for targetDif {}, not known".format(index, targetDifs[abs(float(index))])
-                    print "nodes: ", self.nodes.keys()
-                    print "targetDifs: ", targetDifs
-                    return None
-                else:
-#                    self.curIndex = index
-                    print "precons for index: ", index
-                    preCons1, preCons2 = self.nodes[index].getPreconditions()
-                    
-            if preCons2 == None:
-                print "no alternative"
-                return preCons1
-            else:
-                index2 = self.curSecIndex
-                if not index2 in self.nodes:
-                    print "using pre1"
-                    return preCons1
-                else:
-                    print "precons for index: ", index2
-                    secCons1, secCons2 = self.nodes[index2].getPreconditions()
-                    o1 = np.linalg.norm(secCons1-preCons1)
-                    o2 = np.linalg.norm(secCons1-preCons2)
-#                    print "dist1: ", o1
-#                    print "dist2: ", o2
-#                    print "preCons1: ", preCons1
-#                    print "preCons2: ", preCons2
-#                    print "secCons1: ", secCons1
-                    if secCons2 == None:
-                        if o1 <= o2:
-                            print "using pre1"
-                            return preCons1
-                        else:
-                            print "using pre2"
-                            return preCons2
-                    else:
-                        o3 = np.linalg.norm(secCons2-preCons1)
-                        o4 = np.linalg.norm(secCons2-preCons2)
-                        if min(o1,o3) <= min(o2,o4):
-                            print "using pre1 sec"
-                            return preCons1
-                        else:
-                            print "using pre2 sec"
-                            return preCons2
-                
-
-        else:
-            raise NotImplementedError("Currently only greedy is possible")
-                
     
 class ACSelector(object):
     
@@ -463,6 +310,7 @@ class ModelInteraction(object):
         self.training = True
         self.target = None
         self.targetFeatures = []
+        self.inverseModel = MetaNetwork()
         pass    
     
     
@@ -517,29 +365,36 @@ class ModelInteraction(object):
                 #Only consider target differences
                 
                 targetChangingFeatures = [i for i in desiredEpisode.getChangingFeatures() if i in self.targetFeatures]
-                targetDifs = desiredEpisode.difs[self.targetFeatures]
-                maxIndex = np.argmax(abs(targetDifs))
-                maxFeature = targetChangingFeatures[maxIndex]
-                print "maxIndex: ", maxIndex
+                targetDifs = np.zeros(len(desiredEpisode.difs))#[self.targetFeatures]
+                targetDifs[self.targetFeatures] = desiredEpisode.difs[self.targetFeatures]
+#                maxIndex = np.argmax(abs(targetDifs))
+#                maxFeature = targetChangingFeatures[maxIndex]
+#                print "maxIndex: ", maxIndex
+#                print "maxFeature: ", maxFeature
                 featuresString = ",".join(map(str,targetChangingFeatures))
-                print "targetChangingFeatures: ", targetChangingFeatures
+                print "featuresString: ", featuresString
                 print "available ACs: ", self.featuresACMapping.keys()
-                responsibleACs = []
-    #            if featuresString in self.featuresACMapping:
-    #                responsibleACs.append(self.abstractCollections[self.featuresACMapping[featuresString]])
-    #            else:
-                for k in self.featuresACMapping.keys():
-                    if str(maxFeature) in k:
-                        responsibleACs.append(self.abstractCollections[self.featuresACMapping[k]])
+#                responsibleACs = []
+
+#                for k in self.featuresACMapping.keys():
+#                    if featuresString in k:
+#                        responsibleACs.append(self.abstractCollections[self.featuresACMapping[k]])
+#                    else:
+#                        if str(maxFeature) in k:
+#                            responsibleACs.append(self.abstractCollections[self.featuresACMapping[k]])
+#            
+##                for ac in responsibleACs:
+##                    if str(maxIndex*np.sign(targetDifs[maxIndex])) in ac.inverseModel.nodes:
+#                        
+#                preConditions = None
+##                i=len(responsibleACs)-1
+#                i=0
+#                while preConditions == None:
+#                    preConditions = responsibleACs[i].getAction(targetDifs)
+#                    print "AC features: ", responsibleACs[i].changingFeatures
+#                    i+=1
                 
-#                for ac in responsibleACs:
-#                    if str(maxIndex*np.sign(targetDifs[maxIndex])) in ac.inverseModel.nodes:
-                        
-                preConditions = None
-                i=0
-                while preConditions == None:
-                    preConditions = responsibleACs[i].getAction(targetDifs)
-                    i+=1
+                preConditions = self.inverseModel.getPreconditions(targetDifs)
                 print "usedAC: ", i-1
                 print "Preconditions: ", preConditions
                 relTargetPos = preConditions[5:7]
@@ -547,6 +402,7 @@ class ModelInteraction(object):
                 globTargetPos[:2] = np.copy(relTargetPos)
                 globTargetPos = np.dot(targetInteraction.trans, globTargetPos)[:2]
                 relAction = preConditions[8:10]
+                print "relAction: ", relAction
                 curRelPos = targetInteraction.vec[5:7]
                 globCurPos = np.ones(3)
                 globCurPos[:2] = np.copy(curRelPos)
@@ -559,14 +415,16 @@ class ModelInteraction(object):
                 difPos = globTargetPos-globCurPos
                 globAction = np.dot(targetInteraction.trans[:2,:2],relAction)
                 print "global Action: ", globAction
-                wrongSides = curRelPos*relTargetPos < 0
-                if np.any(wrongSides):
-                    if max(abs(relTargetPos[wrongSides]-curRelPos[wrongSides])) > 0.05:
-                        print "circling"
-                        return targetInteraction.circle()
+#                wrongSides = curRelPos*relTargetPos < 0
+#                if np.any(wrongSides):
+#                    if max(abs(relTargetPos[wrongSides]-curRelPos[wrongSides])) > 0.05:
+#                        print "circling"
+#                        return targetInteraction.circle()
     
-    
-                if np.linalg.norm(difPos) > 0.05:
+                if np.linalg.norm(difPos) > 0.1:
+                    print "circling, too far"
+                    return targetInteraction.circle(relTargetPos)
+                if np.linalg.norm(difPos) > 0.01:
                     print "doing difpos"
                     return 0.3*difPos/np.linalg.norm(difPos)                
                 print "global action"
@@ -593,7 +451,9 @@ class ModelInteraction(object):
                         
                     self.abstractCollections[self.featuresACMapping[featuresString]].update(newEpisode)
                     self.acSelector.update(self.curInteractionStates[intId], usedAction, self.featuresACMapping[featuresString])
-                    
+                    transAction = np.dot(self.curInteractionStates[intId].invTrans[:-1,:-1], usedAction) 
+                    vec = np.concatenate((self.curInteractionStates[intId].vec, transAction))
+                    self.inverseModel.train(vec, newEpisode.difs)
 #                    if not 0 in self.abstractCollections:
 #                        self.abstractCollections[0] = AbstractCollection(0, np.array([2,3,4,5,6,7]))
 #                    self.abstractCollections[0].update(newEpisode)

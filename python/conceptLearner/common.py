@@ -11,7 +11,7 @@ from numpy import dot as npdot
 import math
 
 from operator import itemgetter
-from config import config
+from configuration import config
 
 GAZEBOCMDS = { "NOTHING": 0,"MOVE": 1, "GRAB": 2, "RELEASE": 3}
 SIDE = {"NONE": 0, "DOWN": 1, "UP": 2}

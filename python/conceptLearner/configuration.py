@@ -66,12 +66,12 @@ class Config(object):
             self.episodeDifThr = 0.001
             self.frequency = 100
             self.metaNodeThr = 0.001
-            self.metaNetDifThr = 0.001 #0.002
+            self.metaNetDifThr = 0.002
         else:
             self.episodeDifThr = 0.01
             self.frequency = 10
             self.metaNodeThr = 0.01
-            self.metaNetDifThr = 0.01 #0.02
+            self.metaNetDifThr = 0.02
         #General
         self.USE_DYNS = False
         self.NUMDEC = 3
@@ -80,8 +80,9 @@ class Config(object):
         self.fixedTrainSeed = False
         self.trainSeed = 1234
         self.startRunRange = 0.5
-        self.testPositions = np.arange(-0.35,0.351,0.035)# np.array([-0.25,0.0,0.25])# #np.arange(-0.35,0.35,0.349)#
+        self.testPositions = np.arange(-0.35,0.351,0.07) #np.arange(-0.35,0.351,0.035)#
         self.fixedFirstThreeTrains = False
+        self.perfectTrainRuns = False
         
         self.numTooSlow = 0
         self.resetErrors = 0
@@ -103,6 +104,7 @@ class Config(object):
         s += "Used train seed: {}\n".format(self.trainSeed)
         s += "Used test starting postions: {}\n".format(self.testPositions if self.testPositions != None else "Random")
         s += "Fixed first three training runs: {}\n".format(self.fixedFirstThreeTrains)
+        s += "Perfect train runs: {}\n".format(self.perfectTrainRuns)
         s += "Number of times too slow during whole experiment: {}\n".format(self.numTooSlow)
         s += "Number of reset errors: {}\n".format(self.resetErrors)
         if usedGate:

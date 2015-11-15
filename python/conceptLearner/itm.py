@@ -104,24 +104,40 @@ class ITM(object):
             outNorm = npsqrt(npdot(y,y))#np.linalg.norm(y)
 #            outNorm = npdot(y,y)
             if outNorm != 0:
-                outputDim = npfloor(nplog10(outNorm))-1
+                outputDim = npfloor(nplog10(outNorm))#-1
+                if outputDim == 0:
+                    outputDim -= 1
             else:
                 outputDim = -3
 #            if npdot(expOut-y,expOut-y) > 10**outputDim:
             if npnorm(expOut-y) > 10**outputDim:
-#            if npdot(w.inp-x,s.inp-x) > 0 and ndif > EMAX_2:
+#            if npdot(w.inp-x,s.inp-x) > 0 and ndif > config.EMAX_2:
 #                nI = len(self.nodes)
-                nI = self.idCounter
-                n= Node(x,nI,y)
-                self.nodes[nI] = n
-#                self.nodes.append(n)
-                self.inserts += 1
-                self.ids.append(nI)
-                self.idCounter += 1
-                self.valAr = nparray([node.inp for node in self.nodes.values()])
-#                self.valAr = np.array([np.concatenate((node.inp,node.out)) for node in self.nodes.values()])
-                w.addNeighbour(nI, n)
-                n.addNeighbour(wI, w)
+#                print "input norm: ", npnorm(w.inp-x)
+#                if npnorm(w.inp-x) > 0.0:
+                    nI = self.idCounter
+                    n= Node(x,nI,y)
+                    self.nodes[nI] = n
+    #                self.nodes.append(n)
+                    self.inserts += 1
+                    self.ids.append(nI)
+                    self.idCounter += 1
+                    self.valAr = nparray([node.inp for node in self.nodes.values()])
+    #                self.valAr = np.array([np.concatenate((node.inp,node.out)) for node in self.nodes.values()])
+                    w.addNeighbour(nI, n)
+                    n.addNeighbour(wI, w)
+#                else:
+###                    #Adapt winner
+###                    dwout = 0.5*(y-w.out)
+#                    dif = x-w.inp
+#                    ndif = npdot(dif,dif)
+#                    dwIn = 0.5*dif
+#                    w.inp += dwIn
+#                    cor = npdot(w.A,dif)
+#                    dwout = 0.5*(y-w.out+cor) + npdot(w.A,dwIn)
+#                    w.out += dwout
+#                    if ndif > 0.0:
+#                        w.A += 0.5*npouter((y-w.out+cor), dif/ndif)
 #            
             if npdot(wsdif,wsdif) < config.EMAX05_2:
                 if len(self.nodes) > 2:

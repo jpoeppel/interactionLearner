@@ -23,19 +23,18 @@ from pygazebo.msg import world_control_pb2
 #import yappi
 
 import numpy as np
-np.set_printoptions(precision=3,suppress=True)
+np.set_printoptions(precision=6,suppress=True)
 
 from common import GAZEBOCMDS
 import common
-
 
 
 import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
 
-#GATE = True
-GATE = False
+GATE = True
+#GATE = False
 
 if GATE:
     import modelGate_2D_config as model
@@ -48,13 +47,19 @@ import configuration
 from configuration import config
 
 #Select used configuration
-CONFIGURATION = configuration.FIXFIRSTTHREETRAININGRUNS 
+CONFIGURATION = 0 #configuration.HARDCODEDACT # configuration.FIXFIRSTTHREETRAININGRUNS 
 config.switchToConfig(CONFIGURATION)
 
-FILEEXTENSION = "_SymmetricTests"
+config.perfectTrainRuns = True
 
-trainRuns = [3]
-NUMBER_FOLDS = 5
+tmpL = range(len(config.testPositions))
+np.random.shuffle(tmpL)
+mapping = {i: tmpL[i] for i in range(len(tmpL))}
+
+FILEEXTENSION = "_EPerfectTrainITMInput"
+
+trainRuns = [11]
+NUMBER_FOLDS = 1
 RECORD_SIMULATION = False
 
 logging.basicConfig()
@@ -67,9 +72,9 @@ PUSHTASKSIMULATION = 2
 PUSHTASKSIMULATION2 = 3
 MOVE_TO_TARGET = 4
 
-#MODE = PUSHTASKSIMULATION
+MODE = PUSHTASKSIMULATION
 #MODE = FREE_EXPLORATION
-MODE = MOVE_TO_TARGET
+#MODE = MOVE_TO_TARGET
 
 
 NUM_TRAIN_RUNS = 8
@@ -239,7 +244,6 @@ class GazeboInterface():
         modelState_pb2.ModelState
             Protobuf object for a model state with fixed id to 99
         """
-        
         assert not np.any(np.isnan(pos)), "Pos has nan in it: {}".format(pos)
         assert not np.any(np.isnan(euler)), "euler has nan in it: {}".format(euler)
 
@@ -479,6 +483,7 @@ class GazeboInterface():
         if np.linalg.norm(tPos) > 1.0 or self.stepCounter > 150:
             return True
         return False
+       
         
     def startRun(self, randomRange=0.5):
         """
@@ -497,6 +502,9 @@ class GazeboInterface():
                 posX = 0.25
             elif self.trainRun == 2:
                 posX = 0
+                                
+        if config.perfectTrainRuns:
+            posX = config.testPositions[mapping[self.trainRun]]
                 
         self.lastStartConfig = {8:np.array([posX,0.0,0.0]), 15:np.array([0.0,0.25,0.0]), 27:np.array([-0.3,0.35,0.0])}
             
@@ -593,13 +601,15 @@ class GazeboInterface():
                 if self.trainRun == trainRuns[self.runNumber]: # NUM_TRAIN_RUNS:
                     if not RECORD_SIMULATION:
                         self.pauseWorld()
+                    else:
+                        self.writeITMInformation("####ITM Information for fold: {}\n".format(self.foldNumber) 
+                                            + self.worldModel.getITMInformation())
                     if config.fixedTestSeed:
                         # Set new seed so that all test runs start identically, independent of the number of training runs
                         np.random.seed(config.testSeed) 
                     self.worldModel.training = False
 #                    fileName = ""
-                    self.writeITMInformation("####ITM Information for fold: {}\n".format(self.foldNumber) 
-                                            + self.worldModel.getITMInformation())
+                    
                     
                     
         elif self.testRun < NUM_TEST_RUNS:
@@ -738,7 +748,7 @@ class GazeboInterface():
 #            self.sendPrediction()
             if self.worldModel.target != None:
                 if GATE:
-                    taget = self.worldModel.target
+                    target = self.worldModel.target
                 else:
                     target, o2 = model.Object.fromInteractionState(self.worldModel.target)
                 self.sendPose("blockAShadow", target.vec[0:2], target.vec[2])
@@ -747,10 +757,10 @@ class GazeboInterface():
     def setRandomTarget(self):
         target = model.Object()
         target.id = 15
-        target.vec = np.array([0.75, -0.4, -1.0])
-#        target.vec = np.zeros(3)
-#        target.vec[0:2] = (np.random.rand(2)-0.5)*2.0
-#        target.vec[2] = (np.random.rand()-0.5)*2*np.pi
+#        target.vec = np.array([0.0, 0.7, 0.0])
+        target.vec = np.zeros(3)
+        target.vec[0:2] = (np.random.rand(2)-0.5)*2.0
+        target.vec[2] = (np.random.rand()-0.5)*2*np.pi
         self.worldModel.setTarget(target)
 
     def setTarget(self):

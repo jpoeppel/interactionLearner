@@ -53,6 +53,14 @@ In order to communicate with the simulation, a plug-in was written, that publish
 	\label{tab:commands}
 \end{table}
 
+\subsection{Sources of noise}
+[Describe why there is noise in the data, and where it comes from]
+\begin{itemize}
+\item Simulation's physics computation not perfectly synchronized %TODO refer to official statement if possible
+\item Asynchronous Message communication (not determined when action message is received)
+\item Numerical noise from physics computation of (resting-)contacts
+\end{itemize}
+
 \section{Push Task Simulation}
 
 This task is designed to test the accuracy of the forward models by decoupling them from the open 

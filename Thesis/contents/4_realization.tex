@@ -8,10 +8,10 @@
 %How did we realize/achieve the ideas?
 %Present what kind of assumptions/prior knowledge is made!!
 
-\begin{itemize}
-	\item Actual architectures resemble concepts closely
-	\item Crux lies in the regression model (AITM)
-\end{itemize}
+%\begin{itemize}
+%	\item Actual architectures resemble concepts closely
+%	\item Crux lies in the regression model (AITM)
+%\end{itemize}
 
 In order to evaluate the developed ideas, prototypes of the two concepts described in the previous section have been implemented in Python. Both prototypes are developed as such that they can be evaluated in the same way in the next chapter. The implementations try to follow the presented concepts very closely. As such the general data flow is the same as was presented in the figures  \ref{fig:PairPrediction}, \ref{fig:GatePrediction} and \ref{fig:GatePlanning}.
 Relevant decisions and assumptions made specifically for the implementation are highlighted and explained in this chapter. %TODO maybe needs to be changed
@@ -222,7 +222,7 @@ Afterwards the difference vector can simply be computed by:
 During training, the Abstract Collections extract the features differences they are responsible for from $\vec{d}$ and use those as target output of the local regression model.
 Finally, the set of changing features $S$ can then again be computed as stated in equation \ref{eq:difSet} while substituting $Post$ for $Post^*$.
 
-\subsection{From target object state to action primitives(?)\label{sec:pairPlanningReal}} %TODO change name
+\subsection{From target object state to action primitives\label{sec:pairPlanningReal}} %TODO change name
 
 [Subject to change] %TODO finalize once program runs decent
 %TODO Fix circling detection
@@ -232,7 +232,7 @@ In most cases the robot will have to push a certain object to a given specificat
 Once a target interaction state has been computed, the current interaction state between the reference object of interest and the actuator can be retrieved. Using the target interaction state as resulting state, an episode with an empty action is computed. The episode provides the difference vector between the current situation and the target configuration. Only the features remembered when constructing the target interaction states are considered from this difference vector. Effectively, these features correspond to the local differences in the object states. 
 
 Using this reduced difference vector, the model needs to find the Abstract Collection that is responsible for changes in the features of interest. Since these features are only a subset of the entire interaction state, there will usually not be an Abstract Collection that is responsible exactly for these features. Instead there will be several Abstract Collections, that are responsible for these features as well as other features. 
-
+%TODO besser erklären
 The greedy strategy of the developed inverse model does not work well with the space segmentation performed by the Abstract Collections.  
 Instead of training local inverse models in each Abstract Collection as described in the concept, this implementation only uses one global inverse model, that is trained with all experienced interactions. 
 Since the proposed inverse model does not scale with the number of training examples, but is only influences by the number of possible sign combinations (see section \ref{sec:invModelRealization} for details), this approach does not impact the model's performance.

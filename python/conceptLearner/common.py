@@ -346,7 +346,7 @@ def generalDistClosing(id1, p1, v1, ang1, id2, p2, v2, ang2):
     norm = np.linalg.norm(normal)
     if norm > 0.0:
         normal /= np.linalg.norm(normal)
-    return np.round(max(minDist,0.0), config.NUMDEC), np.round(npdot(normal, vel), config.NUMDEC)
+    return np.round(minDist, config.NUMDEC), np.round(npdot(normal, vel), config.NUMDEC)
     
 
 def generalDist(id1, p1, ang1, id2, p2, ang2):

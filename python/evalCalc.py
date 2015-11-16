@@ -60,8 +60,8 @@ for f in sorted(fileList, key=natSort):
         continue
 #    if "Configuration_40" in f or "Configuration_8" in f:
 #        continue
-#    if not "gateModel" in f:
-#        continue
+    if not "8_EOnly" in f:
+        continue
 #    if "Symmetric" in f:
 #        continue
     nameOnly = f.replace('.txt','')
@@ -175,6 +175,7 @@ def plotRow(e, row, rowI):
 
 def eachTestPosSep(e):
     numSubPlotRows = len(e.testPosValues)
+#    numSubPlotRows = 1
     fig, axes = plt.subplots(numSubPlotRows, 2)
     if numSubPlotRows == 1:
         plotRow(e, axes, 0)
@@ -210,14 +211,14 @@ def learnCurve(e):
 for e in experiments.values():
 
 
-#    pp = PdfPages("../pdfs/"+ e.name +".pdf")
+    pp = PdfPages("../pdfs/"+ e.name +".pdf")
     
 #    learnCurve(e)
     eachTestPosSep(e)
     
     #plt.tight_layout()
 
-#    pp.savefig()
-#    pp.close()
+    pp.savefig()
+    pp.close()
     
 plt.show()

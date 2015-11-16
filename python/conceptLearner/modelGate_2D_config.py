@@ -60,13 +60,8 @@ class Object(object):
         else:
             vec[2], vec[3] = common.generalDistClosing(self.id, self.vec[0:2],self.vec[0:2]-self.lastVec[0:2], 
                         self.vec[2], other.id, other.vec[0:2], other.vec[0:2]-other.lastVec[0:2], other.vec[2])
-            vec[4:6], vec[6:8], vec[8:10] = common.relPosVel(self.vec[0:2], self.vec[0:2]-self.lastVec[0:2], self.vec[2], other.vec[0:2], other.vec[0:2]-other.lastVec[0:2])
-        
-#        vec[10] = np.dot(np.linalg.norm(vec[4:7]), np.linalg.norm(vec[7:10]))
-#        if vec[6] != -0.02:
-#            raise NotImplementedError(vec)
-#        print "relVel: ", vec[10:13]
-        
+            vec[4:6], vec[6:8], vec[8:10] = common.relPosVel(self.vec[0:2], self.vec[0:2]-self.lastVec[0:2], self.vec[2], other.vec[0:2], other.vec[0:2]-other.lastVec[0:2])        
+        print "last closing: ", vec[3]
         return vec
         
     def getRelObjectVec(self, other):
@@ -85,13 +80,11 @@ class Object(object):
             res[0:2], res[3:5] = common.relPosVelChange(self.vec[2], res[0:2], res[3:5])
         else:
             res[0:2], v =  common.relPosVelChange(self.vec[2], res[0:2], np.zeros(2))
+        print "local change vec: ", res
         return res
 
     def predict(self, predictor, other):
         resO = copy.deepcopy(self)
-#        print "object before: ", resO.vec[1:4]
-#        print "relVec: ", self.getRelVec(other)[4:7]
-        print "using itm for object prediction"
         pred = predictor.test(self.getRelVec(other), testMode=config.predictorTestMode)
 #        pred = predictor.test(self.getRelVec(other))
         if config.USE_DYNS:
@@ -99,12 +92,10 @@ class Object(object):
         else:
             pred[0:2], v = common.globalPosVelChange(self.vec[2], pred[0:2], np.zeros(2))
         print "prediction for o: {}: {}".format(self.id, pred)
-        self.predVec = self.vec + pred*config.predictionBoost #interestingly enough, *1.5 improves prediction accuracy quite a lot
+        self.predVec = self.vec + pred*config.predictionBoost 
         resO.vec = np.round(self.predVec, config.NUMDEC)
         resO.lastVec = np.copy(self.vec)
-#        print "resulting object: ", resO.vec[1:4]
         return resO
-        
         
         
     def update(self, newO):
@@ -218,11 +209,6 @@ class Actuator(Object):
         res = Actuator()
         res.id = self.id
         self.predVec = np.copy(self.vec)
-#        res.vec[5:8] = action #Set velocity
-        if config.USE_DYNS:
-            self.predVec[3:5] = action
-        else:
-            pass
         #Hardcorded version
         if config.HARDCODEDACTUATOR:
 #            res.vec[1:4] += 0.01*action
@@ -230,7 +216,8 @@ class Actuator(Object):
         else:
             #Only predict position
             p = self.predictor.test(action, testMode=config.actuatorTestMode)
-            self.predVec[0:2] += p
+            print "predicting actuator change: ", p
+            self.predVec += p
 #            res.vec[1:4] += p
         res.lastVec = np.copy(self.vec)
         res.vec = np.round(self.predVec, config.NUMDEC)
@@ -244,7 +231,7 @@ class Actuator(Object):
             if config.HARDCODEDACTUATOR:
                 pass
             else:
-                pdif = newAc.vec[0:2]-self.vec[0:2]
+                pdif = newAc.vec-self.vec
 #                self.predictor.train(Node(0, wIn=action, wOut=pdif))
                 self.predictor.update(action, pdif, 
                                       etaIn= config.actuatorEtaIn, 
@@ -256,6 +243,7 @@ class Actuator(Object):
     @classmethod
     def parse(cls, protoModel):
         res = super(Actuator, cls).parse(protoModel)
+        res.vec[2] = 0 # Fix orientation
 #        res.vec[8] = 0.0 #Fix angular velocity
         return res
     
@@ -292,6 +280,7 @@ class Classifier(object):
         if config.HARDCODEDGATE:
             pass
         else:
+            print "training gate with: ", o1vec[config.gateMask]
             self.clas.update(o1vec[config.gateMask], np.array([label]), 
                              etaIn=config.gateClassifierEtaIn, 
                              etaOut=config.gateClassifierEtaOut, 
@@ -316,7 +305,8 @@ class Classifier(object):
 #            print "testing with gate itm"
             if self.isTrained:
                 print "Gate number of nodes: ", len(self.clas.nodes)
-                pred = self.clas.test(ovec[config.gateMask], testMode=config.gateClassifierTestMode)
+                pred = int(self.clas.test(ovec[config.gateMask], testMode=config.gateClassifierTestMode)[0])
+                print "gate prediction: ", pred
                 return pred
             else:
                 return 0
@@ -331,6 +321,7 @@ class GateFunction(object):
     
     def test(self, o1, o2, action):
         vec = o1.getRelVec(o2)
+        print "testing gate with relVec: ", vec[config.gateMask]
         return self.classifier.test(vec, action)
         
     def checkChange(self, pre, post):
@@ -351,7 +342,7 @@ class GateFunction(object):
         action: np.ndarray
         """
         #TODO For multiple objects: Causal determination, make hypothesis and test these!
-        
+        print "o2 lastvec: {}, o2 vec: {}".format(o2Post.lastVec, o2Post.vec)
         vec = o1Pre.getRelVec(o2Post)
         hasChanged, dif = self.checkChange(o1Pre, o1Post)
         if hasChanged:
@@ -652,20 +643,21 @@ class ModelGate(object):
         self.actuator.update(curWS.actuator, np.array([0.0,0.0]), training = False)
         
     def update(self, curWS, action):
+        if self.actuator == None:
+            self.actuator = curWS.actuator
+        self.actuator.update(curWS.actuator, action, self.training)
         for o in curWS.objectStates.values():
             #TODO extent to more objects
             if o.id in self.curObjects:
 #                hasChanged, dif = self.gate.update(self.curObjects[o.id], o, self.actuator, action)
                 if self.training:
-                    hasChanged, dif = self.gate.update(self.curObjects[o.id], o, curWS.actuator, action)
+                    hasChanged, dif = self.gate.update(self.curObjects[o.id], o, self.actuator, action)
                     if hasChanged:
                         self.predictor.update(self.curObjects[o.id].getRelVec(self.actuator), action, dif)
                 self.curObjects[o.id].update(curWS.objectStates[o.id])
             else:
                 self.curObjects[o.id] = o
-                
-        if self.actuator == None:
-            self.actuator = curWS.actuator
-        self.actuator.update(curWS.actuator, action, self.training)
+        
+        
             
     

@@ -61,7 +61,7 @@ class Config(object):
         self.aCSelectorEtaOut = 0.0
         self.aCSelectorEtaA = 0.0
         self.aCSelectorTestMode = 0
-        self.aCSelectorMask = [5,6]
+        self.aCSelectorMask = range(8) #[5,6]
         if SHORT_TS:
             self.episodeDifThr = 0.001
             self.frequency = 100

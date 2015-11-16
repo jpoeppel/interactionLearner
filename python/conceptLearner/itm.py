@@ -114,7 +114,7 @@ class ITM(object):
 #            if npdot(w.inp-x,s.inp-x) > 0 and ndif > config.EMAX_2:
 #                nI = len(self.nodes)
 #                print "input norm: ", npnorm(w.inp-x)
-#                if npnorm(w.inp-x) > 0.0:
+                if npnorm(w.inp-x) > 0.0:
                     nI = self.idCounter
                     n= Node(x,nI,y)
                     self.nodes[nI] = n
@@ -126,16 +126,22 @@ class ITM(object):
     #                self.valAr = np.array([np.concatenate((node.inp,node.out)) for node in self.nodes.values()])
                     w.addNeighbour(nI, n)
                     n.addNeighbour(wI, w)
-#                else:
-###                    #Adapt winner
-###                    dwout = 0.5*(y-w.out)
+                else:
+#                    #Adapt winner
+                    if len(w.out) == 1:
+                        print "changing gate: before: {}, after: {}".format(w.out, w.out+0.5*(y-w.out))
+                        print "win: {}, x: {}, sin: {}, sout: {}".format(w.inp, x, s.inp, s.out)
+                        print "printing all nodes: ", [(n.inp, n.out) for n in self.nodes.values()]
+                        print "after printing all nodes"
+                        raise NotImplementedError
+                    dwout = 0.5*(y-w.out)
 #                    dif = x-w.inp
 #                    ndif = npdot(dif,dif)
 #                    dwIn = 0.5*dif
 #                    w.inp += dwIn
 #                    cor = npdot(w.A,dif)
 #                    dwout = 0.5*(y-w.out+cor) + npdot(w.A,dwIn)
-#                    w.out += dwout
+                    w.out += dwout
 #                    if ndif > 0.0:
 #                        w.A += 0.5*npouter((y-w.out+cor), dif/ndif)
 #            

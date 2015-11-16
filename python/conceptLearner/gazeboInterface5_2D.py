@@ -47,20 +47,20 @@ import configuration
 from configuration import config
 
 #Select used configuration
-CONFIGURATION = 0 #configuration.HARDCODEDACT # configuration.FIXFIRSTTHREETRAININGRUNS 
+CONFIGURATION = configuration.FIXFIRSTTHREETRAININGRUNS 
 config.switchToConfig(CONFIGURATION)
 
-config.perfectTrainRuns = True
+#config.perfectTrainRuns = True
 
 tmpL = range(len(config.testPositions))
 np.random.shuffle(tmpL)
 mapping = {i: tmpL[i] for i in range(len(tmpL))}
 
-FILEEXTENSION = "_EPerfectTrainITMInput"
+FILEEXTENSION = "_E11TestsOtherITM"
 
-trainRuns = [11]
-NUMBER_FOLDS = 1
-RECORD_SIMULATION = False
+trainRuns = [3]
+NUMBER_FOLDS = 2
+RECORD_SIMULATION = True
 
 logging.basicConfig()
 
@@ -684,7 +684,11 @@ class GazeboInterface():
             The current world state
         """
         if self.lastPrediction != None and worldState != None:
-            self.worldModel.update(worldState, self.lastAction)
+            try:
+                self.worldModel.update(worldState, self.lastAction)
+            except:
+                self.pauseWorld()
+#                raise NotImplementedError
         else:
             print "reset objects"
             self.worldModel.resetObjects(worldState)

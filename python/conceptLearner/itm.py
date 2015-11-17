@@ -21,6 +21,7 @@ from numpy import outer as npouter
 from numpy import sqrt as npsqrt
 from numpy import zeros as npzeros
 from numpy.linalg import norm as npnorm
+from numpy import max as npmax
 
 
 import collections
@@ -79,6 +80,7 @@ class ITM(object):
             w.out += dwout
             if ndif > 0.0:
                 w.A += etaA*npouter((y-w.out+cor), dif/ndif)
+#                w.A /= max(npmax(abs(w.A)),1.0)
             #Add edge
 #            w.addNeighbour(sI,s)
 #            s.addNeighbour(wI,w)
@@ -114,11 +116,14 @@ class ITM(object):
 #            if npdot(w.inp-x,s.inp-x) > 0 and ndif > config.EMAX_2:
 #                nI = len(self.nodes)
 #                print "input norm: ", npnorm(w.inp-x)
-                if npnorm(w.inp-x) > 0.0:
+                if npnorm(w.inp-x) > 0.001:
                     nI = self.idCounter
                     n= Node(x,nI,y)
+                    print "creating new node: x {}, y: {}".format(x,y)
+                    print "nearest inp: {}, out: {}".format(w.inp, w.out)
+                    print "second inp: {}, out: {}".format(s.inp, s.out)
+                    print "network out: {}".format(expOut)
                     self.nodes[nI] = n
-    #                self.nodes.append(n)
                     self.inserts += 1
                     self.ids.append(nI)
                     self.idCounter += 1
@@ -127,13 +132,13 @@ class ITM(object):
                     w.addNeighbour(nI, n)
                     n.addNeighbour(wI, w)
                 else:
-#                    #Adapt winner
-                    if len(w.out) == 1:
-                        print "changing gate: before: {}, after: {}".format(w.out, w.out+0.5*(y-w.out))
-                        print "win: {}, x: {}, sin: {}, sout: {}".format(w.inp, x, s.inp, s.out)
-                        print "printing all nodes: ", [(n.inp, n.out) for n in self.nodes.values()]
-                        print "after printing all nodes"
-                        raise NotImplementedError
+##                    #Adapt winner
+#                    if len(w.out) == 1:
+#                        print "changing gate: before: {}, after: {}".format(w.out, w.out+0.5*(y-w.out))
+#                        print "win: {}, x: {}, sin: {}, sout: {}".format(w.inp, x, s.inp, s.out)
+#                        print "printing all nodes: ", [(n.inp, n.out) for n in self.nodes.values()]
+#                        print "after printing all nodes"
+#                        raise NotImplementedError
                     dwout = 0.5*(y-w.out)
 #                    dif = x-w.inp
 #                    ndif = npdot(dif,dif)
@@ -144,15 +149,18 @@ class ITM(object):
                     w.out += dwout
 #                    if ndif > 0.0:
 #                        w.A += 0.5*npouter((y-w.out+cor), dif/ndif)
-#            
+            print "wsdifnorm: ", npnorm(wsdif)
             if npdot(wsdif,wsdif) < config.EMAX05_2:
+#            if npnorm(wsdif) < 0.004:
                 if len(self.nodes) > 2:
+                    print "deleting second node"
                     self.deleteNode(sI)             
         else:
 #            To few nodes
 #            nI = len(self.nodes)
             nI = self.idCounter
             self.nodes[nI] = Node(x,nI,y)
+            print "creating new node since too few: x {}, y: {}".format(x,y)
             self.ids.append(nI)
             self.idCounter += 1
             self.valAr = nparray([n.inp for n in self.nodes.values()])

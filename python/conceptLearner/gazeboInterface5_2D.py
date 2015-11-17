@@ -47,7 +47,7 @@ import configuration
 from configuration import config
 
 #Select used configuration
-CONFIGURATION = configuration.FIXFIRSTTHREETRAININGRUNS 
+CONFIGURATION = configuration.FIXFIRSTTHREETRAININGRUNS | configuration.HARDCODEDACT | configuration.HARDCODEDGATE
 config.switchToConfig(CONFIGURATION)
 
 #config.perfectTrainRuns = True
@@ -56,11 +56,11 @@ tmpL = range(len(config.testPositions))
 np.random.shuffle(tmpL)
 mapping = {i: tmpL[i] for i in range(len(tmpL))}
 
-FILEEXTENSION = "_E11TestsOtherITM"
+FILEEXTENSION = "_E21TestsNormalITMOther"
 
 trainRuns = [3]
-NUMBER_FOLDS = 2
-RECORD_SIMULATION = True
+NUMBER_FOLDS = 10
+RECORD_SIMULATION = False
 
 logging.basicConfig()
 
@@ -150,7 +150,6 @@ class GazeboInterface():
         self.posePublisher = yield From(
                 self.manager.advertise('/gazebo/default/poses',
                     'gazebo.msgs.Pose'))
-                    
                           
         self.cmdPublisher = yield From(
                 self.manager.advertise('/gazebo/default/gripperMsg',
@@ -168,9 +167,6 @@ class GazeboInterface():
                 self.manager.advertise('/gazebo/default/sensor',
                     'gazebo.msgs.Sensor'))
                     
-        
-        
-                          
         while self.active:
             yield From(trollius.sleep(1))
                           
@@ -187,8 +183,6 @@ class GazeboInterface():
         msg = gripperCommand_pb2.GripperCommand()
         msg.cmd = GAZEBOCMDS["MOVE"]
         
-        
-            
 #        action["mvDir"] *= 0.5
         msg.direction.x = action[0]
         msg.direction.y = action[1]
@@ -333,7 +327,7 @@ class GazeboInterface():
             else:
                 raise AttributeError("Unknown MODE: ", MODE)
         end = time.time()
-        print "Execution took: ", end-start
+#        print "Execution took: ", end-start
         if end-start > 2*1.0/config.frequency:
             self.numTooSlow += 1
 #            raise TypeError("Execution took too long")
@@ -496,11 +490,11 @@ class GazeboInterface():
          #Set up Starting position
         posX = ((np.random.rand()-0.5)*randomRange) #* 0.5
         if config.fixedFirstThreeTrains:
-            if self.trainRun == 0:
+            if self.trainRun == 2:
                 posX = -0.25
             elif self.trainRun == 1:
                 posX = 0.25
-            elif self.trainRun == 2:
+            elif self.trainRun == 0:
                 posX = 0
                                 
         if config.perfectTrainRuns:
@@ -593,7 +587,7 @@ class GazeboInterface():
             return
             
         if self.trainRun < trainRuns[self.runNumber]: #NUM_TRAIN_RUNS:
-            print "Train run #: ", self.trainRun
+#            print "Train run #: ", self.trainRun
             if self.runStarted:
                 self.updateModel(worldState, self.direction)
             else:

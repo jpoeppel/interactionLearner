@@ -226,6 +226,11 @@ class Episode(object):
         postVec[5:7] = np.dot(np.dot(pre.invTrans,post.trans), oldAltPos)[:2]
         
         self.difs = postVec-pre.vec
+        if np.linalg.norm(self.difs) < 0.001:
+            print "pre: {}".format(pre)
+            print "post: {}".format(post)
+            print "action: {}".format(action)
+            raise NotImplementedError
         
     def getChangingFeatures(self):
         return np.where(abs(self.difs)>config.episodeDifThr)[0]

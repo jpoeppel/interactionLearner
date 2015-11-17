@@ -28,21 +28,21 @@ class Config(object):
     
     def __init__(self):
         #ITM general
-        self.SIGMAE = 0.05 #For besttwo
+        self.SIGMAE = 0.005 #For besttwo
         self.TESTMODE = BESTTWO
         self.EMAX = 0.001
         self.EMAX_2 = self.EMAX**2
         self.EMAX05_2 = (0.5*self.EMAX)**2
         #ITM Settings gate
-        self.predictorEtaIn = 0.1
-        self.predictorEtaOut = 0.0
+        self.predictorEtaIn = 0.2
+        self.predictorEtaOut = 0.2
         self.predictorEtaA = 0.0
         self.predictorTestMode = None #Use default = Besttwo
         self.gateClassifierEtaIn = 0.0
         self.gateClassifierEtaOut = 0.0
         self.gateClassifierEtaA = 0.0
         self.gateClassifierTestMode = 0 #Winner
-        self.gateMask = [2,3,6,7] #dist, clos, rVx, rVy
+        self.gateMask = [2,3] #[0,1,4,5,8,9] #dist, clos, rVx, rVy
         self.actuatorEtaIn = 0.0
         self.actuatorEtaOut = 0.1
         self.actuatorEtaA = 0.0
@@ -80,7 +80,7 @@ class Config(object):
         self.fixedTrainSeed = False
         self.trainSeed = 1234
         self.startRunRange = 0.5
-        self.testPositions = np.arange(-0.35,0.351,0.07) #np.arange(-0.35,0.351,0.035)#
+        self.testPositions = [-0.105, 0.0, 0.105] #np.arange(-0.35,0.351,0.035) #np.arange(-0.35,0.351,0.035)#
         self.fixedFirstThreeTrains = False
         self.perfectTrainRuns = False
         

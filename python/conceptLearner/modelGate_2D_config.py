@@ -61,7 +61,6 @@ class Object(object):
             vec[2], vec[3] = common.generalDistClosing(self.id, self.vec[0:2],self.vec[0:2]-self.lastVec[0:2], 
                         self.vec[2], other.id, other.vec[0:2], other.vec[0:2]-other.lastVec[0:2], other.vec[2])
             vec[4:6], vec[6:8], vec[8:10] = common.relPosVel(self.vec[0:2], self.vec[0:2]-self.lastVec[0:2], self.vec[2], other.vec[0:2], other.vec[0:2]-other.lastVec[0:2])        
-        print "last closing: ", vec[3]
         return vec
         
     def getRelObjectVec(self, other):
@@ -80,7 +79,6 @@ class Object(object):
             res[0:2], res[3:5] = common.relPosVelChange(self.vec[2], res[0:2], res[3:5])
         else:
             res[0:2], v =  common.relPosVelChange(self.vec[2], res[0:2], np.zeros(2))
-        print "local change vec: ", res
         return res
 
     def predict(self, predictor, other):
@@ -91,7 +89,7 @@ class Object(object):
             pred[0:2], pred[3:5] = common.globalPosVelChange(self.vec[2], pred[0:2], pred[3:5])
         else:
             pred[0:2], v = common.globalPosVelChange(self.vec[2], pred[0:2], np.zeros(2))
-        print "prediction for o: {}: {}".format(self.id, pred)
+#        print "prediction for o: {}: {}".format(self.id, pred)
         self.predVec = self.vec + pred*config.predictionBoost 
         resO.vec = np.round(self.predVec, config.NUMDEC)
         resO.lastVec = np.copy(self.vec)
@@ -216,7 +214,7 @@ class Actuator(Object):
         else:
             #Only predict position
             p = self.predictor.test(action, testMode=config.actuatorTestMode)
-            print "predicting actuator change: ", p
+#            print "predicting actuator change: ", p
             self.predVec += p
 #            res.vec[1:4] += p
         res.lastVec = np.copy(self.vec)
@@ -280,7 +278,7 @@ class Classifier(object):
         if config.HARDCODEDGATE:
             pass
         else:
-            print "training gate with: ", o1vec[config.gateMask]
+#            print "training gate with: ", o1vec[config.gateMask]
             self.clas.update(o1vec[config.gateMask], np.array([label]), 
                              etaIn=config.gateClassifierEtaIn, 
                              etaOut=config.gateClassifierEtaOut, 
@@ -304,9 +302,9 @@ class Classifier(object):
         else:
 #            print "testing with gate itm"
             if self.isTrained:
-                print "Gate number of nodes: ", len(self.clas.nodes)
+#                print "Gate number of nodes: ", len(self.clas.nodes)
                 pred = int(self.clas.test(ovec[config.gateMask], testMode=config.gateClassifierTestMode)[0])
-                print "gate prediction: ", pred
+#                print "gate prediction: ", pred
                 return pred
             else:
                 return 0
@@ -321,7 +319,7 @@ class GateFunction(object):
     
     def test(self, o1, o2, action):
         vec = o1.getRelVec(o2)
-        print "testing gate with relVec: ", vec[config.gateMask]
+#        print "testing gate with relVec: ", vec[config.gateMask]
         return self.classifier.test(vec, action)
         
     def checkChange(self, pre, post):
@@ -342,7 +340,6 @@ class GateFunction(object):
         action: np.ndarray
         """
         #TODO For multiple objects: Causal determination, make hypothesis and test these!
-        print "o2 lastvec: {}, o2 vec: {}".format(o2Post.lastVec, o2Post.vec)
         vec = o1Pre.getRelVec(o2Post)
         hasChanged, dif = self.checkChange(o1Pre, o1Post)
         if hasChanged:
@@ -362,6 +359,7 @@ class Predictor(object):
     
     def predict(self, o1, o2, action):
         if o1.id in self.predictors:
+            print "num nodes in local itm: ", len(self.predictors[o1.id].nodes)
             return o1.predict(self.predictors[o1.id], o2)
         else:
             return o1

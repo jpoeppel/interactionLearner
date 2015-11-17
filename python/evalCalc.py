@@ -60,7 +60,9 @@ for f in sorted(fileList, key=natSort):
         continue
 #    if "Configuration_40" in f or "Configuration_8" in f:
 #        continue
-    if not "8_EOnly" in f:
+    if "interaction" in f:
+        continue
+    if not "8_E21Tests" in f:
         continue
 #    if "Symmetric" in f:
 #        continue
@@ -211,14 +213,14 @@ def learnCurve(e):
 for e in experiments.values():
 
 
-    pp = PdfPages("../pdfs/"+ e.name +".pdf")
+#    pp = PdfPages("../pdfs/"+ e.name +".pdf")
     
 #    learnCurve(e)
     eachTestPosSep(e)
     
     #plt.tight_layout()
 
-    pp.savefig()
-    pp.close()
+#    pp.savefig()
+#    pp.close()
     
 plt.show()

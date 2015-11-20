@@ -14,6 +14,12 @@ pip-*
 *.out
 *.synctex.gz
 *.toc
+*.acn
+*.acr
+*.alg
+*.glo
+*.glsdefs
+*.ist
 
 
 # C extensions

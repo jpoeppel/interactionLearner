@@ -50,8 +50,34 @@ class TestCommons:
         assert np.linalg.norm(d-0.425) < 0.001
         assert np.linalg.norm(c-(-0.1)) < 0.001        
         
+    def test_pointSegmentDist(self):
+        center = np.array([0.0,0.5])
+        ang = 0.0
+        v = np.array([-0.25, 0.45])
+        w = np.array([0.25, 0.45])
+        ref = np.array([0.0,0.0])
+        d, p, r = distPointSeg(v,w,ref,radius=0.0)
+        assert np.linalg.norm(d-0.45) < 0.001
+        d, p, r = distPointSeg(v,w,ref,radius=0.025)
+        assert np.linalg.norm(d-0.425) < 0.001
+        assert np.linalg.norm(p-np.array([0.0,0.45])) < 0.001
+        w = np.array([-0.25,0.55])
+        d, p, r = distPointSeg(v,w,np.array([-0.3,0.5]))
+        assert np.linalg.norm(d-0.05) < 0.001
+        assert np.linalg.norm(p-np.array([-0.25,0.5])) < 0.001
+        #Rotate by -0.7        
+        ca = np.cos(-0.7)
+        sa = np.sin(-0.7)
+        v = np.dot(np.array([[ca, -sa], 
+                  [sa, ca]]),np.array([-0.25,-0.05]))+center
+        w = np.dot(np.array([[ca, -sa], 
+                  [sa, ca]]), np.array([-0.25,0.05]))+center
+        d, p, r = distPointSeg(v,w,ref)
+        assert np.linalg.norm(d-0.661) < 0.001
+        assert np.linalg.norm(p-np.array([-0.223,0.6228])) < 0.001
+        
     def test_generalDistClosing(self):
-        id1 = 21
+        id1 = 27
         id2 = 8
         p1 = np.array([0.0,0.5])
         v1 = np.zeros(2)
@@ -68,7 +94,7 @@ class TestCommons:
         assert np.linalg.norm(d-0.425) < 0.001
         assert np.linalg.norm(c-(-0.5)) < 0.001
         
-        id2 = 21
+        id2 = 27
         p2 = np.array([0.0,0.0])
         d, c = generalDistClosing(id1,p1,v1,ang1,id2, p2,v2,ang2)
         assert np.linalg.norm(d-0.4) < 0.001

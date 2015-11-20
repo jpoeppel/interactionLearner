@@ -24,6 +24,7 @@ class TestITM:
         pass
     
     def test_update(self):
+        #Set sigmae according to the order of magnitude in the input
         assert len(self.itm.nodes) == 0
         self.itm.update(self.x1,self.y1)
         assert len(self.itm.nodes) == 1
@@ -32,7 +33,9 @@ class TestITM:
         self.itm.update(self.x1,self.y1)
         assert len(self.itm.nodes) == 2
         #Testing no need to update because interpolation already covers this
+        print "updating the third time"
         self.itm.update(self.x3,self.y3)
+        print "after update"
         assert len(self.itm.nodes) == 2
     
     def test_test(self):

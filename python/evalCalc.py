@@ -2,26 +2,12 @@
 # -*- coding: utf-8 -*-
 """
 Created on Fri Sep  4 19:15:35 2015
-
+Simple script to read collected data and produce suitable plots.
 @author: jpoeppel
 """
 #
 import numpy as np
-#
-#
-#data = np.loadtxt("../data/gateModel10Runs_Gate_Act_NoDynsITMNewWinner.txt", delimiter=";")
-#
-#print np.mean(data,axis = 0)
-
-#data = np.loadtxt("./testData.txt", delimiter=";")
-#print data
-"""
-New records
-"""
-
-
 import os
-
 import re
 
 def natSort(s, _nsr=re.compile('([0-9]+)')):

@@ -60,10 +60,10 @@ for f in sorted(fileList, key=natSort):
         continue
 #    if "Configuration_40" in f or "Configuration_8" in f:
 #        continue
-    if "interaction" in f:
+    if not "interaction" in f:
         continue
-    if not "8_E21Tests" in f:
-        continue
+#    if not "8_E11Tests" in f:
+#        continue
 #    if "Symmetric" in f:
 #        continue
     nameOnly = f.replace('.txt','')
@@ -135,6 +135,7 @@ for f in sorted(fileList, key=natSort):
     currentExperiment.testPosValues[numTrainRuns] = testPosRes    
     currentExperiment.testStartPosX[numTrainRuns] = startingTestPos
     
+    
 #    ysPos.append(np.mean(np.linalg.norm(posDifs, axis=1)))
 #    ysOri.append(np.mean(oriDifs))
 #    errorsPos.append(np.std(np.linalg.norm(posDifs, axis=1)))
@@ -170,15 +171,21 @@ def plotRow(e, row, rowI):
     errorsOri = [resDict[j][3] for j in xrange(len(resDict))]#
     row[0].axhline(y=0, color ='lightgrey')
     row[1].axhline(y=0, color ='lightgrey')
+    for p in e.trainStartPosX[e.trainRunOrder[rowI]]:
+        row[0].axvline(x=p, color='black')
+        row[1].axvline(x=p, color='black')
     row[0].errorbar(xs, ysPos, yerr = errorsPos, fmt='o')
     row[1].errorbar(xs, ysOri, yerr = errorsOri, fmt='o')
-    row[0].set_title("Positional difference with {} trainruns.".format(e.trainRunOrder[rowI]))
-    row[1].set_title("Orientation difference with {} trainruns.".format(e.trainRunOrder[rowI]))
+    row[0].set_title("Positional")
+    row[0].set_ylabel("Difference [m]")
+    row[1].set_title("Orientation")
+    row[1].set_ylabel("Difference [rad]")
+    
 
 def eachTestPosSep(e):
     numSubPlotRows = len(e.testPosValues)
 #    numSubPlotRows = 1
-    fig, axes = plt.subplots(numSubPlotRows, 2)
+    fig, axes = plt.subplots(2, numSubPlotRows, sharex=True)
     if numSubPlotRows == 1:
         plotRow(e, axes, 0)
     else:
@@ -186,11 +193,12 @@ def eachTestPosSep(e):
         for row in axes:
             plotRow(e, row, i)
             i+=1
-    fig.subplots_adjust(hspace = 1)
-    fig.suptitle("Results for experiment " + e.name)
+    plt.xlabel("x position of testrun")
+#    fig.subplots_adjust(hspace = 1)
+#    fig.suptitle("Results for experiment " + e.name)
     
 def learnCurve(e):
-    fig, row = plt.subplots(1,2)
+    fig, row = plt.subplots(2,1, sharex=True)
     xs = e.trainRunOrder
     ysPos = []
     ysOri = []
@@ -204,22 +212,32 @@ def learnCurve(e):
         errorsOri.append(np.mean([resDict[j][3] for j in xrange(len(resDict))]))
     row[0].errorbar(xs, ysPos, yerr= errorsPos, fmt='o')
     row[1].errorbar(xs, ysOri, yerr = errorsOri, fmt='o')
-    row[0].set_title("Positional difference against num trainruns.")
-    row[1].set_title("Orientational difference against num trainruns.")
+    row[0].set_title("Position")
+    row[1].set_title("Orientation")
     row[0].set_xlim(0,35)
     row[1].set_xlim(0,35)
-    fig.suptitle("Learn curve for experiment " + e.name)
+#    row[0].set_xlabel("Number of training examples")
+    row[0].set_ylabel("Difference [m]")
+#    row[1].set_xlabel("Number of training examples")
+    row[1].set_ylabel("Difference [rad]")
+#    fig.suptitle("Learn curve for experiment " + e.name)
+    plt.xlabel("Number of training examples")
 
 for e in experiments.values():
 
 
 #    pp = PdfPages("../pdfs/"+ e.name +".pdf")
     
-#    learnCurve(e)
-    eachTestPosSep(e)
+    learnCurve(e)
+#    eachTestPosSep(e)
     
-    #plt.tight_layout()
-
+    plt.tight_layout()
+    plt.savefig("../pdfs/LearningCurve.pdf", 
+            #This is simple recomendation for publication plots
+            dpi=1000, 
+            # Plot will be occupy a maximum of available space
+            bbox_inches='tight', 
+            )
 #    pp.savefig()
 #    pp.close()
     

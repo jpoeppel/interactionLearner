@@ -5,38 +5,68 @@
 %Evaluate different models task based
 %How where the realisations/ideas tested?
 %What were the results of those tests?
-%TODO check if this needs to be rewritten, currently only copied from last draft!!!
 
-This chapter describes the different evaluation scenarios that were used to test the trained model 
-as well as present the achieved results in each of these scenarios. The presented tests were 
-designed to measure the forward models as well as the inverse models performances. The first 
-scenario, called the \enquote{Push Task Simulation}, tests the forward models of the different 
-concepts, while the second test scenario, the \enquote{Move to target}, tests the inverse models.
+The implementations of the developed concepts were evaluated with regard to the three requirements stated in the introduction: 
+\begin{itemize}
+\item Update models incrementally during the interaction
+\item Prediction of future object states
+\item Incrementally reach a given target configuration
+\end{itemize}
+
+In order to evaluate these requirements, the implementations are tested in two different tasks using a physics simulation. The first task, the \textit{Push Task Simulation} tests the forward models of the different implementations. The actual task as well as the results achieved in that task are explained in section \ref{sec:pushTaskSim}.
+The second task, \textit{Move to Target}, tests the implementations' ability to move an object towards a given configuration. This task and its results are explained in section \ref{sec:moveToTarget}.
+Both tasks are evaluated using different settings for the implementations.
+
+The used simulation software as well as the simulated environment are explained in section \ref{sec:environment}.
 
 
-\section{Simulation\label{sec:simulation}}
+\section{Simulation and environment \label{sec:environment}}
 
-The model is supposed to learn object manipulation through interaction. Instead of on a real robot the model has been developed and tested in a simplified simulation. For this work gazebo \cite{gazebo} V.2.2.3 was used with the physics engine Open Dynamics Engine (ODE) \cite{ode}. This simulation and version were chosen because this thesis was initially planned as a part of a bigger project in the Citec of Bielefeld University where this software was used as well. 
+The model is supposed to learn object manipulation through interaction.
+The developed prototype implementations are tested in a simplified simulation. For this work gazebo \cite{gazebo} version 2.2.3 was used with the physics engine Open Dynamics Engine (ODE) \cite{ode}.
+The actual gazebo simulation communicates with socket-based messages using Google Protobuf \cite{protobuf}. 
 
-\subsection{World and robot actions \label{sec:environment}}%TODO Check if remained the same
+A very simple environment is used, only containing a spherical actuator and a rectangular cube object that can be seen in figure \ref{fig:gazeboWorld}.
+The dimensions of all objects as well as their friction coefficients used by the physics simulation are listed in table \ref{tab:environmentObjects}.
 
-The model was developed with a toy-world consisting of only a sphere, which is 
-regarded as actuator, and a rectangular block as can be seen in figure 
-\ref{fig:gazeboWorld}.
-Since the focus of this work is to learn simple object interactions, the 
-possible actions of the robot were limited to moving the actuator freely in two 
-dimensions.
+\begin{table}
+	\centering
+	\begin{tabular*}{\textwidth}{@{\extracolsep{\fill} } c c c c}
+			\hline \textbf{Object} & \textbf{Dimension} & \multicolumn{2}{c}{\textbf{Friction coefficients}} \\ 
+			\multicolumn{2}{c}{} & $\mu_1$ & $\mu_2$ \\
+			\hline \hline 
+			 Actuator & $0.025m$ & 0.01 & 0.01 \\
+			 Blue rectangular cube & $0.5m \times 0.1m \times 0.1m$ & 0.9 & 0.9 \\  
+			\hline 
+	\end{tabular*} 
+	\caption{Table summarizing the dimensions and friction coefficients for the objects in the environment. If only one dimension is given, it represents the radius. Three dimensions correspond to the width, depth and height of an object.}
+	\label{tab:environmentObjects}
+\end{table}
 
-\begin{figure} %TODO Check if remained the same
-	%\includegraphics[width=5cm]{images/gazeboWorld.png} %TODO make image
-	\caption{Overview of the used world and objects. The sphere represents the 
-		robot's actuator and the rectangular block represents the primary object.}
-	\label{fig:gazeboWOrld}
+\begin{figure} 
+	\centering
+	\includegraphics[width=10cm]{gazeboWorld.png} %TODO make image
+	\caption{Overview of the used environment. The black sphere represents the actuator, the models can control using action primitives. The blue square represents the object that the actuator interacts with.}
+	\label{fig:gazeboWorld}
 \end{figure}
 
 
 \subsection{Communication}
-In order to communicate with the simulation, a plug-in was written, that publishes the properties of all objects using google protobuf \cite{protobuf}. These messages are received and unpacked by a custom python interface that handles the communication with the simulation from the model's side. The plug-in also interprets the commands coming from the interface. A list of all implemented commands can be found in table \ref{tab:commands}
+Gazebo uses a client-server architecture. The actual simulation is being performed by the server. This server publishes Google Protobuf messages via TCP/IP. Interested clients, for example the gui, can register themselves as listener to messages of desired types. 
+It is also possible to send messages to the server in order to influence the simulation. 
+
+The server can furthermore be extended by writing custom plug-ins that handle self defined messages or perform some sort of additional computation at each update step of the simulation. 
+
+In order for the Python prototypes to communicate with the simulation, an interface on both sides was created.
+
+On the side of the simulation, a custom server plug-in was written, that publishes the information described in table \ref{tab:availInformation} in the realization chapter. The information for all objects is packed into a custom Protobuf message, which is explained in details in Appendix \ref{sec:protobufMessages}. Basically, this message simply contains a list of object descriptions where each object description contains the information explained in table \ref{tab:availInformation}.
+Furthermore, the plug-in receives custom control messages. These messages allow the Python interface to influence the simulation.
+While the exact messages are explained in the Appendix, table \ref{tab:commands} gives an overview about the possible commands, that can be send to the simulation.
+
+On the Python side, an interface was written with the help of the module pygazebo \cite{pygazebo}, which provides Python bindings for the message passing system used by gazebo. This interface handles the messages that are received from and send to the simulation. 
+The information about the objects is also transferred into the suitable worldstate before this is passed to the models.
+
+Furthermore, the Python interface provides the testing framework of setting up the models and managing training and testing runs as explained in detail later.
 
 \begin{table}
 	\centering
@@ -61,7 +91,7 @@ In order to communicate with the simulation, a plug-in was written, that publish
 \item Numerical noise from physics computation of (resting-)contacts
 \end{itemize}
 
-\section{Push Task Simulation}
+\section{Push Task Simulation \label{sec:pushTaskSim}}
 
 This task is designed to test the accuracy of the forward models by decoupling them from the open 
 world during successive predictions. 
@@ -170,7 +200,7 @@ first iteration, there has not been a prediction that can be compared yet.
 
 
 
-\section{Move to target}
+\section{Move to target \label{sec:moveToTarget}}
 
 \subsection{Scenario description}
 

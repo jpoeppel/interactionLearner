@@ -15,12 +15,12 @@
 In machine learning, one generally assumes that data, for example class labels, are given by some function $f^*$. Given some training data $D$ with $d^i =(\vec{x}^i,\vec{y}^i)$ where $\vec{x}^i$ represents the given input and $\vec{y}^i$ the corresponding output of the $i$'s data point, one tries to estimate $f^*$. 
 Although different algorithms approximate $f^*$ differently, they can be categorized in two general families: The first one tries to detect \textit{correlations} between features in order to make predictions. The simplest example for this is given by the linear regression \cite{linearRegression} where they find weights $w_j$ so that $f(\vec{x}) = \sum w_j \cdot x_j$. 
 
-The other family focuses more on \textit{similarities} in the input space instead of feature correlations. Maybe the most prominent example for this is the \gls{knn} regression \cite{knn}. Previously seen training data is stored and compared to new input data. New input data $\vec{x}$ is then labeled according to the $k$ closest stored instances. The easiest form is to average the outputs of the $k$ closest instances around $\vec{x}$ (here denoted as the set $N(\vec{x}$)):
+The other family focuses more on \textit{similarities} in the input space instead of feature correlations. Maybe the most prominent example for this is the \gls{knn} regression \cite{kibler1987learning}. Previously seen training data is stored and compared to new input data. New input data $\vec{x}$ is then labeled according to the $k$ closest stored instances. The easiest form is to average the outputs of the $k$ closest instances around $\vec{x}$ (here denoted as the set $N(\vec{x}$)):
 \begin{equation}
-\vec{y}(\vec{x}) = \frac{1}{k} \sum_{\vec{y} \in N(\vec{x})} \vec{y}
+\vec{y}_{new}(\vec{x}) = \frac{1}{k} \sum_{\vec{y} \in N(\vec{x})} \vec{y}
 \end{equation} %TODO double y, change?
 
-These instances are also often called prototypes, if only a few instances are used to represent a subspace in the input space. Since the closest instance is determined by similarity, the used features and metric is usually critical for these methods \cite{importanceOfMetric/Features}. This dependence on careful preprocessing of the used features and metric can be considered the biggest disadvantage of these methods. However, there has also been a lot of research in automatically adapting the used metric while training in order to better fit the data, e.g. by Hammer et al. \cite{lvq}. Unfortunately, online metric adaptation often needs a lot of iterations before yielding satisfying results. 
+These instances are also often called prototypes, if only a few instances are used to represent a subspace in the input space. Since the closest instance is determined by similarity, the used features and metric is usually critical for these methods (see for example \cite{metric1, metric2}). This dependence on careful preprocessing of the used features and metric can be considered the biggest disadvantage of these methods. However, there has also been a lot of research in automatically adapting the used metric while training in order to better fit the data, e.g. by Hammer et al. \cite{lvq}. Unfortunately, online metric adaptation often needs a lot of iterations before yielding satisfying results. 
 
 Another disadvantage of memory based models is the memory consumption over time. Since the training examples need to be stored in order to be retrieved later, a lot of memory can be consumed. This can also lead to increased query and update times, since these scale linearly with the number of stored instances. Geva et al. \cite{protReduction} showed already 1991 that the number of required instances can be reduced depending on the used algorithm. Extending the area of influence of the given instances, for example by using \glspl{llm} \cite{LLM}, can further decrease the number of required instances.
 
@@ -54,6 +54,16 @@ However, the main difference to the given problem for this thesis is that Levine
 
 The most similar work to this thesis both in terms of setting and in their approach has been done by 
 Lau et al. in \cite{pushing}. The authors use \gls{knn} regression to make predictions about pushing an object. They also provide an algorithm to extract suitable actions that allow to push the object towards a specified target. Unfortunately, the authors restrict their model to the pushing interaction: Moving the actuator, here the entire circular mobile robot, around or towards the object is not part of the learned model but provided instead. Furthermore, while they describe their approach to work with position and orientation, they only provide results for position. 
+
+
+[TODO]
+\begin{itemize}
+\item more
+\item Human object manipulation
+\item grasping?
+\item ...
+\item Summary at the end
+\end{itemize}
 %Although, developed from a different point of view, the work presented here can be considered an extension to their work. Especially the proposed alternative inverse model (see section \ref{sec:invModel}) 
 
 %\begin{itemize}

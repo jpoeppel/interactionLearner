@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Fri Jun  5 16:48:10 2015
-
+Configuration file. All used parameters are bundled here.
 @author: jpoeppel
 """
 
@@ -25,10 +25,13 @@ USINGPREDICTIONBOOST = 64
 
 
 class Config(object):
+    """
+        Container for all parameters. 
+    """
     
     def __init__(self):
         #ITM general
-        self.SIGMAE = 0.005 #For besttwo
+        self.SIGMAE = 0.05 #For besttwo
         self.TESTMODE = BESTTWO
         self.EMAX = 0.001
         self.EMAX_2 = self.EMAX**2
@@ -150,7 +153,12 @@ class Config(object):
     def switchToConfig(self, configNummer):
         """
             Function to switch to a specific configuration given by the 
-            config nummer
+            configNummer.
+            
+            Parameters
+            ----------
+            configNummer : int
+                Number specifying the configuration to use
         """
         if configNummer & USE_DYNS:
             self.USE_DYNS = True

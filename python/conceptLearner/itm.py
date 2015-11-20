@@ -87,6 +87,7 @@ class ITM(object):
             w.neig[sI] = s
             s.neig[wI] = w
             #Get expected output according to currently used prediction scheme
+            print "local lookup"
             expOut = self.test(x, sortedIndices, testMode)
 #            #Check neighbours
             for nI, n in w.neig.items():
@@ -208,8 +209,10 @@ class ITM(object):
 #                print "second in: ", s.inp
 #                print "second out: ", s.out
                 norm = npexp(-npnorm(x-w.inp)**2/(config.SIGMAE**2))
+                print "w1: ", norm
                 res = norm*(w.out+npdot(w.A,x-w.inp))
                 wc = npexp(-npnorm(x-s.inp)**2/(config.SIGMAE**2))
+                print "w2: ", wc
                 res += wc*(s.out+npdot(s.A,x-s.inp))
                 norm += wc
                 if norm != 0:

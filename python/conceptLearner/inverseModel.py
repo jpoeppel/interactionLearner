@@ -80,6 +80,9 @@ class MetaNode(object):
     def mergeCombinations(self):
 #        kInts = [[int(i) for i in k.split(';')] for k in self.signCombinations.keys()]
         keys = [k for k in self.signCombinations.keys() if self.signCombinationNumbers[k] >= np.mean(self.signCombinationNumbers.values())]
+        print "keys: ", keys
+        print "numbers: ", self.signCombinationNumbers
+        print "mean: ", np.mean(self.signCombinationNumbers.values())
         sortedNumZeros = sorted(keys, key=lambda s: s.count('0'), reverse=True)
         resWeights = {}
         resSums = {}
@@ -130,7 +133,7 @@ class MetaNode(object):
         mergedWeights, mergedSums, mergedNumbers = self.mergeCombinations()
         l = sorted([(k,mergedWeights[k]/mergedNumbers[k]) for k in mergedWeights.keys()], key=itemgetter(1), reverse=True)
 #        l = sorted([(k,self.signCombinations[k]/self.signCombinationNumbers[k], self.signCombinationNumbers[k]) for k in self.signCombinations.keys()], key=itemgetter(1), reverse=True)
-#        print "l: ", l
+        print "l: ", l
 #        print "weight dif: ", self.signCombinations[l[1][0]]/self.signCombinations[l[0][0]]
         if len(l) > 1 and l[1][1]/l[0][1] > 0.5:
 #        if len(l) > 1 and self.signCombinations[l[1][0]]/self.signCombinations[l[0][0]] >0.5 :

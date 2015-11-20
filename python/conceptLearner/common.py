@@ -2,11 +2,12 @@
 # -*- coding: utf-8 -*-
 """
 Created on Thu Apr  9 11:31:07 2015
-
+File containing common helper functions.
 @author: jpoeppel
 """
 
 import numpy as np
+# Explicit import to save some performance
 from numpy import dot as npdot
 import math
 
@@ -20,11 +21,10 @@ GRIPPERSTATES = {"OPEN":0, "CLOSED": 1}
 
 
         
-    
-
 def quaternionToEuler(quat):
     """
-        Function to compute the euler angles around the x,y,z axes of a rotation given by a quaternion
+        Function to compute the euler angles around the x,y,z axes of a 
+        rotation given by a quaternion
         
         Parameters
         ---------
@@ -64,12 +64,14 @@ def quaternionToEuler(quat):
     
 def eulerToQuat(euler):
     """
-        Function to compute the rotation quaternion from angles around the x,y,z axes
+        Function to compute the rotation quaternion from angles around 
+        the x,y,z axes
         
         Paramters
         ---------
         euler: np.array(3)/np.array(1)/float
-            The rotation angle(s) around the axis. If only one value is given, it is assumed to be around the z axis.
+            The rotation angle(s) around the axis. If only one value is given, 
+            it is assumed to be around the z axis.
             
         Returns
         -------
@@ -101,6 +103,24 @@ def eulerToQuat(euler):
     
                       
 def eulerPosToTransformation(euler, pos):
+    """
+        Function to compute the transformation matrix for an object with 
+        given orientation and position.
+        
+        Paramters
+        ---------
+        euler: np.array(3)/np.array(1)/float
+            The orientation of the object whos transformation 
+            matrix is to be computed.
+        pos: np.array(3)/np.array(2)
+            3d or 2d position of the object whos transformation 
+            matrix is to be computed.
+            
+        Returns
+        -------
+        np.array(4x4)/np.array(3x3)
+            4d or 3d transformation matrix to transform homogenous coordinates.
+    """
     if hasattr(euler, "__len__"):
         if len(euler) == 1:
             b = 0.0
@@ -129,6 +149,24 @@ def eulerPosToTransformation(euler, pos):
                       
                       
 def eulerPosToTransformation2d(euler, pos):
+    """
+        Function to compute the 3d transformation matrix for an object with 
+        given orientation and position in the 2d plane only.
+        
+        Paramters
+        ---------
+        euler: float
+            The orientation of the object whos transformation 
+            matrix is to be computed.
+        pos: np.array(2)
+            2d position of the object whos transformation 
+            matrix is to be computed.
+            
+        Returns
+        -------
+        np.array(3x3)
+            3d transformation matrix to transform homogenous coordinates.
+    """
     a = euler
     px,py = pos
     ca = math.cos(a)
@@ -138,6 +176,19 @@ def eulerPosToTransformation2d(euler, pos):
                       [0.0,0.0,1.0]])
 
 def invertTransMatrix(matrix):
+    """
+        Inverts a given transformation matrix.
+        
+        Parameters
+        ----------
+        matrix: np.array(4x4)/np.array(3x3)
+            4d or 3d transformation matrix
+            
+        Returns
+        -------
+        np.array(4x4)/np.array(3x3)
+            The inverted transformation matrix
+    """
     r,c = np.shape(matrix)
     invTrans = np.zeros((r,c))
     r -= 1
@@ -149,38 +200,26 @@ def invertTransMatrix(matrix):
     invTrans[r,c] = 1.0
     return invTrans                      
                                           
-                     
-def dist(center, edge1, edge2, ang, ref, radius=0.0):
-#    if len(edge1) == 2 and len(ref) == 3:
-#        edge1 = np.concatenate((edge1,[0]))
-#    if len(edge2) == 2 and len(ref) == 3:
-#        edge2 = np.concatenate((edge2,[0]))    
-    ca = math.cos(ang)
-    sa = math.sin(ang)
-#    r = np.array([[ca, -sa, 0.0],
-#                 [sa, ca, 0.0],
-#                 [0.0, 0.0, 1.0]])
-    r = np.array([[ca, -sa], 
-                  [sa, ca]])
-    edge1N = npdot(r, edge1)
-    edge2N = npdot(r, edge2)
-    v = (edge1N+center)
-    w = (edge2N+center)
-    l2 = npdot(v-w, v-w)
-    if l2 == 0.0:
-        return np.sqrt(npdot(v-ref, v-ref)), v, ref
-    t = npdot(ref-v, w-v) / l2
-    if t < 0.0:
-        return np.sqrt(npdot(v-ref,v-ref)), v, ref
-    elif t > 1.0:
-        return np.sqrt(npdot(w-ref,w-ref)), w, ref
-    projection = v + t * (w - v)
-    return np.sqrt(npdot(ref-projection, ref-projection))-radius, projection, ref
-    
     
 def relPos(p1, ang,  p2):
     """
-        Calculates the position of p2 relativ to the relevance frame of p1
+        Calculates the position of one object relativ to the coordinate frame of 
+        another object with position p1.
+        
+        Parameters
+        ---------
+        p1: np.array(2)/np.array(3)
+            Global 2d or 3d position of the reference object
+        ang: float
+            Rotation around the z-axis of the reference object
+        p2: np.array(2)/np.array(3)
+            Global 2d or 3d position of the second object whose relative position is 
+            to be calculated
+        
+        Returns
+        -------
+        np.array(2)/np.array(3)
+            Transformed position of the object
     """
     l = len(p1)
     ca = np.cos(ang)
@@ -190,10 +229,12 @@ def relPos(p1, ang,  p2):
                  [sa, ca, 0.0, p1[1]],
                  [0.0, 0.0, 1.0, p1[2]],
                  [0.0,0.0,0.0,1.0]])
-    else:
+    elif l ==2:
         trans = np.array([[ca, -sa, p1[0]],
                           [sa,ca,p1[1]],
                           [0.0,0.0,1.0]])
+    else:
+        raise AttributeError("The position needs to be either 2 or 3 dimensional")
     invTrans = invertTransMatrix(trans)
     tmpPos = np.ones(l+1)
     tmpPos[:l] = np.copy(p2)
@@ -201,6 +242,36 @@ def relPos(p1, ang,  p2):
     return np.round(newPos, config.NUMDEC)
     
 def relPosVel(p1,v1, ang, p2,v2):
+    """
+        Calculates the position and velocity of the second object relativ to 
+        the coordinate frame of another object with position p1. Both the 
+        local velocity as well as the local velocity difference is computed.
+        
+        Parameters
+        ---------
+        p1: np.array(2)/np.array(3)
+            Global 2d or 3d position of the reference object
+        v1: np.array(2)/np.array(3)
+            Global 2d or 3d velocity of the reference object
+        ang: float
+            Rotation around the z-axis of the reference object
+        p2: np.array(2)/np.array(3)
+            Global 2d or 3d position of the second object whose relative position is 
+            to be calculated
+        v2: np.array(2)/np.array(3)
+            Global 2d or 3d velocity of the second object
+        
+        Returns
+        -------
+        relPos: np.array(2)/np.array(3)
+            Transformed position of the object
+        relDifVel: np.array(2)/np.array(3)
+            The difference in the objects velocity relative to the coordinate
+            frame of the first object.
+        relVel: np.array(2)/np.array(3)
+            Velocity of the second object relative to the coordinate frame of
+            the first object.
+    """
     ca = math.cos(ang)
     sa = math.sin(ang)
     l = len(p1)
@@ -213,6 +284,8 @@ def relPosVel(p1,v1, ang, p2,v2):
         trans = np.array([[ca, -sa, p1[0]],
                           [sa,ca,p1[1]],
                           [0.0,0.0,1.0]])
+    else:
+        raise AttributeError("The position needs to be either 2 or 3 dimensional")
     invTrans = invertTransMatrix(trans)
     tmpPos = np.ones(l+1)
     tmpPos[:l] = np.copy(p2)
@@ -225,6 +298,26 @@ def relPosVel(p1,v1, ang, p2,v2):
     return np.round(newPos, config.NUMDEC), np.round(newRelVel, config.NUMDEC), np.round(newVel, config.NUMDEC)
     
 def relPosVelChange(ang, pdif, vdif):
+    """
+        Calculates the relative change in position and velocity to a coordinate
+        frame rotated by the angle ang around the z-axis.
+        
+        Parameters
+        ---------
+        ang: float
+            Rotation around the z-axis of the desired coordinate frame
+        pdif: np.array(2)/np.array(3)
+            Global positional difference vector that is to be transformed
+        vdif: np.array(2)/np.array(3)
+            Global velocity difference vector that is to be transformed
+        
+        Returns
+        -------
+        relPDif: np.array(2)/np.array(3)
+            Local positional difference
+        relVDif: np.array(2)/np.array(3)
+            Local velocity difference
+    """
     ca = math.cos(ang)
     sa = math.sin(ang)
     l = len(pdif)
@@ -236,12 +329,33 @@ def relPosVelChange(ang, pdif, vdif):
         trans = np.array([[ca,sa],
                           [-sa,ca]])
     else:
-        raise NotImplementedError("Only works for 2d or 3d positions differences. l: ", l)
+        raise AttributeError("Only works for 2d or 3d positions differences. l: ", l)
     newPDif = npdot(trans,pdif)
     newVDif = npdot(trans,vdif)
     return np.round(newPDif, config.NUMDEC), np.round(newVDif, config.NUMDEC)
     
+#Might be analogous to the function above with negative angle, but makes the
+#Using code more explicit
 def globalPosVelChange(ang, pdif, vdif):
+    """
+        Transforms local changes in position and velocity to global ones.
+        
+        Parameters
+        ---------
+        ang: float
+            Rotation around the z-axis of the local coordinate frame
+        pdif: np.array(2)/np.array(3)
+            Local positional difference vector that is to be transformed
+        vdif: np.array(2)/np.array(3)
+            Local velocity difference vector that is to be transformed
+        
+        Returns
+        -------
+        relPDif: np.array(2)/np.array(3)
+            Global positional difference
+        relVDif: np.array(2)/np.array(3)
+            Global velocity difference
+    """
     ca = math.cos(ang)
     sa = math.sin(ang)
     l = len(pdif)
@@ -253,14 +367,36 @@ def globalPosVelChange(ang, pdif, vdif):
         trans = np.array([[ca,-sa],
                           [sa,ca]])
     else:
-        raise NotImplementedError("Only works for 2d or 3d positions differences. l: ", l)
+        raise AttributeError("Only works for 2d or 3d positions differences. l: ", l)
                           
     newPDif = npdot(trans,pdif)
     newVDif = npdot(trans,vdif)
-#    return newPDif, newVDif
     return np.round(newPDif, config.NUMDEC), np.round(newVDif, config.NUMDEC)
     
 def globalPosVel(p1, ang, relPos, relVel):
+    """
+        Transformes position and velocity relative to the coordinate frame of
+        an object given py position p1 and rotation ang back to the global
+        coordinate frame.
+        
+        Parameters
+        ---------
+        p1: np.array(2)/np.array(3)
+            Global 2d or 3d position of the reference object
+        ang: float
+            Rotation around the z-axis of the reference object
+        relPos: np.array(2)/np.array(3)
+            Local 2d or 3d position 
+        relVel: np.array(2)/np.array(3)
+            Local 2d or 3d velocity
+        
+        Returns
+        -------
+        globPos: np.array(2)/np.array(3)
+            Global position 
+        globVel: np.array(2)/np.array(3)
+            Global velocity
+    """
     ca = math.cos(ang)
     sa = math.sin(ang)
     l = len(p1)
@@ -274,17 +410,42 @@ def globalPosVel(p1, ang, relPos, relVel):
                           [sa,ca,p1[1]],
                           [0.0,0.0,1.0]])
     else:
-        raise NotImplementedError("Only works for 2d or 3d positions. l: ", l)
+        raise AttributeError("Only works for 2d or 3d positions. l: ", l)
     tmpPos = np.ones(l+1)
     tmpPos[:l] = np.copy(relPos)
-    newPos = npdot(trans, tmpPos)[:l]
+    globPos = npdot(trans, tmpPos)[:l]
     tmpVel = np.zeros(l+1)
     tmpVel[:l] = relVel
-    newVel = npdot(trans, tmpVel)[:l]
-    return newPos, newVel
+    globVel = npdot(trans, tmpVel)[:l]
+    return globPos, globVel
     
 
 def distPointSeg(v, w, ref, radius=0.0):
+    """
+        Function to compute the distance between a given point ref and a segment
+        defined by its endpoints v and w
+        
+        Parameters
+        ----------
+        v: np.array(2)
+            First endpoint of the segment
+        w: np.array(2)
+            Second endpoint of the segment
+        ref: np.array(2)
+            Reference point to which the distance is to be computs
+        radius: float, optional
+            Radius of the reference point. Is subtracted from the resulting distance
+            to compute segment to sphere distances.
+            
+        Returns
+        -------
+        dist: float
+            Computed distance
+        projection: np.array(2)
+            Closest point on the segment to the reference point
+        ref: np.array(2)
+            The reference point        
+    """
     l2 = npdot(v-w, v-w)
     if l2 == 0.0:
         return np.sqrt(npdot(v-ref, v-ref))-radius, v, ref
@@ -297,6 +458,37 @@ def distPointSeg(v, w, ref, radius=0.0):
     return np.sqrt(npdot(ref-projection, ref-projection))-radius, projection, ref
     
 def generalDistClosing(id1, p1, v1, ang1, id2, p2, v2, ang2):
+    """
+        Computes the distance between two known objects as well as the closing
+        feature. Distance is determined by the closest corner to edge
+        distance between the two objects.
+        
+        Parameters
+        ---------
+        id1 : int
+            Identifier for the first object
+        p1 : np.array(2)
+            Global 2d position of the first object
+        v1 : np.array(2)
+            Global velocity of the first object
+        ang1 : float
+            Rotation around the z-axis of the first object
+        id2 : int
+            Identifier for the second object
+        p2 : np.array(2)
+            Global 2d position of the second object
+        v2 : np.array(2)
+            Global velocity of the second object
+        ang2 : float
+            Rotation around the z-axis of the second object
+            
+        Returns
+        -------
+        dist: float
+            Closest distance between the two objects
+        closing: float
+            Closing feature of both objects
+    """
     localEdges = {27: [(-0.25,0.05),(-0.25,-0.05),(0.25,-0.05),(0.25,0.05)], 
                        15: [(-0.25,0.05),(-0.25,-0.05),(0.25,-0.05),(0.25,0.05)], 
                         8: [(0.0,0.0)]}
@@ -340,9 +532,7 @@ def generalDistClosing(id1, p1, v1, ang1, id2, p2, v2, ang2):
         else:
             minDist = 0
             normal = np.zeros(2)
-
     
-#    normal = (sortedL[0][2]-sortedL[0][1])
     norm = np.linalg.norm(normal)
     if norm > 0.0:
         normal /= np.linalg.norm(normal)
@@ -350,6 +540,31 @@ def generalDistClosing(id1, p1, v1, ang1, id2, p2, v2, ang2):
     
 
 def generalDist(id1, p1, ang1, id2, p2, ang2):
+    """
+        Computes the distance between two known objects. 
+        Distance is determined by the closest corner to edge
+        distance between the two objects.
+        
+        Parameters
+        ---------
+        id1 : int
+            Identifier for the first object
+        p1 : np.array(2)
+            Global 2d position of the first object
+        ang1 : float
+            Rotation around the z-axis of the first object
+        id2 : int
+            Identifier for the second object
+        p2 : np.array(2)
+            Global 2d position of the second object
+        ang2 : float
+            Rotation around the z-axis of the second object
+            
+        Returns
+        -------
+        dist: float
+            Closest distance between the two objects    
+    """
     localEdges = {27: [(-0.25,0.05),(-0.25,-0.05),(0.25,-0.05),(0.25,0.05)], 
                        15: [(-0.25,0.05),(-0.25,-0.05),(0.25,-0.05),(0.25,0.05)], 
                         8: [(0.0,0.0)]}
@@ -395,7 +610,42 @@ def generalDist(id1, p1, ang1, id2, p2, ang2):
 
     return np.round(max(minDist,0.0), config.NUMDEC)
 
+
+"""
+Legacy for the non 2d model. Deprecated!
+"""
+
 def computeDistanceClosing(id1, p1, v1, ang1, id2, p2, v2, ang2):
+    """
+        Computes the distance as well as the closing feature between two objects
+        where one object has to be the spherical actuator.
+        
+        Parameters
+        ---------
+        id1 : int
+            Identifier for the first object
+        p1 : np.array(2)
+            Global 2d position of the first object
+        v1 : np.array(2)
+            Global velocity of the first object
+        ang1 : float
+            Rotation around the z-axis of the first object
+        id2 : int
+            Identifier for the second object
+        p2 : np.array(2)
+            Global 2d position of the second object
+        v2 : np.array(2)
+            Global velocity of the second object
+        ang2 : float
+            Rotation around the z-axis of the second object
+            
+        Returns
+        -------
+        dist: float
+            Closest distance between the two objects
+        closing: float
+            Closing feature of both objects  
+    """
     edges  = {15: [(-0.25,0.05),(-0.25,-0.05),(0.25,-0.05),(0.25,0.05)], 8: [(0.0,0.0)]}
     segments = {15: [(edges[15][0], edges[15][1]),(edges[15][1],edges[15][2]),(edges[15][2],edges[15][3]),(edges[15][3],edges[15][0])], 8:[]}    
     if id1 == 8:
@@ -422,6 +672,56 @@ def computeDistanceClosing(id1, p1, v1, ang1, id2, p2, v2, ang2):
     if norm > 0.0:
         normal /= np.linalg.norm(normal)
     return np.round(max(sortedL[0][0]-0.025,0.0), config.NUMDEC), np.round(npdot(normal, vel), config.NUMDEC)
+    
+
+def dist(center, corner1, corner2, ang, ref, radius=0.0):
+    """
+        Function to compute the distance from a reference point to the 
+        edge of a given object in 2d.
+        
+        Parameters
+        ----------
+        center: np.array(2)
+            Center of the object to whose edge the distance is to be computed
+        corner1: np.array(2)
+            First endpoint of the edge, relative to the object's coordinate frame
+        corner2: np.array(2)
+            Second endpoint of the edge, relative to the object's coordinate frame
+        ang: float
+            Rotation around the z-axis of the object
+        ref: np.array(2)
+            Reference point to which the distance is to be computs
+        radius: float, optional
+            Radius of the reference point. Is subtracted from the resulting distance
+            to compute edge to sphere distances.
+            
+        Returns
+        -------
+        dist: float
+            Computed distance
+        projection: np.array(2)
+            Closest point on the edge to the reference point
+        ref: np.array(2)
+            The reference point        
+    """
+    ca = math.cos(ang)
+    sa = math.sin(ang)
+    r = np.array([[ca, -sa], 
+                  [sa, ca]])
+    corner1N = npdot(r, corner1)
+    corner2N = npdot(r, corner2)
+    v = (corner1N+center)
+    w = (corner2N+center)
+    l2 = npdot(v-w, v-w)
+    if l2 == 0.0:
+        return np.sqrt(npdot(v-ref, v-ref)), v, ref
+    t = npdot(ref-v, w-v) / l2
+    if t < 0.0:
+        return np.sqrt(npdot(v-ref,v-ref)), v, ref
+    elif t > 1.0:
+        return np.sqrt(npdot(w-ref,w-ref)), w, ref
+    projection = v + t * (w - v)
+    return np.sqrt(npdot(ref-projection, ref-projection))-radius, projection, ref    
     
 if __name__=="__main__":
     

@@ -33,8 +33,8 @@ import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
 
-GATE = True
-#GATE = False
+#GATE = True
+GATE = False
 
 if GATE:
     import modelGate_2D_config as model
@@ -72,9 +72,9 @@ PUSHTASKSIMULATION = 2
 PUSHTASKSIMULATION2 = 3
 MOVE_TO_TARGET = 4
 
-MODE = PUSHTASKSIMULATION
+#MODE = PUSHTASKSIMULATION
 #MODE = FREE_EXPLORATION
-#MODE = MOVE_TO_TARGET
+MODE = MOVE_TO_TARGET
 
 
 NUM_TRAIN_RUNS = 8

@@ -24,10 +24,15 @@ The used simulation software as well as the simulated environment are explained 
 
 The model is supposed to learn object manipulation through interaction.
 The developed prototype implementations are tested in a simplified simulation. For this work gazebo \cite{gazebo} version 2.2.3 was used with the physics engine Open Dynamics Engine (ODE) \cite{ode}.
-The actual gazebo simulation communicates with socket-based messages using Google Protobuf \cite{protobuf}. 
+Gazebo simulates physics one step at a time at fixed time intervals. It is possible to configure the maximum step size for each update step as well as the number of steps to be performed in one second in real time. 
+The simulation time depends on these to values. For this thesis, the standard step size of 0.001 simulation seconds is used. The \enquote{real time update rate}, which determines how many steps are performed in one second in real time, is used to control the speed at which the simulation is performed. 
+This thesis uses an update rate of 500 when the models are to be updated at 100Hz according to simulation time. By setting the update rate to that half of real time, the models have 0.02 seconds in real time in order to finish their updates and queries. %TODO consider redoing or moving elsewhere
+The simulation sends information about the objects every x steps, where x depends on the chosen update rate and step size. When using 100Hz, the simulation publishes the objects' information every 10 steps.
 
-A very simple environment is used, only containing a spherical actuator and a rectangular cube object that can be seen in figure \ref{fig:gazeboWorld}.
+A very simple two dimensional environment is used, only containing a spherical actuator and a rectangular cube object that can be seen in figure \ref{fig:gazeboWorld}.
 The dimensions of all objects as well as their friction coefficients used by the physics simulation are listed in table \ref{tab:environmentObjects}.
+The fairly high friction coefficient for the block was chosen in order to better suit the assumption of the object state model. By increasing the friction the block will
+slide less. 
 
 \begin{table}
 	\centering
@@ -45,28 +50,40 @@ The dimensions of all objects as well as their friction coefficients used by the
 
 \begin{figure} 
 	\centering
-	\includegraphics[width=10cm]{gazeboWorld.png} %TODO make image
+	\includegraphics[width=10cm]{gazeboWorld.png} 
 	\caption{Overview of the used environment. The black sphere represents the actuator, the models can control using action primitives. The blue square represents the object that the actuator interacts with.}
 	\label{fig:gazeboWorld}
 \end{figure}
 
 
 \subsection{Communication}
-Gazebo uses a client-server architecture. The actual simulation is being performed by the server. This server publishes Google Protobuf messages via TCP/IP. Interested clients, for example the gui, can register themselves as listener to messages of desired types. 
+Gazebo uses a client-server architecture. The actual simulation is being performed by the server.
+This server publishes Google Protobuf \cite{protobuf} messages via TCP/IP. Interested clients, for example a graphical user interface, can register themselves as listener to messages of desired types. 
 It is also possible to send messages to the server in order to influence the simulation. 
 
 The server can furthermore be extended by writing custom plug-ins that handle self defined messages or perform some sort of additional computation at each update step of the simulation. 
 
 In order for the Python prototypes to communicate with the simulation, an interface on both sides was created.
 
-On the side of the simulation, a custom server plug-in was written, that publishes the information described in table \ref{tab:availInformation} in the realization chapter. The information for all objects is packed into a custom Protobuf message, which is explained in details in Appendix \ref{sec:protobufMessages}. Basically, this message simply contains a list of object descriptions where each object description contains the information explained in table \ref{tab:availInformation}.
+On the side of the simulation, a custom server plug-in was written, that publishes the information described in table \ref{tab:availInformation} in the realization chapter. 
+The server publishes the 
+The information for all objects is packed into a custom Protobuf message, which is explained in details in Appendix \ref{sec:protobufMessages}. Basically, this message simply contains a list of object descriptions where each object description contains the information explained in table \ref{tab:availInformation}.
 Furthermore, the plug-in receives custom control messages. These messages allow the Python interface to influence the simulation.
-While the exact messages are explained in the Appendix, table \ref{tab:commands} gives an overview about the possible commands, that can be send to the simulation.
+While the exact messages are explained in the Appendix \ref{sec:protobufMessages}, table \ref{tab:commands} gives an overview about the possible commands, that can be send to the simulation.
 
 On the Python side, an interface was written with the help of the module pygazebo \cite{pygazebo}, which provides Python bindings for the message passing system used by gazebo. This interface handles the messages that are received from and send to the simulation. 
-The information about the objects is also transferred into the suitable worldstate before this is passed to the models.
+The simulation sends information about the objects at a fixed rate. At each update step, the interface performs four to five actions:
+\begin{enumerate}
+\item Construct a suitable worldstate from the provided information
+\item Get a prediction about the next worldstate from the model using the current worldstate
+\item Update the model with the current worldstate
+\item Get an action primitive from the model given a target configuration
+\item Send the current action primitive to the simulation
+\end{enumerate}
 
-Furthermore, the Python interface provides the testing framework of setting up the models and managing training and testing runs as explained in detail later.
+The 4th step is only performed in the tasks evaluating the inverse model. In the \textit{Push Task Simulation} a fixed action primitive is predetermined.
+
+Furthermore, the Python interface provides the testing framework of setting up the models and managing training and testing runs as explained in detail below.
 
 \begin{table}
 	\centering
@@ -74,31 +91,42 @@ Furthermore, the Python interface provides the testing framework of setting up t
 		\hline \textbf{Command} & \textbf{Meaning} \\ 
 		\hline Move Command & Sets the velocity for the actuator \\ 
 		\hline Pause & Pauses the simulation \\
-		\hline Unpause & Continues the simulation \\
+		\hline Continue & Continues the simulation \\
 		\hline Reset & Resets the world to starting configuration \\
 		\hline Set Pose & Places a specified object at a certain position \\
 		\hline
 	\end{tabular} 
-	\caption{Overview of all the commands implemented in the model.}
+	\caption{Overview of all implemented commands to influence the simulation.}
 	\label{tab:commands}
 \end{table}
 
 \subsection{Sources of noise}
-[Describe why there is noise in the data, and where it comes from]
-\begin{itemize}
-\item Simulation's physics computation not perfectly synchronized %TODO refer to official statement if possible
-\item Asynchronous Message communication (not determined when action message is received)
-\item Numerical noise from physics computation of (resting-)contacts
-\end{itemize}
+
+Although the object's attributes can be read accurately from the simulation, some random noise is still present in the data: \\
+1) The physics simulation and the sensors that record the object's attribute are run in different threads within
+in the simulation. These threads cannot always be perfectly synchronized which can result in minor differences in consecutive 
+timesteps. \\
+2) The physics simulation itself might encounter numerical instabilities, especially when computing resting forces. These instabilities
+might lead to small oscillations within an object's features, such as position. In order to filter out such small noise, all
+information from the simulation is rounded to 3 decimal places while constructing the worldstate. \\
+3) The strongest variation comes from the fact that the implementation communicates with the simulation via asynchronous messages. 
+All runs start in a configuration where all objects are resting. In the very first update step, the Python interface sends the first
+action primitive to the simulation, which results in the actuator moving. The exact time when the simulation retrieves and executes
+the action is however not deterministic. Depending on the system's load the simulation might have already performed 5 update steps before
+it receives and executes the action. In this case, the action affects only half of the update steps. In another situation, the action might
+be executed earlier. From the model's point of view, the same action was performed from the same initial situation, but the results can
+differ greatly. 
+
+Since this thesis considers a rather simple scenario and these three sources of noise are already present due to the used technologies,
+no additional artificial noise was introduced to the system.
 
 \section{Push Task Simulation \label{sec:pushTaskSim}}
 
-This task is designed to test the accuracy of the forward models by decoupling them from the open 
-world during successive predictions. 
+%The first set of evaluations targets the prediction performance of the models. 
 
 \subsection{Scenario description}
 
-In this test, the actuator uses a constant action in order to first move towards the block and then push it.
+In this task, the actuator uses a constant action in order to first move towards the block and then push it.
 The actuator starts at different starting positions on a line parallel to the block so that the distance along
 the action axis always starts at 25cm between the two centers. The block is orientated so that it's main axis
 is perpendicular to the action axis.
@@ -141,9 +169,6 @@ are located at the edges of the block as can be seen in figure \ref{fig:refPoint
 prediction accuracy of both the object's position as well as their orientation. The three distances are then averaged to compute the final difference
 score s:
 
-\begin{math}
-	s = \frac{1}{3} \sum\limits_{i=1}^{3}||p^{pred}_i-p^{actual}_i||
-\end{math}
 
 where $p^{pred}_i, pred^{actual}_i$ represents the i's predicted and actual reference point, including the center, respectively.
 
@@ -152,49 +177,7 @@ The results show the averaged results for the final difference, the accumulated 
 is computed by dividing the accumulated difference by the number of predictions, the model made in each run, which is equal to the number of iterations-1. For the
 first iteration, there has not been a prediction that can be compared yet.
 
-\begin{figure}
-	%TODO make image
-	
-	\caption{TODO Image of the reference points of the block object. The two selected edges, along with the center of the block, make up the three points that are used
-		to compare the predicted position with the actual position.}
-	\label{fig:refPoints}
-\end{figure}
-
-%\subsection{Results}
-%%TODO 
-%[TODOSome first results of the interaction model. Not perfectly tuned yet, as the DT often selects strange things]
-%
-%\begin{table}
-%	\begin{tabular}{|c|c|c|c|}
-%		\hline Model configuration & Final dif & Cum dif & Mean dif \\ 
-%		\hline Pairwise AC DT 3 Train & 0.001 & 0.095 & 0.001  \\ 
-%		\hline Pairwise AC DT 10 Train & 0.053 & 3.929 & 0.026  \\ 
-%		\hline Gate HG HA 3 Train & 0.001 & 0.128 & 0.001 \\
-%		\hline Gate HG HA 10 Train ITM $\eta$ 0.0 & 0.001 & 0.127 & 0.001 \\ 
-%		\hline Gate HG HA 10 Train ITM $\eta$ 0.1 & 0.001 & 0.122 & 0.001 \\
-%		\hline Gate HG HA 10 Train ITM $\eta$ 0.2 & 0.001 & 0.122 & 0.001 \\ 
-%		\hline Gate HG HA 10 Train NoAV & 0.001 & 0.135 & 0.001 \\ 
-%		\hline Gate HG HA 10 Train NoDyns & 0.001 & 0.130 & 0.001 \\ 
-%		\hline 
-%	\end{tabular} 
-%	\caption{Actuator table showing the results of different realization models. Recorded are the mean differences in the actuator positions and the end of a run, the total accumulated difference and the mean difference over a run.}
-%\end{table}
-%
-%\begin{table}
-%	\begin{tabular}{|c|c|c|c|}
-%		\hline Model configuration & Final dif & Cum dif & Mean dif \\ 
-%		\hline Pairwise AC DT 3 Train & 0.209 & 14.051 & 0.094  \\ 
-%		\hline Pairwise AC DT 10 Train & 0.142 & 10.841 & 0.073  \\
-%		\hline Gate HG HA 3 Train & 0.048 & 3.061 & 0.021 \\ 
-%		\hline Gate HG HA 10 Train ITM $\eta$ 0.0 & 0.052 & 3.189 & 0.021 \\ 
-%		\hline Gate HG HA 10 Train ITM $\eta$ 0.1 & 0.046 & 2.968 & 0.020 \\ 
-%		\hline Gate HG HA 10 Train ITM $\eta$ 0.2 & 0.061 & 3.538 & 0.024 \\ 
-%		\hline Gate HG HA 10 Train NoAV & 0.050 & 2.859 & 0.019 \\ 
-%		\hline Gate HG HA 10 Train NoDyns & 0.068 & 4.670 & 0.031 \\ 
-%		\hline 
-%	\end{tabular} 
-%	\caption{Block table showing the results of different realization models. Recorded are the mean differences in the block positions and the end of a run, the total accumulated difference and the mean difference over a run.}
-%\end{table}
+\subsection{Results}
 
 %TODO Also test only interaction prediction performance, by removing all the instances where only the gripper moved!
 

@@ -49,7 +49,7 @@ class Object(object):
             Computes the relative (interaction) vector of the other object with respect
             to the own reference frame.
         """
-        vec = np.zeros(10)
+        vec = np.zeros(8)
         vec[0] = self.id
         vec[1] = other.id
         #replaced computeDistanceClosing with generalDistClosing
@@ -60,7 +60,8 @@ class Object(object):
         else:
             vec[2], vec[3] = common.generalDistClosing(self.id, self.vec[0:2],self.vec[0:2]-self.lastVec[0:2], 
                         self.vec[2], other.id, other.vec[0:2], other.vec[0:2]-other.lastVec[0:2], other.vec[2])
-            vec[4:6], vec[6:8], vec[8:10] = common.relPosVel(self.vec[0:2], self.vec[0:2]-self.lastVec[0:2], self.vec[2], other.vec[0:2], other.vec[0:2]-other.lastVec[0:2])        
+#            vec[4:6], vec[6:8], vec[8:10] = common.relPosVel(self.vec[0:2], self.vec[0:2]-self.lastVec[0:2], self.vec[2], other.vec[0:2], other.vec[0:2]-other.lastVec[0:2])  
+            vec[4:6], tmp, vec[6:8] = common.relPosVel(self.vec[0:2], self.vec[0:2]-self.lastVec[0:2], self.vec[2], other.vec[0:2], other.vec[0:2]-other.lastVec[0:2])                    
         return vec
         
     def getRelObjectVec(self, other):
@@ -91,7 +92,7 @@ class Object(object):
             pred[0:2], v = common.globalPosVelChange(self.vec[2], pred[0:2], np.zeros(2))
 #        print "prediction for o: {}: {}".format(self.id, pred)
         self.predVec = self.vec + pred*config.predictionBoost 
-        resO.vec = np.round(self.predVec, config.NUMDEC)
+        resO.vec = self.predVec #np.round(self.predVec, config.NUMDEC)
         resO.lastVec = np.copy(self.vec)
         return resO
         

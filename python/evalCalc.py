@@ -44,13 +44,15 @@ for f in sorted(fileList, key=natSort):
     
     if f.startswith(".") or "_config" in f or "ITMInformation" in f or "old" in f:
         continue
-#    if "Configuration_40" in f or "Configuration_8" in f:
+#    if not "Fixed" in f:
 #        continue
-    if not "interaction" in f:
+    if "interaction" in f:
         continue
 #    if not "8_E11Tests" in f:
 #        continue
 #    if "Symmetric" in f:
+#        continue
+#    if "Start0" in f:
 #        continue
     nameOnly = f.replace('.txt','')
     parts = nameOnly.split("_")
@@ -162,11 +164,12 @@ def plotRow(e, row, rowI):
         row[1].axvline(x=p, color='black')
     row[0].errorbar(xs, ysPos, yerr = errorsPos, fmt='o')
     row[1].errorbar(xs, ysOri, yerr = errorsOri, fmt='o')
-    row[0].set_title("Positional")
+    row[0].set_title("Position")
     row[0].set_ylabel("Difference [m]")
     row[1].set_title("Orientation")
     row[1].set_ylabel("Difference [rad]")
-    
+#    print "ysPos: ", ysPos
+#    print "errorsPos: ", errorsPos
 
 def eachTestPosSep(e):
     numSubPlotRows = len(e.testPosValues)
@@ -208,22 +211,26 @@ def learnCurve(e):
     row[1].set_ylabel("Difference [rad]")
 #    fig.suptitle("Learn curve for experiment " + e.name)
     plt.xlabel("Number of training examples")
+    print "ysPos: ", ysPos
+    print "errorsPos: ", errorsPos
+    print "ysOri: ", ysOri
+    print "errorsOri: ", errorsOri
 
 for e in experiments.values():
 
 
 #    pp = PdfPages("../pdfs/"+ e.name +".pdf")
+    print "experiment name: ", e.name
+#    learnCurve(e)
+    eachTestPosSep(e)
     
-    learnCurve(e)
-#    eachTestPosSep(e)
-    
-    plt.tight_layout()
-    plt.savefig("../pdfs/LearningCurve.pdf", 
-            #This is simple recomendation for publication plots
-            dpi=1000, 
-            # Plot will be occupy a maximum of available space
-            bbox_inches='tight', 
-            )
+#    plt.tight_layout()
+#    plt.savefig("../pdfs/EachPos" + e.name + ".pdf", 
+#            #This is simple recomendation for publication plots
+#            dpi=1000, 
+#            # Plot will be occupy a maximum of available space
+#            bbox_inches='tight', 
+#            )
 #    pp.savefig()
 #    pp.close()
     

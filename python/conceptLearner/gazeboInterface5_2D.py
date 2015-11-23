@@ -47,7 +47,7 @@ import configuration
 from configuration import config
 
 #Select used configuration
-CONFIGURATION = configuration.FIXFIRSTTHREETRAININGRUNS | configuration.HARDCODEDACT | configuration.HARDCODEDGATE
+CONFIGURATION = configuration.FIXFIRSTTHREETRAININGRUNS | configuration.HARDCODEDACT
 config.switchToConfig(CONFIGURATION)
 
 #config.perfectTrainRuns = True
@@ -56,7 +56,7 @@ tmpL = range(len(config.testPositions))
 np.random.shuffle(tmpL)
 mapping = {i: tmpL[i] for i in range(len(tmpL))}
 
-FILEEXTENSION = "_E21TestsNormalITMOther"
+FILEEXTENSION = "_EFixedAct"
 
 trainRuns = [3]
 NUMBER_FOLDS = 10
@@ -72,9 +72,9 @@ PUSHTASKSIMULATION = 2
 PUSHTASKSIMULATION2 = 3
 MOVE_TO_TARGET = 4
 
-#MODE = PUSHTASKSIMULATION
+MODE = PUSHTASKSIMULATION
 #MODE = FREE_EXPLORATION
-MODE = MOVE_TO_TARGET
+#MODE = MOVE_TO_TARGET
 
 
 NUM_TRAIN_RUNS = 8
@@ -490,11 +490,11 @@ class GazeboInterface():
          #Set up Starting position
         posX = ((np.random.rand()-0.5)*randomRange) #* 0.5
         if config.fixedFirstThreeTrains:
-            if self.trainRun == 2:
-                posX = -0.25
+            if self.trainRun == 0:
+                posX = -0.18
             elif self.trainRun == 1:
-                posX = 0.25
-            elif self.trainRun == 0:
+                posX = 0.18
+            elif self.trainRun == 2:
                 posX = 0
                                 
         if config.perfectTrainRuns:
@@ -587,7 +587,7 @@ class GazeboInterface():
             return
             
         if self.trainRun < trainRuns[self.runNumber]: #NUM_TRAIN_RUNS:
-#            print "Train run #: ", self.trainRun
+            print "Train run #: ", self.trainRun
             if self.runStarted:
                 self.updateModel(worldState, self.direction)
             else:
@@ -678,11 +678,7 @@ class GazeboInterface():
             The current world state
         """
         if self.lastPrediction != None and worldState != None:
-            try:
-                self.worldModel.update(worldState, self.lastAction)
-            except:
-                self.pauseWorld()
-#                raise NotImplementedError
+            self.worldModel.update(worldState, self.lastAction)
         else:
             print "reset objects"
             self.worldModel.resetObjects(worldState)

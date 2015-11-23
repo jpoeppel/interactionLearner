@@ -69,6 +69,8 @@ class ITM(object):
             wI =  w.id
             s = self.nodes[self.ids[sortedIndices[1]]]
             sI = s.id
+
+            
             wsdif = w.inp-s.inp
             #Adapt winner
             dif = x-w.inp
@@ -87,7 +89,6 @@ class ITM(object):
             w.neig[sI] = s
             s.neig[wI] = w
             #Get expected output according to currently used prediction scheme
-            print "local lookup"
             expOut = self.test(x, sortedIndices, testMode)
 #            #Check neighbours
             for nI, n in w.neig.items():
@@ -120,10 +121,10 @@ class ITM(object):
                 if npnorm(w.inp-x) > 0.001:
                     nI = self.idCounter
                     n= Node(x,nI,y)
-                    print "creating new node: x {}, y: {}".format(x,y)
-                    print "nearest inp: {}, out: {}".format(w.inp, w.out)
-                    print "second inp: {}, out: {}".format(s.inp, s.out)
-                    print "network out: {}".format(expOut)
+#                    print "creating new node: x {}, y: {}".format(x,y)
+#                    print "nearest inp: {}, out: {}".format(w.inp, w.out)
+#                    print "second inp: {}, out: {}".format(s.inp, s.out)
+#                    print "network out: {}".format(expOut)
                     self.nodes[nI] = n
                     self.inserts += 1
                     self.ids.append(nI)
@@ -150,18 +151,17 @@ class ITM(object):
                     w.out += dwout
 #                    if ndif > 0.0:
 #                        w.A += 0.5*npouter((y-w.out+cor), dif/ndif)
-            print "wsdifnorm: ", npnorm(wsdif)
-            if npdot(wsdif,wsdif) < config.EMAX05_2:
-#            if npnorm(wsdif) < 0.004:
-                if len(self.nodes) > 2:
-                    print "deleting second node"
-                    self.deleteNode(sI)             
+#            if npdot(wsdif,wsdif) < config.EMAX05_2:
+##            if npnorm(wsdif) < 0.004:
+#                if len(self.nodes) > 2:
+#                    print "deleting second node"
+#                    self.deleteNode(sI)             
         else:
 #            To few nodes
 #            nI = len(self.nodes)
             nI = self.idCounter
             self.nodes[nI] = Node(x,nI,y)
-            print "creating new node since too few: x {}, y: {}".format(x,y)
+#            print "creating new node since too few: x {}, y: {}".format(x,y)
             self.ids.append(nI)
             self.idCounter += 1
             self.valAr = nparray([n.inp for n in self.nodes.values()])
@@ -208,13 +208,15 @@ class ITM(object):
 #                print "winner out: ", w.out
 #                print "second in: ", s.inp
 #                print "second out: ", s.out
+                
                 norm = npexp(-npnorm(x-w.inp)**2/(config.SIGMAE**2))
-                print "w1: ", norm
+#                print "w1: ", norm
                 res = norm*(w.out+npdot(w.A,x-w.inp))
                 wc = npexp(-npnorm(x-s.inp)**2/(config.SIGMAE**2))
-                print "w2: ", wc
+#                print "w2: ", wc
                 res += wc*(s.out+npdot(s.A,x-s.inp))
                 norm += wc
+#                print "res: ", res
                 if norm != 0:
                     return res/norm
                 else:
@@ -223,12 +225,15 @@ class ITM(object):
                 return self.nodes[self.ids[sortedIndices[0]]].out
         elif testMode == NEIGHBOUR:
             w = self.nodes[self.ids[sortedIndices[0]]]    
-            norm = np.exp(-npnorm(x-w.inp)**2/(config.SIGMAE**2))
+#            print "winner in: ", w.inp
+            norm = npexp(-npnorm(x-w.inp)**2/(config.SIGMAE**2))
             res = norm*(w.out+npdot(w.A,x-w.inp))
             for nI, n in w.neig.iteritems():
-                wc = np.exp(-npnorm(x-n.inp)**2/(config.SIGMAE**2))
+#                print "n in: ", n.inp
+                wc = npexp(-npnorm(x-n.inp)**2/(config.SIGMAE**2))
                 res += wc*(n.out+npdot(n.A,x-n.inp))
                 norm += wc
+#            print "res: ", res
             if norm != 0:
                 return res/norm
             else:

@@ -31,21 +31,21 @@ class Config(object):
     
     def __init__(self):
         #ITM general
-        self.SIGMAE = 0.05 #For besttwo
+        self.SIGMAE = 0.5 #For besttwo
         self.TESTMODE = BESTTWO
         self.EMAX = 0.001
         self.EMAX_2 = self.EMAX**2
         self.EMAX05_2 = (0.5*self.EMAX)**2
         #ITM Settings gate
-        self.predictorEtaIn = 0.2
-        self.predictorEtaOut = 0.2
+        self.predictorEtaIn = 0.0
+        self.predictorEtaOut = 0.0
         self.predictorEtaA = 0.0
         self.predictorTestMode = None #Use default = Besttwo
         self.gateClassifierEtaIn = 0.0
         self.gateClassifierEtaOut = 0.0
         self.gateClassifierEtaA = 0.0
         self.gateClassifierTestMode = 0 #Winner
-        self.gateMask = [2,3] #[0,1,4,5,8,9] #dist, clos, rVx, rVy
+        self.gateMask = range(8) #[2,3] #These two configuration!
         self.actuatorEtaIn = 0.0
         self.actuatorEtaOut = 0.1
         self.actuatorEtaA = 0.0
@@ -64,7 +64,7 @@ class Config(object):
         self.aCSelectorEtaOut = 0.0
         self.aCSelectorEtaA = 0.0
         self.aCSelectorTestMode = 0
-        self.aCSelectorMask = range(8) #[5,6]
+        self.aCSelectorMask = range(8) #
         if SHORT_TS:
             self.episodeDifThr = 0.001
             self.frequency = 100
@@ -82,8 +82,8 @@ class Config(object):
         self.testSeed = 4321
         self.fixedTrainSeed = False
         self.trainSeed = 1234
-        self.startRunRange = 0.5
-        self.testPositions = [-0.105, 0.0, 0.105] #np.arange(-0.35,0.351,0.035) #np.arange(-0.35,0.351,0.035)#
+        self.startRunRange = 0.6
+        self.testPositions = np.arange(-0.35,0.351,0.035) #np.arange(-0.35,0.351,0.035)#[-0.105, 0.0, 0.105] #
         self.fixedFirstThreeTrains = False
         self.perfectTrainRuns = False
         

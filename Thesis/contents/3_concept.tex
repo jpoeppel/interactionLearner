@@ -9,7 +9,7 @@
 %TODO make sure to write things like abstract collection the same every time (ie abstract collection vs Abstract Collection) !!
 
 Instead of using only a single regression model that is constantly updated and queried, the robot needs some sort of architecture in order to deal with the continuous information stream. This architecture needs to organize the incoming data and determine what should be learned from these experiences. Furthermore, the architecture can combine different components in order to make the best use of what it has learned. 
-This chapter presents the two concepts that were developed in order to fulfill these tasks. These two concepts differentiate mainly in the way they represent the interactions that they learn about. The first concept, further described in section \ref{sec:pairInt} uses pairwise interactions to represent the objects in the environment. In the alternative approach, described in section \ref{sec:gate}, the objects are represented individually. Additionally, a gating function is introduced to distinguish when one object actually influences another. 
+This chapter presents the two concepts that were developed in order to fulfill these tasks. These two concepts differentiate mainly in the way they represent the interactions that they learn about. The first concept, further described in section \ref{sec:pairInt}, uses pairwise interactions to represent the objects in the environment. In the alternative approach, described in section \ref{sec:gate}, the objects are represented individually. Additionally, a gating function is introduced to distinguish when one object actually influences another. 
 A special inverse model is proposed in section \ref{sec:invModel} that is tailored to the continuous interaction with the environment. %TODO more either here or in the introduction?
 Before going into the description of both concepts and the inverse model, section \ref{sec:problem} summarizes the actual problem these concepts need to solve. 
 
@@ -23,10 +23,10 @@ Before going into the description of both concepts and the inverse model, sectio
 As stated in the introduction, the goal of this thesis is to provide possible models that incrementally learn simple pushing interactions between physical objects. 
 More specifically, the model needs to learn two tasks:
 
-1) Given some known action primitive that controls the robots actuator, the models need to learn to predict the next states of all objects in the environment (forward model). 
+1) Given some known action primitive that controls the robots actuator, the models need to learn to predict the next states of all objects in the environment (\textit{forward model}). 
 While these action primitives are determined beforehand, the model does not necessarily know the effects of the primitives. In this case, the model needs to not only learn about the pushing interactions, but also about the consequences of its own actions.
 
-2) The robot is supposed to be able to reach some specified target configuration (inverse model). Any object in the environment, not just the actuator, can be specified which means that the model must learn how it can influence the objects through its actuator. The target configurations will rarely be reachable within a single action primitive but the inverse model should provide actions that reduce the distance to the target configuration. 
+2) The robot is supposed to be able to reach some specified target configuration (\textit{inverse model}). Any object in the environment, not just the actuator, can be specified which means that the model must learn how it can influence the objects through its actuator. The target configurations will rarely be reachable within a single action primitive but the inverse model should provide actions that reduce the distance to the target configuration. 
 Since the actuator can only influence another object by pushing it, the actuator might be required to circle around an object in order to be able to move it towards the desired configuration.
 
 A sequence of action primitives that would reach the target after their execution is not requested. This is because the models are expected to react to changes in the environment directly. Furthermore, if such a sequence is required, for example in order to make higher level plans, they can be created using the two features provided these two tasks.
@@ -61,7 +61,7 @@ The norm $||a,b||_{ep}$ is used to allow different weighting of the features fro
 Once the most similar episode has been found, the desired information can be extracted from it. For prediction, this corresponds to the resulting state in the episode, whereas it corresponds to the action for the inverse case. The formula above represents a nearest neighbor search on all episodes. Although such an approach can work, it quickly becomes infeasible when the number of stored episode keeps growing. Since the nearest neighbor search scales linearly with the number of stored examples it is unsuitable for lifelong learning. %TODO lifelong not introduced...
 Furthermore, the simple nearest neighbor approach does not offer good generalization since it does not interpolate between similar episodes. 
 
-As mentioned above, the idea of this concept is to split the interaction space into subspaces and train local models for each of these subspaces. An overview of the proposed architecture can be seen in figure \ref{fig:PairOverview}.
+As mentioned at the beginning of this chapter, the idea of this concept is to split the interaction space into subspaces and train local models for each of these subspaces. An overview of the proposed architecture can be seen in figure \ref{fig:PairOverview}.
 All episodes corresponding to the same subspace are collected in \textit{Abstract Collections}. Each collection can train its own local forward and inverse model which is explained in section \ref{sec:ACs}.
 An \textit{Abstract Collection Selector} is needed in order to choose the most appropriate abstract collection in a given situation. 
 
@@ -85,7 +85,7 @@ The clustering of episodes suggested here is based on the set of features that c
 S = \{f | f \in F ~ \wedge ~ ||Pre(f)-Post(f)|| > \epsilon_{Noise}\}
 \label{eq:difSet}
 \end{equation}
-where $F$ denotes the set of all features, $Pre(f), Post(f)$, the value of 
+where $F$ denotes the set of all features. $Pre(f)$ and $Post(f)$ denote the value of 
 feature $f$ in the initial and resulting state of the episode respectively. $\epsilon_{Noise}$ is a threshold to cancel out potential noise of the environment and should be set according to the accuracy of the used sensors. Ideally, one would like to have feature specific thresholds since the possible range of the features might vary. However, this would require the model to have additional information about each feature.
 
 Each different set is represented by its own \gls{ac}. The 
@@ -102,7 +102,7 @@ Prediction within this architecture requires several steps. The general idea of 
 %TODO maybe remove/rewrite this following passage
 The total number of collections is limited to the size of the superset of $F$, although in practice, not all possibilities are likely. Furthermore, collections with less than $\epsilon_{min}$ training examples can be ignored. This threshold is used to reduce the number of outliers when training the classifier. %TODO this threshold does not exist anymore in the current implementation!!
 
-After the most likely \gls{ac} has been selected, its forward model can be consulted for the prediction. The local model will be queried using the interaction state together with the given action primitive as input. The output of the local model is the predicted interaction state. 
+After the most likely \gls{ac} has been selected, its forward model can be consulted for the prediction. The local model is queried using the interaction state together with the given action primitive as input. The output of the local model is the predicted interaction state. 
 More precisely, the local model predicts how the current interaction state changes. These predicted changes are then added to features of the given interaction state this \gls{ac} is responsible for.
 The predictions of the actual object states need to be extracted from this interaction state. The extraction depends on the actual features used and needs to be provided to the user just like the structure of the interaction state itself.
 
@@ -140,7 +140,7 @@ The preconditions need to be checked against the currently given configuration o
 
 \subsection{Theoretical discussion}
 %TODO do not really like this yet
-The two core ideas of this concept are the use of a pairwise representation and splitting the interaction space. The splitting is done in order to allow the training of simpler local regression models. Furthermore, the local models are used to avoid having to compare to all previously seen training examples. 
+The two core ideas of this concept are the use of a pairwise representation and splitting the interaction space. The splitting is done in order to allow the training of simpler local regression models. Furthermore, using local models avoids having to compare to all previously seen training examples. 
 Using a global regression model, for example for the inverse model, is obviously possible as well, especially if the used model does not suffer from the complexity of the used interaction state and the continuous training. In this case, there is no need to determine the responsible \acrlong{ac}.
 
 Using pairwise interaction states in order to represent the interactions between objects is often used in robotics, for example in \cite{pairwiseExamples}. 
@@ -178,7 +178,7 @@ This makes the local subspaces each model needs to learn already simpler then th
 In order to allow the local models to only train on this restricted subspace, this concept makes an additional assumption about the environment: 
 This idea assumes that object states do not change without any interaction. The only exception is the \textit{Actuator}. Here, the actuator is treated as a special kind of object with its own forward and inverse model. These models can be provided beforehand or learned online.  
 
-The current state of each object, including the actuator, is always updated when new information is received from the environment. At each update the gating function and, if required the actuator's local models are trained. On top of that, the local models responsible for any object whose state changed with the last update, are trained as well.
+The current state of each object, including the actuator, is always updated when new information is received from the environment. At each update the gating function and if required the actuator's local models are trained. On top of that, the local models responsible for any object whose state changed with the last update, are trained as well.
 
 
 \begin{figure}
@@ -207,7 +207,7 @@ The gating function then uses these features to determine if the object will be 
 On the other hand, if an interaction is predicted, the \textit{Predictor} uses the local forward model responsible for the current object. 
 The local model predicts the changes in the object states instead of the final states. In order to get the actual predicted object state, these changes are added to the current object state.
 
-When more then one object other than the actuator is present, the same process can be repeated. In order to predict interactions between two non actuator objects, a prediction chain is performed. First the actuator is predicted as described above. Afterwards, the objects that are directly influenced by the actuator are predicted. These predictions can then in turn be used as new \enquote{actuators} for interactions between them and other objects. %TODO consider removing this or moving this elsewhere since it is not done
+When more than one object other than the actuator is present, the same process can be repeated. In order to predict interactions between two non actuator objects, a prediction chain is performed. First the actuator is predicted as described above. Afterwards, the objects that are directly influenced by the actuator are predicted. These predictions can then in turn be used as new \enquote{actuators} for interactions between them and other objects. %TODO consider removing this or moving this elsewhere since it is not done
 
 %TODO decide which is used
 %(STILL TO TRY) In order to predict multi object interactions, the gate function can be used to first collect all involved objects before
@@ -229,9 +229,9 @@ The more interesting process of moving towards a target configuration for a non 
 First the current difference state is computed from the given target configuration and the current object state. This difference state is then used to query the inverse model responsible for the target object. Since only the actuator can be influenced by action primitives directly, these local inverse models do not directly return action primitives. Instead they return preconditions in the form of the relative interaction features. These features represent a situation where the object state changes in the direction of the target configuration. 
 	
 The current actuator state is then compared to these preconditions. If the actuator is already in a configuration where it meets these preconditions, an action primitive is derived from the local features. This requires that the local features contain information that can be used to compute an action primitive.
-However, in most situations the actuator configuration will not meed the preconditions. The given preconditions will often require the actuator to be in a different position relative to the object that is to be moved. In these cases, the suitable position for the actuator, is used as a intermediate target. 
+However, in most situations the actuator configuration will not meet the preconditions. The given preconditions will often require the actuator to be in a different position relative to the object that is to be moved. In these cases the suitable position for the actuator is used as an intermediate target. 
 
-Considering the current object's position, an action is calculated to move the actuator towards the intermediate target. This might result in a circling movement of the actuator around the object. Moving the actuator directly towards the intermediate target position might result in moving the object in a more unfavorable position and is therefore avoided. Since these steps are performed at every timestep, the model can quickly adapt to changes in the environment.
+Considering the current object's position, an action is calculated to move the actuator towards the intermediate target. This might result in a circling movement of the actuator around the object. Moving the actuator directly towards the intermediate target position might result in moving the object in a more unfavorable position and is therefore avoided. Since these steps are performed at every timestep, the model can quickly adapt itself to changes in the environment.
 	
 \subsection{Theoretical discussion}
 
@@ -241,14 +241,15 @@ Consequently, any noise in any object does not directly influence another object
 The big disadvantage of this approach is that impossible configurations can be predicted more easily. This can happen due to an inaccurate prediction made by either the actuator's or the object's forward model.
 An impossible configuration is even bound to be predicted when the gating function misclassifies that no interaction takes place when it should. In this case the actuator is predicted to move into the other object.
 
-Extending this concept to multiple objects is easier in theory since each object can be considered separately. However, training the gating functions with multiple objects is difficult. When one object's state changes during an update from the environment, the model needs to determine which other object caused this change in order to train the gating function on the correct relative interaction features. Depending on the situation, this determination can be very difficult and can hardly be done without additional prior knowledge. 
+Extending this concept to multiple objects is easier in theory since each object can be considered separately. However, training the gating functions with multiple objects is difficult. When one object's state changes during an update from the environment, the model needs to determine which other object caused this change in order to train the gating function on the correct relative interaction features. Depending on the situation, this determination can be very difficult and hardly be done without additional prior knowledge. 
+%TODO example for such a situation?
 
 Apart from the representation, this concept requires an additional assumption about the scenario compared to the interaction state concept. The assumption that object states can only change through interactions with an actuator also means that an object does not continue sliding after it has been pushed. This restricts the possible weights of the objects and speeds of the actuator.
 %TODO rework/extend
 
 \section{Time invariant inverse model \label{sec:invModel}}
 %TODO other name!
-
+%TODO soft introduction/"überleitung" von den anderen Kapiteln
 Directly searching in the forward regression model for the inverse has two disadvantages in the given scenario: \\
 1) The difference state that is computed can have features orders of magnitude greater than any change the local models have been trained with. In fact any target configuration, that requires multiple timesteps to reach, is already outside the range of the changes the forward models can have seen. 
 The inverse model would need to extrapolate into unknown regions in these cases. \\
@@ -265,15 +266,15 @@ An example of this grouping is visualized in figure \ref{fig:InverseModel}.
 \begin{figure}
 	\centering
 	\includegraphics{InverseModel2.pdf}
-	\caption{Visualization of the precondition grouping in the proposed time invariant inverse model. All three pushing scenarios indicated by the three balls, will be grouped together since they all result in the same upward positional change.}
+	\caption{Visualization of the precondition grouping in the proposed time invariant inverse model. The arrows above the block symbolize the change in the object's state corresponding to the actuator situations below the block. All three pushing scenarios indicated by the three balls, will be grouped together since they all result in the same upward positional change.}
 	\label{fig:InverseModel}
 \end{figure}
 
-The figure shows three different scenarios or preconditions in the form of the three balls that represent the actuator. In the forward model each precondition is tightly coupled to its resulting change. In this example the left situation results in the small positional change upwards and a negative change in orientation. The same tight coupling is present with the other two situations. In the inverse model proposed here, all three situations are grouped together in one \textit{prototype} responsible for a positional change upwards. Other prototypes exist for the two directions of change in orientation. This way one situation will be included in multiple prototypes if it caused multiple features to change.
+The figure shows three different scenarios or preconditions in the form of the three balls that represent the actuator. In the forward model each precondition is tightly coupled to its resulting change. In this example the left situation results in the small positional change upwards and a negative change in orientation. The same tight coupling is present with the other two situations. In the inverse model proposed here, all three situations are grouped together in one \textit{prototype} responsible for a positional change upwards. Other prototypes exist for the two directions of change in orientation. This way one situation will be included in multiple prototypes if it has caused multiple features to change.
 
 Each prototype creates a weighted average\footnote{depending on the used features, a simple average does not work. See the implementation details in section \ref{sec:invModelRealization} for details.} of the preconditions for its feature and sign. The preconditions are weighted by their contribution towards the feature. In the example above, the preconditions for the middle scenario receive the strongest weight since they are responsible for the biggest change in position. 
 
-When the inverse model is queried given some difference vector to the target configuration, a greedy strategy is used to first reduce the feature with the biggest difference. 
+When the inverse model is queried given some difference vector to the target configuration a greedy strategy is used to reduce the feature with the biggest difference first. 
 The feature along with the sign of this feature in the difference vector determine the responsible prototype. The average computed by that prototype can then be used as preconditions that will reduce the distance to the target configuration.
 
 

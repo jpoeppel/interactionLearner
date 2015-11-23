@@ -51,12 +51,12 @@ First of all, the method should be as independent on prior knowledge or the used
 One important aspect of general purpose robotics is object manipulation. In order to successfully interact with the objects in its environment the robot needs to learn what kind of interactions are possible and what their effects are. 
 Furthermore, object interactions are hard to model manually as they follow complex dynamics. On top of that, different object can behave completely differently, so that knowledge acquired in previous training sessions might not be useful later on. It is for these reasons that object interactions make an ideal target for online self adaptation. 
 
-This thesis provides two concepts that provide incremental learning of pushing interactions between an actuator\footnote{The part of a robot that acts upon its environment.} controlled by action primitives and some object in the environment.
+This thesis presents and compares two concepts that provide incremental learning of pushing interactions between an actuator\footnote{The part of a robot that acts upon its environment.} controlled by action primitives and some object in the environment.
 While pushing interactions are only a very small subset of possible interactions a robot can have with objects, their dynamics still provide sufficient complexity to evaluate incremental learning systems. Since the behavior of differently shaped objects can vary a lot, learning about different kind of objects can even be regarded as learning similar but different tasks.%TODO Maybe more on this?
-The proposed concepts need to provide a forward model as well as an inverse model. The forward model makes predictions about the state of all entities in the environment after an action primitives as been performed. The inverse model provides an action primitive that is used to reach a specified target configuration within the environment.
+The proposed concepts need to provide a forward model as well as an inverse model. The forward model makes predictions about the state of all entities in the environment after an action primitive has been performed. The inverse model provides an action primitive that is used to reach a specified target configuration within the environment.
 %Both models should to allow continuous updates without a deterioration in their performance.
 
-The goal of this thesis can summarized to provide and evaluate simple models that:
+The goal of this thesis can be summarized to provide and evaluate simple models that:
 %TODO planning and lifelong are mentioned here for the first time and not explained!!!
 \begin{enumerate}
 	\item Update themselves incrementally during the interaction
@@ -64,5 +64,6 @@ The goal of this thesis can summarized to provide and evaluate simple models tha
 	\item Allow the deduction of action primitives required to reach a given target 
 \end{enumerate}
 
-This thesis is structured as follows: In chapter \ref{chap:stateOfTheArt} an overview over memory based learning as well as recently proposed models for learning object interactions for robotics is given. Two concepts were developed in order to fulfill the stated goals. Their general idea is described in chapter \ref{chap:concept} before concrete implementation details are given in chapter \ref{chap:modelReal}. These models are then evaluated with regards to their prediction and planning performance in chapter \ref{chap:evaluation}. Finally, this thesis concludes with a discussion of these results in chapter \ref{chap:conclusion}.
+%TODO Anmerkung Jacqui: Kein schöner Übergang zum vorherigen
+This thesis is structured as follows: In chapter \ref{chap:stateOfTheArt} an overview on memory based learning as well as recently proposed models for learning object interactions for robotics is given. Two concepts were developed in order to fulfill the stated goals. Their general idea is described in chapter \ref{chap:concept} before concrete implementation details are given in chapter \ref{chap:modelReal}. These models are then evaluated with regards to the goal mentioned above in chapter \ref{chap:evaluation}. Finally, this thesis concludes with a discussion of these results in chapter \ref{chap:conclusion}.
 

@@ -15,18 +15,20 @@
 In machine learning, one generally assumes that data, for example class labels, are given by some function $f^*$. Given some training data $D$ with $d^i =(\vec{x}^i,\vec{y}^i)$ where $\vec{x}^i$ represents the given input and $\vec{y}^i$ the corresponding output of the $i$'s data point, one tries to estimate $f^*$. 
 Although different algorithms approximate $f^*$ differently, they can be categorized in two general families: The first one tries to detect \textit{correlations} between features in order to make predictions. The simplest example for this is given by the linear regression \cite{linearRegression} where they find weights $w_j$ so that $f(\vec{x}) = \sum w_j \cdot x_j$. 
 
-The other family focuses more on \textit{similarities} in the input space instead of feature correlations. Maybe the most prominent example for this is the \gls{knn} regression \cite{kibler1987learning}. Previously seen training data is stored and compared to new input data. New input data $\vec{x}$ is then labeled according to the $k$ closest stored instances. The easiest form is to average the outputs of the $k$ closest instances around $\vec{x}$ (here denoted as the set $N(\vec{x}$)):
+The other family focuses more on \textit{similarities} in the input space instead of feature correlations. On of the most prominent examples for this is the \gls{knn} regression \cite{kibler1987learning}. Previously seen training data is stored and compared to new input data. New input data $\vec{x}$ is then labeled according to the $k$ closest stored instances. The easiest form is to average the outputs of the $k$ closest instances around $\vec{x}$ (here denoted as the set $N(\vec{x}$)):
 \begin{equation}
 \vec{y}_{new}(\vec{x}) = \frac{1}{k} \sum_{\vec{y} \in N(\vec{x})} \vec{y}
 \end{equation} %TODO double y, change?
 
 These instances are also often called prototypes, if only a few instances are used to represent a subspace in the input space. Since the closest instance is determined by similarity, the used features and metric is usually critical for these methods (see for example \cite{metric1, metric2}). This dependence on careful preprocessing of the used features and metric can be considered the biggest disadvantage of these methods. However, there has also been a lot of research in automatically adapting the used metric while training in order to better fit the data, e.g. by Hammer et al. \cite{lvq}. Unfortunately, online metric adaptation often needs a lot of iterations before yielding satisfying results. 
 
-Another disadvantage of memory based models is the memory consumption over time. Since the training examples need to be stored in order to be retrieved later, a lot of memory can be consumed. This can also lead to increased query and update times, since these scale linearly with the number of stored instances. Geva et al. \cite{protReduction} showed already 1991 that the number of required instances can be reduced depending on the used algorithm. Extending the area of influence of the given instances, for example by using \glspl{llm} \cite{LLM}, can further decrease the number of required instances.
+Another disadvantage of memory based models is the memory consumption over time. Since the training examples need to be stored in order to be retrieved later, a lot of memory can be consumed. This can also lead to increased query and update times, since these scale linearly with the number of stored instances. In 1991 Geva et al. \cite{protReduction} showed that the number of required instances can be reduced depending on the used algorithm. Extending the area of influence of the given instances, for example by using \glspl{llm} \cite{LLM}, can further decrease the number of required instances.
 
-The advantages of memory, or instance based models is that they are local by design. This means that their output only depends on a small part, located around the given input, of the model. Likewise, when they are updated by adding or removing some stored instances, they do so based on local criteria. This is also the reason that memory based models usually do not suffer from the catastrophic forgetting phenomenon.
+The advantages of memory or instance based models is that they are local by design. This means that their output only depends on a small part, located around the given input, of the model. Likewise, when they are updated by adding or removing some stored instances, they do so based on local criteria. This is also the reason why memory based models usually do not suffer from the catastrophic forgetting phenomenon.
 
-For the implementation of the concepts developed in this thesis, an adaptation of the \gls{gng} using \gls{llm} as output function is used as underlying regression model. The \gls{aitm} is explained in section \ref{sec:ITM} in detail.
+Another reason to look into memory based learning is the evidence for episodic memory in humans \cite{tulving2002episodic}. These findings suggest that humans store past experiences in order to utilize them in new situations. The general idea is the same that is applied in memory based learning approaches.
+
+For the implementation of the concepts developed in this thesis, an adaptation of the \gls{gng} using \gls{llm} as output function is used as underlying regression model. This adaptation is called \gls{aitm} for the remainder of this thesis and is explained in section \ref{sec:ITM} in detail.
 
 %TODO consider putting it in, when we actually talk about exploration
 %\section{Learning forward and inverse models}
@@ -40,20 +42,43 @@ For the implementation of the concepts developed in this thesis, an adaptation o
 %	\item Highlights some of the challenges when trying to (actively) learn online
 %\end{itemize}
 
+\section{Incremental online learning}
+
+\begin{itemize}
+\item \cite{roboticEpisodes} incremental episodic memory approach
+\item \cite{losing2015interactive} incremental online learning of object classification using LVQ
+
+\end{itemize}
+
+
 \section{Learning object interactions}
 
-Because of the importance for robotics, a lot of research is being done regarding object interactions.  However, most systems are trained in an offline fashion \cite{nishide2008predicting, moldovan2012learning, contactPrediction}. Out of these, the works of Moldovan et al. and Kroemer et al. are most notable:
+\subsection{Human object manipulation}
+
+A good overview about recent findings in neurobiology is given in \cite{flanagan2006control}. One of these findings suggest that contact events are especially important in order to synchronize multi-modal information \cite{johansson2001eye}. The developed gating function in the second concept (see section \ref{sec:gate}) serves a similar idea. 
+Already in 1999, Kawato analyzed internal object specific forward and inverse models in humans \cite{kawato1999internal}. Multiple studies have been performed successfully in order to find evidence of the existence of internal object specific models \cite{flanagan2001sensorimotor, merfeld1999humans}.
+
+
+The coupling of motor actions with the objects reaction is something both developed models try to achieve using different representations.
+
+\subsection{Robotic object manipulation}
+
+Because of the importance for robotics, a lot of research is being done regarding object manipulation. Because robots are expected to use tools, much research is being done regarding grasping. A good overview on different approaches and challenges is provided in \cite{graspingReview}. Having determined successful grasp types and strategies, more recent work combines grasping with other modalities such as vision \cite{graspingVision}. Here Saxena et al. train their system to detect suitable grasp locations in images from novel objects.
+Deep learning is also used for the same problem in order to avoid crafting features by hand \cite{graspingDeep}. 
+While grasping is very important for general-purpose robots, the proposed solutions do not learn about the object's dynamics. In fact these systems are usually considered trained successfully if the objects do not move until they have been grasped.
+
+However, most systems are trained in an offline fashion \cite{nishide2008predicting, moldovan2012learning, contactPrediction}. Out of these, the works of Moldovan et al. and Kroemer et al. are most notable:
 Moldovan et al. use a probabilistic approach to learn affordance models useful for object interactions in \cite{moldovan2012learning}. Affordances, as introduced by Gibson \cite{affordances}, describe the relations between object, actions and effects. Moldovan et al. are able to extend their approach to multiple object scenarios. The biggest difference of their approach to the here presented one, apart from the required offline training and tuning, is that it uses more prior knowledge in order to construct a suitable \gls{bn}.
 
-More recently, Kroemer et al. developed a memory based model that uses the similarities between contact distributions between objects in order to classify different kind of interactions in \cite{contactPrediction}. In their work an interaction is for example if one object supports another object or if an object can be lifted given a certain grasp configuration. The approach of Kroemer et al. also works with multiple objects since only the contact distributions between two objects were considered. Unfortunately, their approach is limited to binary predictions of predefined interaction classes. The robot still needs to learn a suitable forward model. Furthermore, their proposed sampling approach showed poor performance and is likely to become infeasible in unconstrained complex environments.
+More recently, Kroemer et al. developed a memory based model that uses the similarities between contact distributions between objects in order to classify different kind of interactions \cite{contactPrediction}. In their work an interaction is given if one object supports another object or if an object can be lifted given a certain grasp configuration. The approach of Kroemer et al. works with multiple objects, since only the contact distributions between two objects were considered. Unfortunately, their approach is limited to binary predictions of predefined interaction classes. The robot still needs to learn a suitable forward model. Furthermore, their proposed sampling approach shows poor performance and is likely to become infeasible in unconstrained complex environments.
 
-Learning object interaction incrementally has also been done:
-In \cite{levine2015learning} Levine et al. achieved great results in learning policies of complex dynamics %TODO \gls{policy}.
-such as assembling plastic toys. They require much fewer training iterations than earlier policy search approaches, i.e in \cite{otherPolicySearchs}. They achieve this by training linear-Gaussian controllers on trajectories which are later combined by a guided policy search component.
+Learning object interactions incrementally has also been done:
+Levine et al. achieve great results in learning policies of complex dynamics  %TODO \gls{policy}.
+such as assembling plastic toys \cite{levine2015learning}. They require much fewer training iterations than earlier policy search approaches, i.e \cite{otherPolicySearchs}. They achieve this by training linear-Gaussian controllers on trajectories which are later combined by a guided policy search component.
 However, the main difference to the given problem for this thesis is that Levine et al. consider the objects already firmly grasped which eliminates most of the dynamics in the interaction between the grasped object and the actuator.
 
 The most similar work to this thesis both in terms of setting and in their approach has been done by 
-Lau et al. in \cite{pushing}. The authors use \gls{knn} regression to make predictions about pushing an object. They also provide an algorithm to extract suitable actions that allow to push the object towards a specified target. Unfortunately, the authors restrict their model to the pushing interaction: Moving the actuator, here the entire circular mobile robot, around or towards the object is not part of the learned model but provided instead. Furthermore, while they describe their approach to work with position and orientation, they only provide results for position. 
+Lau et al. \cite{pushing}. The authors use \gls{knn} regression to make predictions about pushing an object. They also provide an algorithm to extract suitable actions that allow to push the object towards a specified target. Unfortunately, the authors restrict their model to the pushing interaction: Moving the actuator, here the entire circular mobile robot, around or towards the object is not part of the learned model but provided instead. Furthermore, while they describe their approach to work with position and orientation, they only provide results for position. 
 
 
 [TODO]

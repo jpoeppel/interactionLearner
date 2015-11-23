@@ -20,7 +20,7 @@ Both tasks are evaluated using different settings for the implementations.
 The used simulation software as well as the simulated environment are explained in section \ref{sec:environment}.
 
 
-\section{Simulation and environment \label{sec:environment}}
+\section{Simulation and environment \label{sec:environment}} 
 
 The model is supposed to learn object manipulation through interaction.
 The developed prototype implementations are tested in a simplified simulation. For this work gazebo \cite{gazebo} version 2.2.3 was used with the physics engine Open Dynamics Engine (ODE) \cite{ode}.
@@ -135,7 +135,7 @@ The distance between the starting line and the center block is 25cm. With the us
 
 After a 150 update steps, a \textit{run} ends and the object's are reset. This means, that the block will be placed at its resting position and the actuator is moved back to the starting line. 
 
-During a run, the block status can change in a number of ways. In case the actuator goes past the block, it will not change at all. If it is pushed in the center, it will be translated up to 0.6m. Furthermore, depending on where the block is pushed, it will be rotated up to 1.02rad (around 58°) in either direction. The maximum rotation is experienced when the actuator starts around 0.105m away from the origin.
+During a run, the block status can change in a number of ways. In case the actuator goes past the block, it will not change at all. If it is pushed in the center, it will be translated up to \m{0.6}. Furthermore, depending on where the block is pushed, it will be rotated up to \rad{1.02} (around 58°) in either direction. The maximum rotation is experienced when the actuator starts around \m{0.105} away from the origin.
 
 An example starting and end configuration can be seen in figure \ref{fig:pushTaskSim}. 
 
@@ -203,8 +203,8 @@ These configurations are used in order to evaluate the effect of unnormalized fe
 
 %TODO Also test only interaction prediction performance, by removing all the instances where only the gripper moved!
 
-The first test evaluates the prediction accuracy against the number of training runs. The training run start positions were chosen at random in the range of -0.25m to 0.25m. This means that they span the entire width of the block objects.
-For each number of training runs that was evaluated, 21 test runs were performed where all positions from -0.35m to 0.35m at 0.035m intervals. This means that 4 test runs went past the object without interacting with it.
+The first test evaluates the prediction accuracy against the number of training runs. The training run start positions were chosen at random in the range of \m{-0.25} to \m{0.25}. This means that they span the entire width of the block objects.
+For each number of training runs that was evaluated, 21 test runs were performed where all positions from \m{-0.35} to \m{0.35} at \m{0.035} intervals. This means that 4 test runs went past the object without interacting with it.
 The averaged results for the block predictions over all folds for the interaction state model can be seen in figure \ref{fig:learnCurveInteraction}.
 
 \begin{figure}[h]
@@ -213,24 +213,24 @@ The averaged results for the block predictions over all folds for the interactio
 \caption{Learning curve for the interaction concept. Difference in position and orientation for the block predictions at the end of a run are shown. Error bars indicate one standard deviation.}
 \label{fig:learnCurveInteraction}
 \end{figure}
-
-The positional prediction error starts around 0.26m with a standard deviation of around 0.16m when the model is only trained with a single training example. The prediction performance improves to roughly 0.08m with a standard deviation of around 0.04m.
-The predicted orientation error starts at an average of about 0.82rad with standard deviation of 0.32rad but improves to around 0.26rad with standard deviation of 0.09rad when increasing the number of random training examples.
-The performances for position and orientation do not increase much more when training on 30 runs instead of 20. (0.10m $+/-$ 0.05m for position after 20 runs and 0.28rad $+/-$ 0.11rad for orientation).
-
-The results for the same experiment with the object state with gating function model are presented in figure \ref{fig:learnCurveGate}.
-
-\begin{figure}[h]
-\centering
-\includegraphics[width=0.7\textwidth]{LearningCurvegateModel_C_0.pdf}
-\caption{Learning curve for the object state with gating function concept. Difference in position and orientation for the block predictions at the end of a run are shown. Error bars indicate one standard deviation.}
-\label{fig:learnCurveGate}
-\end{figure}
-
-The positional prediction error starts at around 0.16m with a standard deviation of 0.1m for only one training run in the object state with gating function model. By increasing the number of random training runs to 30, the positional error reduces continuously to around 0.04m with standard deviation of only around 0.02m.
-The predicted orientation error starts at around 0.46rad with standard deviation of 0.29rad.
-After 30 test runs an error of 0.13rad with a standard deviation of 0.08rad remains.
-For this model the performance does not increase much more already after having seen only 5 training runs for both the error in position (0.06m $+/-$ 0.03m) as well as orientation (0.18rad $+/-$ 0.10rad).
+%
+%The positional prediction error starts around \m{0.26} with a standard deviation of around \m{0.16} when the model is only trained with a single training example. The prediction performance improves to roughly \m{0.08} with a standard deviation of around \m{0.04}.
+%The predicted orientation error starts at an average of about \rad{0.82} with standard deviation of \rad{0.32} but improves to around \rad{0.26} with standard deviation of \rad{0.09} when increasing the number of random training examples.
+%The performances for position and orientation do not increase much more when training on 30 runs instead of 20. (\m{0.10} $+/-$ \m{0.05} for position after 20 runs and \rad{0.28} $+/-$ \rad{0.11} for orientation).
+%
+%The results for the same experiment with the object state with gating function model are presented in figure \ref{fig:learnCurveGate}.
+%
+%\begin{figure}[h]
+%\centering
+%\includegraphics[width=0.7\textwidth]{LearningCurvegateModel_C_0.pdf}
+%\caption{Learning curve for the object state with gating function concept. Difference in position and orientation for the block predictions at the end of a run are shown. Error bars indicate one standard deviation.}
+%\label{fig:learnCurveGate}
+%\end{figure}
+%
+%The positional prediction error starts at around \m{0.16} with a standard deviation of \m{0.1} for only one training run in the object state with gating function model. By increasing the number of random training runs to 30, the positional error reduces continuously to around \m{0.04} with standard deviation of only around \m{0.02}.
+%The predicted orientation error starts at around \rad{0.46} with standard deviation of \rad{0.29}.
+%After 30 test runs an error of \rad{0.13} with a standard deviation of \rad{0.08} remains.
+%For this model the performance does not increase much more already after having seen only 5 training runs for both the error in position (\m{0.06} $+/-$ \m{0.03}) as well as orientation (\rad{0.18} $+/-$ \rad{0.10}).
 
 The worse performance of the interaction model can partly be attributed to the test runs that do not interact with the block. While the gating function successfully learns to predict when an interaction takes place, the Abstract Collection Selector of the interaction model chooses \glspl{ac} where the block is moved even in situations where the actuator goes past the block.
 
@@ -243,7 +243,7 @@ The worse performance of the interaction model can partly be attributed to the t
 
 \textbf{Generalization details:}
 
-In order to analyze the information required for generalization, another training scheme was used. This time the models were only provided with three predetermined training runs. The starting positions -0.18m, 0.0m and 0.18m were used in this experiment. These three were chosen in order to provide the models with examples of both possible rotations as well as the lateral movement. The same 21 test runs were performed as before. This time prediction errors at the end of the run are recorded for each starting position separately. Due to the noise explained above, some randomness is still present in the data which is why this experiment was also repeated 20 times. 
+In order to analyze the information required for generalization, another training scheme was used. This time the models were only provided with three predetermined training runs. The starting positions \m{-0.18}, \m{0.0} and \m{0.18} were used in this experiment. These three were chosen in order to provide the models with examples of both possible rotations as well as the lateral movement. The same 21 test runs were performed as before. This time prediction errors at the end of the run are recorded for each starting position separately. Due to the noise explained above, some randomness is still present in the data which is why this experiment was also repeated 20 times. 
 
 The results for the interaction model are shown in figure \ref{fig:eachPosInteraction}.
 

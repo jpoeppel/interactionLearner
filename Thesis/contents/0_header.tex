@@ -178,9 +178,17 @@
   \end{tabular*}
 }
 
+% Scientific units
+\usepackage{siunitx}
+\renewcommand{\m}[1]{\SI{#1}{\meter}}
+\newcommand{\rad}[1]{\SI{#1}{\radian}}
+
+%\newcommand{\met}{\si{\meter}}
+%\newcommand{\rad}{\si{\radian}}
+
 % Bibliographie-Stil
 %\usepackage{apacite}         % Psychologie
-\usepackage[numbers]{natbib}  % Linguistik und Naturwissenschaften
+%\usepackage[numbers]{natbib}  % Linguistik und Naturwissenschaften
 
 % Silbentrennung für Wörter, die nicht vom Babel-Paket erkannt werden
 \hyphenation{Dezi-mal-trenn-zeichen In-stal-la-ti-ons-as-sis-tent}

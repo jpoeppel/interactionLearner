@@ -18,7 +18,7 @@ Although different algorithms approximate $f^*$ differently, they can be categor
 The other family focuses more on \textit{similarities} in the input space instead of feature correlations. On of the most prominent examples for this is the \gls{knn} regression \cite{kibler1987learning}. Previously seen training data is stored and compared to new input data. New input data $\vec{x}$ is then labeled according to the $k$ closest stored instances. The easiest form is to average the outputs of the $k$ closest instances around $\vec{x}$ (here denoted as the set $N(\vec{x}$)):
 \begin{equation}
 \vec{y}_{new}(\vec{x}) = \frac{1}{k} \sum_{\vec{y} \in N(\vec{x})} \vec{y}
-\end{equation} %TODO double y, change?
+\end{equation}
 
 These instances are also often called prototypes, if only a few instances are used to represent a subspace in the input space. Since the closest instance is determined by similarity, the used features and metric is usually critical for these methods (see for example \cite{metric1, metric2}). This dependence on careful preprocessing of the used features and metric can be considered the biggest disadvantage of these methods. However, there has also been a lot of research in automatically adapting the used metric while training in order to better fit the data, e.g. by Hammer et al. \cite{lvq}. Unfortunately, online metric adaptation often needs a lot of iterations before yielding satisfying results. 
 
@@ -26,7 +26,7 @@ Another disadvantage of memory based models is the memory consumption over time.
 
 The advantages of memory or instance based models is that they are local by design. This means that their output only depends on a small part, located around the given input, of the model. Likewise, when they are updated by adding or removing some stored instances, they do so based on local criteria. This is also the reason why memory based models usually do not suffer from the catastrophic forgetting phenomenon.
 
-Another reason to look into memory based learning is the evidence for episodic memory in humans \cite{tulving2002episodic}. These findings suggest that humans store past experiences in order to utilize them in new situations. The general idea is the same that is applied in memory based learning approaches.
+Another reason to look into memory based learning is the evidence for episodic memory in humans \cite{tulving2002episodic}. These findings suggest that humans store past experiences in order to utilize them in new situations. This general idea is applied in memory based learning approaches.
 
 For the implementation of the concepts developed in this thesis, an adaptation of the \gls{gng} using \gls{llm} as output function is used as underlying regression model. This adaptation is called \gls{aitm} for the remainder of this thesis and is explained in section \ref{sec:ITM} in detail.
 
@@ -44,11 +44,11 @@ For the implementation of the concepts developed in this thesis, an adaptation o
 
 \section{Incremental online learning}
 
-\begin{itemize}
-\item \cite{roboticEpisodes} incremental episodic memory approach
-\item \cite{losing2015interactive} incremental online learning of object classification using LVQ
+In order to deal with non stationary data, i.e. data whose characteristics change over time, as well as processing data streams continuously with limited resources, incremental learning is gaining increasing attention \cite{polikar2014guest}. Usually memory or instance based approaches are adapted to allow incremental training, such as the \gls{svm} for classification \cite{diehl2003svm}. Carlevarino et al. successfully train an adaption of the \gls{gng} to incrementally learn an inverse model for robot control \cite{carlevarino2000incremental}. 
+Losing at al. use a different memory based \gls{lvq} in order to incrementally train an obstacle classifier on a robotic platform \cite{losing2015interactive}.
+Unfortunately, all these works require a relative large amount of training examples before good performance was achieved. In the situation discussed in this thesis, the developed model should be able to produce reasonable results with only a few interactions.
 
-\end{itemize}
+Liu et al. propose an biology-inspired adaptation of the \gls{mdp} by using episodic memories \cite{liu2015robotic, roboticEpisodes}. Their approach incrementally learns an experience map of
 
 
 \section{Learning object interactions}
@@ -57,15 +57,15 @@ For the implementation of the concepts developed in this thesis, an adaptation o
 
 A good overview about recent findings in neurobiology is given in \cite{flanagan2006control}. One of these findings suggest that contact events are especially important in order to synchronize multi-modal information \cite{johansson2001eye}. The developed gating function in the second concept (see section \ref{sec:gate}) serves a similar idea. 
 Already in 1999, Kawato analyzed internal object specific forward and inverse models in humans \cite{kawato1999internal}. Multiple studies have been performed successfully in order to find evidence of the existence of internal object specific models \cite{flanagan2001sensorimotor, merfeld1999humans}.
-
-
-The coupling of motor actions with the objects reaction is something both developed models try to achieve using different representations.
+These findings motivate the use of local interaction or object specific models in this thesis.
 
 \subsection{Robotic object manipulation}
 
 Because of the importance for robotics, a lot of research is being done regarding object manipulation. Because robots are expected to use tools, much research is being done regarding grasping. A good overview on different approaches and challenges is provided in \cite{graspingReview}. Having determined successful grasp types and strategies, more recent work combines grasping with other modalities such as vision \cite{graspingVision}. Here Saxena et al. train their system to detect suitable grasp locations in images from novel objects.
 Deep learning is also used for the same problem in order to avoid crafting features by hand \cite{graspingDeep}. 
 While grasping is very important for general-purpose robots, the proposed solutions do not learn about the object's dynamics. In fact these systems are usually considered trained successfully if the objects do not move until they have been grasped.
+
+Once objects have been grasped the robot still need to learn to manipulate them in a desired way. In most cases, a policy\footnote{A policy defines what action primitive is to be used depending on the current situation and target.} is learned in order to reach a given target configuration. 
 
 However, most systems are trained in an offline fashion \cite{nishide2008predicting, moldovan2012learning, contactPrediction}. Out of these, the works of Moldovan et al. and Kroemer et al. are most notable:
 Moldovan et al. use a probabilistic approach to learn affordance models useful for object interactions in \cite{moldovan2012learning}. Affordances, as introduced by Gibson \cite{affordances}, describe the relations between object, actions and effects. Moldovan et al. are able to extend their approach to multiple object scenarios. The biggest difference of their approach to the here presented one, apart from the required offline training and tuning, is that it uses more prior knowledge in order to construct a suitable \gls{bn}.

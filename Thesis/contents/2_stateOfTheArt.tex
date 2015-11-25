@@ -5,10 +5,8 @@
 %Incremental/online models
 %Memory based approaches
 %What have others tried to solve this/similar problems?
-%TODO get authors automatically
 
 %TODO mention at least one paper where a pairwise interaction representation is used!
-%TODO Need a lot more than this!!!
 % I.e try talking bout grasping, problems with only learning, human representation
 \section{Memory based models}
 
@@ -30,7 +28,7 @@ Another reason to look into memory based learning is the evidence for episodic m
 
 For the implementation of the concepts developed in this thesis, an adaptation of the \gls{gng} using \gls{llm} as output function is used as underlying regression model. This adaptation is called \gls{aitm} for the remainder of this thesis and is explained in section \ref{sec:ITM} in detail.
 
-%TODO consider putting it in, when we actually talk about exploration
+%consider putting it in, when we actually talk about exploration
 %\section{Learning forward and inverse models}
 %
 %Much research in the field of robotics has gone into learning forward and inverse models for robot control \cite{listOfControlPaper}. 
@@ -44,51 +42,49 @@ For the implementation of the concepts developed in this thesis, an adaptation o
 
 \section{Incremental online learning}
 
-In order to deal with non stationary data, i.e. data whose characteristics change over time, as well as processing data streams continuously with limited resources, incremental learning is gaining increasing attention \cite{polikar2014guest}. Usually memory or instance based approaches are adapted to allow incremental training, such as the \gls{svm} for classification \cite{diehl2003svm}. Carlevarino et al. successfully train an adaption of the \gls{gng} to incrementally learn an inverse model for robot control \cite{carlevarino2000incremental}. 
-Losing at al. use a different memory based \gls{lvq} in order to incrementally train an obstacle classifier on a robotic platform \cite{losing2015interactive}.
+In order to deal with non stationary data, i.e. data whose characteristics change over time, as well as processing data streams continuously with limited resources, incremental learning is gaining increasing attention \cite{polikar2014guest}. Usually memory or instance based approaches are adapted to allow incremental training, such as the \gls{svm} for classification \cite{diehl2003svm}. Non stationary data as well as limited processing power are two constraints robotics have to deal with. As such, the robotic research community is focusing more on the use of such methods: 
+Carlevarino et al. successfully train an adaption of the \gls{gng} to incrementally learn an inverse model for robot control \cite{carlevarino2000incremental}. 
+Losing at al. use a different memory based approach with the \gls{lvq} in order to incrementally train an obstacle classifier on a robotic platform \cite{losing2015interactive}.
 Unfortunately, all these works require a relative large amount of training examples before good performance was achieved. In the situation discussed in this thesis, the developed model should be able to produce reasonable results with only a few interactions.
 
-Liu et al. propose an biology-inspired adaptation of the \gls{mdp} by using episodic memories \cite{liu2015robotic, roboticEpisodes}. Their approach incrementally learns an experience map of
-
+Liu et al. propose an biology-inspired adaptation of the \gls{mdp} by using episodic memories \cite{liu2015robotic, roboticEpisodes}. Their approach incrementally learns an experience map of an uncertain environment. 
+The authors also argue for interactive learning of unknown environments. Unfortunately, their approach requires the definition of fixed goal states or targets. Furthermore, transitions between different goals are difficult since they learn one episode, or one EM-MDP for each goal. The scope of this thesis does not want to dictate goals for the robot, instead it should be able to learn about the interactions in the environment without additional information provided by humans.
 
 \section{Learning object interactions}
 
 \subsection{Human object manipulation}
 
-A good overview about recent findings in neurobiology is given in \cite{flanagan2006control}. One of these findings suggest that contact events are especially important in order to synchronize multi-modal information \cite{johansson2001eye}. The developed gating function in the second concept (see section \ref{sec:gate}) serves a similar idea. 
-Already in 1999, Kawato analyzed internal object specific forward and inverse models in humans \cite{kawato1999internal}. Multiple studies have been performed successfully in order to find evidence of the existence of internal object specific models \cite{flanagan2001sensorimotor, merfeld1999humans}.
-These findings motivate the use of local interaction or object specific models in this thesis.
+While it was never the goal of this thesis to provided biology-inspired models of object interactions, there are some indications in recent findings that suggest similar processes in human brains: \\
+A good overview about recent findings in neurobiology is given in \cite{flanagan2006control}. One of these findings suggest that contact events are especially important in order to synchronize multi-modal information \cite{johansson2001eye}. 
+While it is not enough to wait for a contact event in this context, the second concept, described in section \ref{sec:gate} trains a gating function specifically designed to predict when one object influences another.
+
+Already in 1999, Kawato analyzed internal object specific forward and inverse models in humans \cite{kawato1999internal}. Multiple studies have been performed successfully in order to find evidence of the existence of internal object specific models, e.g. \cite{flanagan2001sensorimotor, merfeld1999humans}.
+Both developed concepts employ local models in order to reduce the size of the learned space. Especially the findings of Flanagan et al. \cite{flanagan2001sensorimotor} that suggest size-weight specific internal models for objects correlates to the employed idea to train local models for different object groups in the second concept.
 
 \subsection{Robotic object manipulation}
 
-Because of the importance for robotics, a lot of research is being done regarding object manipulation. Because robots are expected to use tools, much research is being done regarding grasping. A good overview on different approaches and challenges is provided in \cite{graspingReview}. Having determined successful grasp types and strategies, more recent work combines grasping with other modalities such as vision \cite{graspingVision}. Here Saxena et al. train their system to detect suitable grasp locations in images from novel objects.
+Robots are supposed to interact and manipulate their environment in order to be useful. Therefore, a lot of research is being done regarding object manipulation.
+
+Much of the earlier work regarding object manipulation was concentrated in grasping objects. A good overview on different approaches and challenges is provided in \cite{graspingReview}. Having determined successful grasp types and strategies, more recent work combines grasping with other modalities such as vision \cite{graspingVision}. Here Saxena et al. train their system to detect suitable grasp locations in images from novel objects.
 Deep learning is also used for the same problem in order to avoid crafting features by hand \cite{graspingDeep}. 
-While grasping is very important for general-purpose robots, the proposed solutions do not learn about the object's dynamics. In fact these systems are usually considered trained successfully if the objects do not move until they have been grasped.
+While grasping is very important for general-purpose robots, the proposed solutions do not learn about the object's dynamics. In fact these systems are usually considered trained successfully if the objects do not move until they have been grasped. 
+This thesis on the other hand concentrates on learning object dynamics as an exemplary scenario for the incremental acquisition of knowledge in unknown environments.
 
-Once objects have been grasped the robot still need to learn to manipulate them in a desired way. In most cases, a policy\footnote{A policy defines what action primitive is to be used depending on the current situation and target.} is learned in order to reach a given target configuration. 
+Once objects have been grasped the robot still needs to learn to manipulate them in a desired way. In most cases, a policy\footnote{A policy defines what action primitive is to be used depending on the current situation and target.} is learned in order to reach a given target configuration. Many different methods of learning policies in different scenarios have been proposed. A good overview on different strategies developed for robotics is given by Deisenroth et al. \cite{deisenroth2013survey}. Recently, Levine et al. achieve great results in learning policies of complex dynamics such as assembling plastic toys \cite{levine2015learning}. They require much fewer training iterations than earlier policy search approaches, i.e \cite{otherPolicySearchs}. They achieve this by training linear-Gaussian controllers on trajectories which are later combined by a guided policy search component.
+However, the main difference to the given problem for this thesis is that Levine et al. consider the objects already firmly grasped which eliminates most of the dynamics in the interaction between the grasped object and the actuator.
 
-However, most systems are trained in an offline fashion \cite{nishide2008predicting, moldovan2012learning, contactPrediction}. Out of these, the works of Moldovan et al. and Kroemer et al. are most notable:
+Other works are often training in an offline fasion
+\cite{nishide2008predicting, moldovan2012learning, contactPrediction}. Out of these, the works of Moldovan et al. and Kroemer et al. are most notable:
 Moldovan et al. use a probabilistic approach to learn affordance models useful for object interactions in \cite{moldovan2012learning}. Affordances, as introduced by Gibson \cite{affordances}, describe the relations between object, actions and effects. Moldovan et al. are able to extend their approach to multiple object scenarios. The biggest difference of their approach to the here presented one, apart from the required offline training and tuning, is that it uses more prior knowledge in order to construct a suitable \gls{bn}.
 
 More recently, Kroemer et al. developed a memory based model that uses the similarities between contact distributions between objects in order to classify different kind of interactions \cite{contactPrediction}. In their work an interaction is given if one object supports another object or if an object can be lifted given a certain grasp configuration. The approach of Kroemer et al. works with multiple objects, since only the contact distributions between two objects were considered. Unfortunately, their approach is limited to binary predictions of predefined interaction classes. The robot still needs to learn a suitable forward model. Furthermore, their proposed sampling approach shows poor performance and is likely to become infeasible in unconstrained complex environments.
 
-Learning object interactions incrementally has also been done:
-Levine et al. achieve great results in learning policies of complex dynamics  %TODO \gls{policy}.
-such as assembling plastic toys \cite{levine2015learning}. They require much fewer training iterations than earlier policy search approaches, i.e \cite{otherPolicySearchs}. They achieve this by training linear-Gaussian controllers on trajectories which are later combined by a guided policy search component.
-However, the main difference to the given problem for this thesis is that Levine et al. consider the objects already firmly grasped which eliminates most of the dynamics in the interaction between the grasped object and the actuator.
-
 The most similar work to this thesis both in terms of setting and in their approach has been done by 
 Lau et al. \cite{pushing}. The authors use \gls{knn} regression to make predictions about pushing an object. They also provide an algorithm to extract suitable actions that allow to push the object towards a specified target. Unfortunately, the authors restrict their model to the pushing interaction: Moving the actuator, here the entire circular mobile robot, around or towards the object is not part of the learned model but provided instead. Furthermore, while they describe their approach to work with position and orientation, they only provide results for position. 
 
+Overall it can be said, that a lot of research is being done regarding online learning and object manipulation in robotics. Many of these approaches are memory or prototype based since memory based approaches can work well under the conditions in robotic scenarios such as non stationary and limited data. 
+This thesis combines ideas from different approaches, such as using local models and episodic like memory, in order to incrementally learn about an unknown environment.
 
-[TODO]
-\begin{itemize}
-\item more
-\item Human object manipulation
-\item grasping?
-\item ...
-\item Summary at the end
-\end{itemize}
 %Although, developed from a different point of view, the work presented here can be considered an extension to their work. Especially the proposed alternative inverse model (see section \ref{sec:invModel}) 
 
 %\begin{itemize}

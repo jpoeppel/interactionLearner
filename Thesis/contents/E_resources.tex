@@ -1,8 +1,41 @@
 \chapter{Additional Information}
 
 \section{Circling action \label{sec:circling}}
-[TODO] 
-%TODO!
+
+The circling action was designed to make do with the features available where possible.
+For the interaction model the distance between the actuator and block needed to be computed as well. The distance is required since the explicit use of object shape information outside of the distance computation was not desired. 
+The process is described in algorithm \ref{alg:circling}:
+
+\begin{algorithm}
+\begin{algorithmic}[1]
+\Require{Distance $dist$ between actuator and object}
+\Require{Local direction $\vec{d}_{local}$ from actuator to object}
+\Require{Global direction $\vec{d}_{global}$ from actuator to object}
+\Require{Local direction $\vec{t}$ from target to object}
+\Ensure{Velocity vector $\vec{v}$ that moves the actuator around the object towards the target.}
+\Statex
+\If{$dist < 0.04$} 
+	\Let{$\vec{v}$}{$-{norm} \cdot \vec{d}_{global}$} 
+\ElsIf{$dist$ > 0.06} 
+	\Let{$\vec{v}$}{${norm} \cdot \vec{d}_{global}$} 
+\Else 
+	\Let{$\vec{v}$}{computeTangent( $\vec{d}_{global}$, $\vec{d}_{local}$, $\vec{t}$)}  
+\EndIf
+\State \Return{$\vec{v}$}
+\Statex
+\Function {computeTangent}{$\vec{d}_{global}$, $\vec{d}_{local}$, $\vec{t}$}
+	\Let{$\vec{tan}$}{$[-\vec{d}_{global}[1], \vec{d}_{global}[0]]$}
+	\State \Return{$\vec{tan}$}
+\EndFunction
+\end{algorithmic}
+\caption{Pseudocode for computing a suitable circling action.}
+\label{alg:circling}
+\end{algorithm}
+
+
+Using the distance, the actuator can stay within a save distance of \m{0.04} to \m{0.06} of the object. Outside this area, the actuator moves straight towards or away from the center of the object. This ensures, that the actuator does not collide with the object while circling.
+Inside this area, the actuator uses one of the two tangents to the global direction from the actuator to the object. Which tangent to use is determined by the angles of the vectors between actuator-object and target-object with respect to the local x axis of the objects coordinate system. 
+The direction, that reduces the difference the most is chosen.
 
 \section{Protobuf messages \label{sec:protobufMessages}}
 

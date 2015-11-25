@@ -138,7 +138,7 @@ The preconditions need to be checked against the currently given configuration o
 %The action is then checked by consulting the already trained forward models. 
 %In case the forward models predict that the selected action does not reduce the difference to the target, a different action needs to be selected. This is done by querying a different abstract collection. Alternatively, a random action can be performed in order to produce new episodes. These in turn would improve both the forward as well as the inverse models of their respective abstract collections.
 
-\subsection{Theoretical discussion}
+\subsection{Theoretical discussion \label{sec:interactionTheory}}
 %TODO do not really like this yet
 The two core ideas of this concept are the use of a pairwise representation and splitting the interaction space. The splitting is done in order to allow the training of simpler local regression models. Furthermore, using local models avoids having to compare to all previously seen training examples. 
 Using a global regression model, for example for the inverse model, is obviously possible as well, especially if the used model does not suffer from the complexity of the used interaction state and the continuous training. In this case, there is no need to determine the responsible \acrlong{ac}.

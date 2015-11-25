@@ -1,0 +1,65 @@
+\chapter{Discussion \label{chap:discussion}}
+
+\section{Generalization}
+
+The first task was designed to evaluate the generalization capabilities of the memory based concepts. It is important to note, that no domain knowledge outside the named assumptions was provided to either model for this prediction task. Although the used features were selected by hand, no preprocessing of these features is performed and no knowledge about special feature dimensions is provided. It is highly likely, that the generalization performance of both models could by increased by providing fine tuned distance metrics and/or preprocessing the used features.
+However, in order to be able to adapt to unknown situations, the system must not depend on such knowledge.
+
+\subsection{Generalization on random training data:}
+
+Prediction performances of both models reach acceptable levels for both position and orientation considering 150 timesteps are predicted without correction. 
+The object state model outperforms the interaction state model by requiring less training runs while achieving better prediction results as soon as at least 2 training runs have been seen.
+%This holds true for both tested configurations as can be seen when comparing figures \ref{fig:learnCurveGate1} and \ref{fig:learnCurveInteraction1}. 
+%TODO check if really for both configurations
+This performance difference is most likely due to the higher complexity of the Abstract Case Selector compared to the gating function. While the gating function only needs to learn a binary classifier, the Abstract Case Selector, needs to choose from a potentially big number of possible local models. Choosing an incorrect model results in a poor prediction, which will be accumulated over the course of the test run. Furthermore, the gating function is provided with more information than the Abstract Case Selector, due to the features distance and closing, that are introduced in the relative interaction features. 
+
+The better performance of the interaction model after just one training run, is most likely due to the fact, that the gating function needs at least two runs before it works sufficiently. If the gating function performs poorly, an incorrect choice by the Abstract Case Selector might still result in a better prediction than predicting no change at all.
+%In fact these two features are sufficient for the gating function to learn when the actuator influences the block as can be seen by the better results of the second configuration. 
+%Since the local forward model for the object group is trained in the same way as in the other configuration, the better overall performance can only be due to the selected features.
+
+%The differences in performance between the two configurations for both models highlights the known problem of memory based regression or classification methods: The performance is dependent on the used distance metric and/or preprocessing of the features, since choosing only a subset of features is equivalent to defining a metric where all other features are weighted with 0.
+%This problem becomes more severe the more dimensions are used as input features. %TODO citation for that
+
+The worse performance in predicting the actuator position of the interaction model was expected and is due to the already mentioned problem of dependence within an interaction state already mentioned in section \ref{sec:interactionTheory}. In that model, the actuator is not predicted directly, but only in combination with the block. 
+
+\subsection{Generalization on selected training data}
+
+The evaluations with selected training runs highlight to what extend the proposed models are capable of generalization. Obviously for memory based approaches, the best performance is achieved close to the known positions. However, despite not having seen the situations with the biggest change in orientation, the models are able to interpolate to some extend. 
+
+Overall the object state model performs better than the interaction model, which is most likely attributed to the already mentioned complexity discrepancy between the gating function and the Abstract Collection Selector. 
+However, around the edges of the object, the interaction model makes better predictions about the orientation. It turns out, that the object state model does not make predictions for the outer testing positions. In this case, the gating function is not sufficiently trained with the provided data.
+Despite that, the gating function is able to generalize to unseen situations where the object is not influenced by the actuator. Although the Abstract Collection Selector does know at least one \gls{ac} where only the actuator is moving, it is not able to learn the correct selection on the provided training samples.
+Adding another training run, that passes the object on one side results in correct predictions for the testing runs on that side, but usually not on the other one.
+%TODO add figure for that?
+
+It is interesting to note, that the object state model appears to be a lot more 	susceptible to the noise in the data since the standard deviations are a lot higher (up to twice as big) than in the interaction state model. It appears that the local forward model of the actuator, which is only trained on the action primitive and the positional change in the actuator, is the cause for this increased variability.
+%TODO figure for this
+
+\subsection{Generalization in the open loop} %TODO maybe rename not use open loop
+
+The images in figure \ref{fig:pushTaskSim2} showcase the one-shot learning capabilities of the memory based regression and classification models. While the models lag one timestep behind in the first run, they successfully predict changes in the actuator correctly in the second run. When an unknown situation is encountered with the new block interaction, the only known incorrect rotation is predicted first but quickly adapted in the next time step. This is because the introduced error is small due to the high frequency of the models. The predicted situation is still similar to what the models just learned in the previous timestep from the actual environment. Therefore, the models can apply what they just learned in their next prediction. That way the predicted worldstates stay similar to the actual environment.
+If changes between updates are greater, wrong predictions might lead to situations that are too different from what the model has just learned.
+%TODO maybe showcase with 100hz
+
+It is important for robotic systems to interact with their environment and quickly adapt to new information, which is provided by these memory based approaches.
+
+\section{Reaching target states}
+
+The second task was designed in order to evaluate the learned inverse models of the concepts. Both concepts essentially use the same underlying inverse model, which was designed for the challenges the incremental learning approach entails. The inverse model itself is not provided with any domain knowledge, but does make the assumption about when dimensions can be averaged. It was however necessary to provide the models with information about what feature dimensions represent in order to successfully reach a given target configuration. Furthermore, it was required to provide a circling action in order to avoid moving blocks arbitrarily.
+
+Both models reach the target configuration most of the time. Target 1 appears to be especially harder for both models than the other targets. The proposed \gls{tiim} is not able to negate the given noise in the data completely. It turns out, that both models do not reach the target when suboptimal preconditions are computed by the inverse model. This can have two reasons:
+\begin{enumerate}
+\item The merging process produces suboptimal alternatives within the nodes
+\item The network selects the worse of two provided alternatives
+\end{enumerate}
+
+1) Due to numerical inaccuracy as well as noise, some suboptimal combinations can become dominant within a prototype. In this case, the optimal combinations might be lost during the merging process. The likelihood for this is reduced by the stricter merging process described in section \ref{sec:invModelRealization}, but not completely removed.
+
+2) The greedy strategy of the network compares the two alternative preconditions for the currently biggest feature dimension to the alternatives of the second biggest feature dimension. The alternative that is closest to either of the second alternatives is chosen. In case some of these alternative are suboptimal due to 1) the network might select a bad precondition even if the other alternative would have been optimal. Furthermore, not all feature dimensions in the precondition should be considered when looking at closeness. For example, the preconditions for both models contain the relative actuator velocity (in the interaction model this is implicitly given in the included action primitive). Different interactions require different velocities in order to produce the desired changes in the object's state. However, since the velocity of the actuator can be changed directly, it should not be considered when trying to choose the precondition that closest to the preconditions required for the next feature. Preprocessed and normalized features or a fine tuned distance metric for preconditions would certainly reduce this problem.
+In some cases the network might even oscillate between two valid alternatives (e.g. for turning the object) which results in many circling actions around the object without actually moving it much.
+
+Another thing to note is that the interaction concept generally requires more steps in order to reach the target than the object state concept. Careful analysis of the testing runs revealed that the used circling decision plays a big part in this. The decision of the model should employ a circling action or not depends on the distance to the location determined by the preconditions. In case the actuator simply needs to move to the other side of a corner, no circling action is employed but the actuator is rather moved in directly in the direction towards the location. While the object state model uses the gate in order to determine if this action is safe in the sense that it does not move the object, the interaction state model does not have such a feature. Therefore, the block is often moved in an undesired way which needs to be corrected by additional interactions.
+
+Another problem concerning the used features without additional information was revealed by figure \ref{fig:moveToTargetInteractionT4Detail}: The orientation that is provided by the environment is in the range of $[-\pi,\pi]$ as is often done for angles. The model does not know that turning above $\pi$ results in negative orientations. It also does not know that the orientation $3.14$ and $-3.14$ are actually very close rather than far apart. Which is the reason why the interaction model did not realize that it had already reached the target in the situation of the figure. 
+
+[TODO discuss assumptions/restrictiveness of concepts]

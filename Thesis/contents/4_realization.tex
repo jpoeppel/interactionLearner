@@ -502,9 +502,10 @@ In order to create these averages, the following steps are performed:
 \textbf{1) Merging:}
 
 The prototypes try to merge equivalent combinations. This is done, by making a special assumption about features with a \textit{0} sign: If an input feature has been experienced to be close to \textit{0} for a given prototype, then it should be possible to average over all occurrences of this feature. 
-In this sense, combinations are considered equivalent and are merged, if they do not have any opposing signs at any of their input features. 
+In this sense, combinations are considered equivalent and are merged, if they do not have any opposing signs at any of their input features.
 Table \ref{tab:signCombinations2} summarizes the sign combinations experienced from the three scenarios in the first example, presented in figure \ref{fig:InverseModel}.
 Since a \textit{0} does not oppose either a \textit{+} or a \textit{-}, all three combinations can be merged together.
+In order to further avoid undesired effects, the merging process can be made more strict by only combining combinations that are similar even in their \textit{0} signs. This implementation allows only one feature dimension to differ after the opposing sign check in order to better preserve \textit{0} sign feature dimensions.
 
 \begin{table}
 	\centering
@@ -666,6 +667,21 @@ After the winning node has been updated, the classical \gls{itm} algorithm uses 
 ||\vec{y}^{net}(\vec{x}^\alpha)-\vec{y}^\alpha|| > \epsilon_{ITM}
 \end{equation}
 
+In this case a node is inserted, if the current input is not too close to the winning node, i.e.:
+
+\begin{equation}
+||\vec{x}^\alpha - \vec{w}^n_{in}|| > \epsilon_{max}
+\end{equation}
+
+$\epsilon_{max}$ represents the maximum distance nodes should be apart and needs to be chosen to represent the order of magnitude of the norm of the input vectors.
+If the new input is too close to the winning node although the output was not similar enough, the output of the winning node is adapted:
+
+\begin{equation}
+\vec{w}^n_{out} = 0.5 \cdot (\vec{w}^n_{out} + \vec{y}^\alpha)
+\end{equation}
+
+This ensures, that noisy data does not lead to the creation of multiple nodes with similar input vectors. 
+
 The threshold $\epsilon_{ITM} = 10^d$ is dynamically computed, based on the order of magnitude $d$ of the target output norm: %TODO example
 
 \begin{equation}
@@ -676,12 +692,12 @@ d = \begin{cases}
 \end{cases}
 \end{equation}
 
-
 When the output has a norm of $0$ a fixed threshold $10^k$ is chosen. Ideally $k$ should represent the average order of magnitude of the input. This average can be computed incrementally from the non-zero output norms. The benefit of such a dynamic threshold is that it automatically adapts to different use cases. For example, when the \gls{aitm} is used for classification, the output values will be class labels in the form of positive natural numbers. In this case $d$ equals $-1$ which results in a threshold of 0.1 which allows to distinguish conflicting class labels.
 In regression tasks however, the output values will be real numbers. It is obvious that different thresholds are required for both types of use case. The \gls{aitm} assumes that the orders of magnitude of the output within one use case are generally rather similar and can be used as an approximation of the desired accuracy.
 
+
 %TODO Subject to change
-With every update the two winning nodes are connected as neighbors. Node deletions are performed just as in the traditional \gls{itm}: Second winners are removed if they are too far away from the winning node\footnote{Too far here means, if the $||\vec{w}^n_{in} - \vec{w}^s_{in}|| > \epsilon_{max}$. This threshold is set to 0.001 to match the order of magnitude of feature changes.}. Furthermore, isolated nodes will be deleted. A node is considered isolated if it does not have any neighbors left. Neighbor connections are removed if the second winner in an update can replace a previous neighbor:
+With every update the two winning nodes are connected as neighbors. Node deletions are performed just as in the traditional \gls{itm}: Second winners are removed if they are too far away from the winning node\footnote{Too far here means, if the $||\vec{w}^n_{in} - \vec{w}^s_{in}|| > \epsilon_{max}$. }. Furthermore, isolated nodes will be deleted. A node is considered isolated if it does not have any neighbors left. Neighbor connections are removed if the second winner in an update can replace a previous neighbor:
 
 \begin{equation}
 \forall c \in N(n): \text{If~} (\vec{w}^n_{in}-\vec{w}^s_{in}) \cdot (\vec{w}^c_{in}-\vec{w}^s_{in}) < 0 \text{~remove connection (n,c)}

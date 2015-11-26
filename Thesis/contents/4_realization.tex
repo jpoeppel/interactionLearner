@@ -21,13 +21,6 @@ Section \ref{sec:basics} starts with describing common design decisions made tha
 \section{Basics \label{sec:basics}}
 
 %The following descriptions and assumptions are accurate for all realizations independent of the underlying concept.
-
-%\subsection{Single timestep}
-%TODO consider if this makes sense/is required
-%One way to learn pushing interactions is to learn the trajectories of entire interactions. While this is possible, for example with a Hidden Markov Model \cite{hmm} and has been done successfully by [TODO look up name] \cite{hmmTrajectory}, it requires labeled training data. %TODO
-%More precisely, it requires the models to know when a trajectory starts and when it finishes. Since the model presented here are supposed to learn incrementally by self exploration or at least in an online manner without being provided labeled data from the outside, the models would need to derive the start and endpoints of an interaction automatically. 
-%
-%The models presented here do not predict entire interactions but rather make small predictions at each timestep in order to avoid the need for such segmentation. This also means that these models are coupled closely to their environment and get updates at each timestep. The actual duration between two updates is not predetermined or restricted by the models presented here. The longer the duration between updates, the more the object states change during an interaction. 
 %TODO maybe rearrange the sentences
 
 \subsection{Available information about objects}
@@ -56,8 +49,6 @@ These prototypes were evaluated using a physics simulation, further explained in
 
 Furthermore, a unique identifier, the shape and size of the objects are known and can be used to compute additional features for the model. What kind of features are computed from this information is a design decision by the user of these models. Because of the dependence on the used metric in the underlying regression model, using more features might worsen the performance of the models. 
 
-
-
 \subsection{Action primitives}
 
 Action primitives are the collection of possible low level actions a robot can perform directly. Higher level actions are usually composed of multiple action primitives. For example, the action \textit{walking} might be composed of the action primitives, \textit{raise leg} and \textit{lower leg}.
@@ -73,12 +64,7 @@ The used simulation only accepts velocities with a norm not higher than $0.5\fra
 As already stated in the introduction and motivated in chapter \ref{chap:stateOfTheArt}, this thesis uses a memory based approach to learn the interactions. For this end, a special adaptation of the \gls{gng} has been developed which can be used for regression as well as classification tasks. This adaptation, called \acrfull{aitm} and explained in section \ref{sec:ITM}, is used for all regression and classification models used in both prototypes unless stated otherwise. 
 
 \subsection{Using local features and predicting differences \label{sec:localFeatures}}
-%\begin{itemize}
-%\item Local features make the assumption that everything behaves the same regardless of the configuration
-%\item Difference prediction needs to be used when using local features
-%\item Difference prediction is also possible with global features and without the assumption
-%\item Difference prediction reduces output space, not sure if I want to write about this
-%\end{itemize}
+
 Both prototypes only use local (differential) features as inputs for their trained regression and classification models. 
 Local features mean that all features are represented relative to some reference object's coordinate frame. The exact computation of the features is explained in sections \ref{sec:intFeatures} for the interaction model and \ref{sec:gateFeatures} for the object state model.
 Using local features assumes that similar interactions behave identical regardless where in the environment they take place. 
@@ -95,10 +81,6 @@ Consider the feature position: An object cannot change its position from one tim
 
 
 \section{Modeling pairwise interaction \label{sec:pairRealization}}
-
-%\begin{itemize}
-%	\item feature selection? (currently not implemented in latest version)
-%\end{itemize}
 
 The implementation of the pairwise interaction model also contains the components visualized in the overview figure \ref{fig:PairOverview}.
 The Abstract Collection Selector trains a classifier that selects any of the $n$ learned \glspl{ac}. Within each \glspl{ac}, there exist a local forward model which performs the predictions.
@@ -236,9 +218,6 @@ Finally, the set of changing features $S$ can then again be computed as stated i
 
 \subsection{From target object state to action primitives\label{sec:pairPlanningReal}}
 
-[Subject to change] %TODO finalize once program runs decent
-%TODO Fix circling detection
-
 In most cases the robot will have to push a certain object to a given specification. It usually does not matter where the actuator is after the target is reached. Therefore, it would be best if a target object state could be provided instead of a target interaction state. However, the model itself does not know about object states. Therefore, this prototype implements a method to convert a given object state to an interaction state, where only the reference object is correctly set. The actuator is used as secondary object, however the actuator's features are not required. Instead, the features representing the reference object are remembered in order to only focus on these features when trying to reduce the distance to the target interaction state. 
 
 Once a target interaction state has been computed, the current interaction state between the reference object of interest and the actuator can be retrieved. Using the target interaction state as resulting state, an episode with an empty action is computed. The episode provides the difference vector between the current situation and the target configuration. Only the features remembered when constructing the target interaction states are considered from this difference vector. Effectively, these features correspond to the local differences in the object states. 
@@ -267,23 +246,23 @@ Once the actuator has come close\footnote{This implementation uses the threshold
 
 The realization consists mainly of the parts visualized in figure \ref{fig:GateOverview}. 
 Depending on whether the actuator models are to be learned as well, three to five different parts need to be trained in this model: The predictor occupies a similar role to the \glspl{ac} in the previous model. For each distinct object group, a local forward model is trained using the relative interaction features (described in section \ref{sec:gateFeatures}) as input and the changes in the object states as output. Just as the interaction model, the inverse model is also trained on the same input and output data each time new information is available from the environment. 
-%In this implementation, object groups are simply divided by the object identifier. 
-%TODO consider this again after testing with 2 objects.
+In this implementation, object groups are simply divided by the object identifier. 
 The gating function trains a classifier in order to predict if an actuator object influences another object. The classifier is trained, using the relative interaction features as input. The output, i.e. if an interaction took place or not, is determined by computing the change between the previous object state and the current one.
 
 Algorithm \ref{alg:gateUpdate} summarizes all steps performed at each update step.
 
 \begin{algorithm}
 	\KwIn{New worldstate ws}
-	\KwIn{Used action a}
+	\KwIn{Used action $act$}
 	\KwData{Last worldstate ws$_\text{old}$}
 	\KwData{Predictor}
 	\KwData{Gate}
 	\BlankLine
 	newActuator = extractActuator(ws) \\
+	updateActuator(newActuator, $act$) \\
 	\ForEach{object state o $\in$ ws}{
 		o$_\text{old}$ = extractObject(ws$_\text{old}$, o) \\
-		relFeatures = computeRelativeFeatures(o, newActuator) \\ %TODO Check if this is correct for both gate and predictor or if this should be old actuator!!!
+		relFeatures = computeRelativeFeatures(o, newActuator) \\ 
 		change = computeLocalChange(o$_\text{old}$, o) \\
 		hasChanged = $||$change$||$ > 0 \\
 		updateGate(relFeatures, hasChanged) \\
@@ -291,7 +270,7 @@ Algorithm \ref{alg:gateUpdate} summarizes all steps performed at each update ste
 			updatePredictor(relFeatures, change) \\
 		}
 	}
-	updateActuator(newActuator, a) \\
+	
 	\BlankLine
 \caption{Algorithm summarizing the steps performed by the object state model at each update from the environment.}
 \label{alg:gateUpdate}
@@ -309,28 +288,6 @@ First the next actuator state is predicted by querying its local forward model g
 As a consequence of this sequential process, the local models in the predictor do not know about the action primitives at all. %TODO explain benefits of this
 
 As in the other model, computing action primitives is more complicated and requires additional knowledge about the features. The steps required to extract action primitives useful to reach a given target are explained in section \ref{sec:gatePlanningReal}
-
-
-%Algorithm \ref{alg:gatePrediction} shows how a prediction for one object is performed. 
-%
-%
-%\begin{algorithm}
-%	\KwIn{Predicted actuator state from action primitive, object state}
-%	\KwOut{Predicted object state}
-%	\BlankLine
-%	relFeature = computeRelativeFeatures(objectState, actuatorState)\\
-%	\eIf{Gate(relFeatures)}{
-%		predictedChange = getPrediction(relFeatures) \\
-%		return add(objectState, predictedChange)
-%		}{
-%		return objectState
-%		}	
-%	\caption{Prediction pseudocode}
-%	\label{alg:gatePrediction}
-%\end{algorithm}
-%
-%The pseudo function \textit{getPrediction} first selects the responsible forward model before the change is predicted. This selection is being performed based on the identifier of the reference object. If no local model has been trained for the reference object, the predictor tries to find a forward model that is responsible for similar objects. If no suitable forward model can be found, a zero change prediction is returned. This means that the object state remains unchanged.
-
 
 \subsection{Used features \label{sec:gateFeatures}}
 
@@ -402,11 +359,10 @@ The distance between the two objects corresponds to the closest of these corner-
 	\includegraphics[scale = 1.5]{closing.pdf}
 	\caption{Visualization of the closing feature. The gray half circle shows the angle whose cosine is basically computed for the feature.} 
 	\label{fig:closing}
-\end{figure} %TODO schatten beim bogen raus
+\end{figure} 
 
 \subsection{From target object state to action primitive \label{sec:gatePlanningReal}}
-%TODO Fix circling behavior
-[Subject to change]
+
 The overall process of computing a suitable action primitive that allows to push an object towards a given target configuration is quite similar to the one in the previous model explained in section \ref{sec:pairPlanningReal}. However, due to the differences in representation, the process is actually easier in this model. 
 First of all, since the model works directly with the object states, the target representation does not need to be changed. A specified target object state can directly be used by the model. 
 Furthermore, for each object group only one inverse model exist, which directly avoids the problems with multiple local inverse models mentioned in section \ref{sec:pairPlanningReal}. 
@@ -466,7 +422,7 @@ While this average works great in the given example for the positional node, it 
 	\includegraphics{avgProblem.pdf}
 	\caption{Visualization of the averaging problem for point symmetric features. The circles represent the actuator while the rectangle represents a block object. The gray arrows symbolize the local coordinate system of the block. Both pushing scenarios result in a rotation of the object in the same direction. However, averaging the relative x and y positions would result in an invalid precondition.} 
 	\label{fig:avgProblem}
-\end{figure} %TODO make coordinate arrows brighter!
+\end{figure}
 
 Consider the orientation prototype for positive rotations around the z-axis as shown in the figure. The magnitude of the change is identical in both situations, meaning that normally, the mean of both preconditions should be used as the average. In the given situation, this results in invalid preconditions, where the actuator would be supposed to be in the center of the object. That position is not only not reachable, but it also would not produce the desired change in orientation. 
 
@@ -522,7 +478,7 @@ In order to further avoid undesired effects, the merging process can be made mor
 \end{table}
 
 The actual merging is described in algorithm \ref{alg:combinationMerging}. In order to avoid merging invalid combinations, the combinations are first filtered. This model assumes, that valid combinations are experienced more often than invalid ones that are results from noise. 
-Especially, since small noise can also be filtered out by only considering feature changes above a certain threshold when training the prototypes. That way, all combinations that have been experienced less often then the average number of experiences over all combinations are filtered out. 
+Especially, since small noise can also be filtered out by only considering feature changes above a certain threshold when training the prototypes. That way, all combinations that have been experienced less often then the average number of experiences over all combinations are filtered out. %TODO maybe make clearer
 
 After equivalent combinations have been merged, the resulting input features might represent a new combination. This combination is computed and used as new hash for storing the resulting values. 
 
@@ -624,7 +580,8 @@ In order to be applicable to classification and regression, the \gls{itm} was fu
 \label{eq:llmOut}
 \end{equation}
 
-The output function for the network can be computed in multiple ways. The simplest method is to use the output of the winning node, i.e. the output of the node whose input vector $\vec{w}^i_{in}$ is closest to the given input $\vec{x}$. In order to reduce the effect of the metric problem when finding the closest node, the outputs of multiple nodes can also be mixed together. The evaluations in this thesis interpolate the output functions of the two closest nodes:
+The output function for the network can be computed in multiple ways. The simplest method is to use the output of the winning node, i.e. the output of the node whose input vector $\vec{w}^i_{in}$ is closest to the given input $\vec{x}$. In order to reduce the effect of the metric problem when finding the closest node, the outputs of multiple nodes can also be mixed together. % using a softmax weighting similar to the idea in \cite{NIPS2010_3895}. 
+The evaluations in this thesis interpolate the output functions of the two closest nodes:
 
 \begin{equation}
 \vec{y}_{net}(\vec{x}) =  \frac{1}{k_n+k_s} \cdot \left[ k_n \cdot \left(\vec{w}^n_{out} + A^n \cdot \left(\vec{x}-\vec{w}^n_{in}\right)\right) + k_s \cdot  \left(\vec{w}^s_{out} + A^s \cdot \left(\vec{x}-\vec{w}^s_{in}\right)\right)\right]
@@ -639,7 +596,8 @@ k_s = \exp\left(\frac{||\vec{x}-\vec{w}^s_{in}||}{\sigma^2}\right)
 \end{split}
 \end{equation}
 
-$\sigma$ determines the influence radius of each node, just like in radial basis networks \cite{rbf}. The nearest node $n$ and the second closest node $s$ are determined by comparing the input vectors of all nodes in $W$ with the given input vector $\vec{x}$:
+$\sigma$ determines the influence radius of each node, just like in radial basis networks \cite{rbf}.
+The nearest node $n$ and the second closest node $s$ are determined by comparing the input vectors of all nodes in $W$ with the given input vector $\vec{x}$:
 
 \begin{equation}
 \begin{split}
@@ -674,15 +632,15 @@ In this case a node is inserted, if the current input is not too close to the wi
 \end{equation}
 
 $\epsilon_{max}$ represents the maximum distance nodes should be apart and needs to be chosen to represent the order of magnitude of the norm of the input vectors.
-If the new input is too close to the winning node although the output was not similar enough, the output of the winning node is adapted:
+If the new input is too close to the winning node although the output was not similar enough, the output of the winning node is adapted with:
 
 \begin{equation}
-\vec{w}^n_{out} = 0.5 \cdot (\vec{w}^n_{out} + \vec{y}^\alpha)
+\Delta\vec{w}^n_{out} = 0.5 \cdot (\vec{y}^\alpha - \vec{w}^n_{out})
 \end{equation}
 
 This ensures, that noisy data does not lead to the creation of multiple nodes with similar input vectors. 
 
-The threshold $\epsilon_{ITM} = 10^d$ is dynamically computed, based on the order of magnitude $d$ of the target output norm: %TODO example
+The threshold $\epsilon_{ITM} = 10^d$ is dynamically computed, based on the order of magnitude $d$ of the target output norm:
 
 \begin{equation}
 d = \begin{cases}
@@ -695,8 +653,6 @@ d = \begin{cases}
 When the output has a norm of $0$ a fixed threshold $10^k$ is chosen. Ideally $k$ should represent the average order of magnitude of the input. This average can be computed incrementally from the non-zero output norms. The benefit of such a dynamic threshold is that it automatically adapts to different use cases. For example, when the \gls{aitm} is used for classification, the output values will be class labels in the form of positive natural numbers. In this case $d$ equals $-1$ which results in a threshold of 0.1 which allows to distinguish conflicting class labels.
 In regression tasks however, the output values will be real numbers. It is obvious that different thresholds are required for both types of use case. The \gls{aitm} assumes that the orders of magnitude of the output within one use case are generally rather similar and can be used as an approximation of the desired accuracy.
 
-
-%TODO Subject to change
 With every update the two winning nodes are connected as neighbors. Node deletions are performed just as in the traditional \gls{itm}: Second winners are removed if they are too far away from the winning node\footnote{Too far here means, if the $||\vec{w}^n_{in} - \vec{w}^s_{in}|| > \epsilon_{max}$. }. Furthermore, isolated nodes will be deleted. A node is considered isolated if it does not have any neighbors left. Neighbor connections are removed if the second winner in an update can replace a previous neighbor:
 
 \begin{equation}

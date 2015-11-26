@@ -13,11 +13,6 @@ This chapter presents the two concepts that were developed in order to fulfill t
 A special inverse model is proposed in section \ref{sec:invModel} that is tailored to the continuous interaction with the environment. %TODO more either here or in the introduction?
 Before going into the description of both concepts and the inverse model, section \ref{sec:problem} summarizes the actual problem these concepts need to solve. 
 
-%Unlike in isolated classification or regression tasks, it is not enough to employ one specialized machine learning algorithm in order to solve the given problem. Since the model is supposed to interact with its environment and update itself while experiencing new interactions, a more important complex model is required. While the chosen underlying regression and classification methods need to fulfill certain conditions and greatly influence the resulting model performance, they could easily replaced by suitable alternatives. Even more important is the architecture around them, that organizes the information coming from the environment and adapts where necessary. This chapter presents the general concepts behind the two developed models and the way the information is organized.
-%
-%First a more detailed specification about the problem is given in section \ref{sec:problem}. Afterwards,
-%section \ref{sec:pairInt} describes the first developed concepts working solely in what is called the interaction space in this thesis. The alternative approach of modeling object states directly is described in section \ref{sec:gate}.
-
 \section{Problem specification \label{sec:problem}}
 
 As stated in the introduction, the goal of this thesis is to provide possible models that incrementally learn simple pushing interactions between physical objects. 
@@ -58,19 +53,19 @@ e^{best} = \argmin_{e^i \in E} ||e^i_{preState}-curState, e^i_{action}-curAction
 $e^i$ represents the i's episode that has been stored yet. $e^i_{preState}$ means only the previous interaction state of the episode, while $e^i_{action}$ represents the used action in that episode.
 The norm $||a,b||_{ep}$ is used to allow different weighting of the features from the previous state and the action. For planning, the action difference can be replaced by the difference between the resulting state of each episode and the desired target state.
 
-Once the most similar episode has been found, the desired information can be extracted from it. For prediction, this corresponds to the resulting state in the episode, whereas it corresponds to the action for the inverse case. The formula above represents a nearest neighbor search on all episodes. Although such an approach can work, it quickly becomes infeasible when the number of stored episode keeps growing. Since the nearest neighbor search scales linearly with the number of stored examples it is unsuitable for lifelong learning. %TODO lifelong not introduced...
+Once the most similar episode has been found, the desired information can be extracted from it. For prediction, this corresponds to the resulting state in the episode, whereas it corresponds to the action for the inverse case. The formula above represents a nearest neighbor search on all episodes. Although such an approach can work, it quickly becomes infeasible when the number of stored episode keeps growing. Since the nearest neighbor search scales linearly with the number of stored examples it is unsuitable for lifelong learning. 
 Furthermore, the simple nearest neighbor approach does not offer good generalization since it does not interpolate between similar episodes. 
 
-As mentioned at the beginning of this chapter, the idea of this concept is to split the interaction space into subspaces and train local models for each of these subspaces. An overview of the proposed architecture can be seen in figure \ref{fig:PairOverview}.
+As mentioned at the beginning of this chapter, the idea of this concept is to split the interaction space into subspaces and train local models for each of these subspaces. 
+An overview of the proposed architecture can be seen in figure \ref{fig:PairOverview}.
 All episodes corresponding to the same subspace are collected in \textit{Abstract Collections}. Each collection can train its own local forward and inverse model which is explained in section \ref{sec:ACs}.
 An \textit{Abstract Collection Selector} is needed in order to choose the most appropriate abstract collection in a given situation. 
 
-%The realization of this concept is described in section \ref{sec:pairRealization}.
 
 \begin{figure}
 	\centering
 	\includegraphics{PairwiseOverview.pdf}
-	\caption{Overview of the model in interaction space. The different abstract collections contain forward and inverse models of distinct subspaces of the interaction space. The selector is needed in order to select the correct submodel for prediction.}%TODO consider adding transformation to interaction state and back to object states as well?} %TODO
+	\caption{Overview of the model in interaction space. The different abstract collections contain forward and inverse models of distinct subspaces of the interaction space. The selector is needed in order to select the appropriate local model for prediction.}
 	\label{fig:PairOverview}
 \end{figure}
 
@@ -100,7 +95,7 @@ These collections can train their respective local forward and inverse models ba
 
 Prediction within this architecture requires several steps. The general idea of the information flow when predicting one interaction state is visualized in figure \ref{fig:PairPrediction}. The model expects an interaction state that has been computed from the objects information provided by the environment. This interaction state is used together with the given action primitive as input for the Abstract Collection Selector. The selector needs to estimate which \gls{ac} is most likely responsible for the next interaction. In order to make this estimation, any suitable classifier, e.g. a decision tree \cite{decisionTree}, is trained on all input-collection pairs the model experienced so far. 
 %TODO maybe remove/rewrite this following passage
-The total number of collections is limited to the size of the superset of $F$, although in practice, not all possibilities are likely. Furthermore, collections with less than $\epsilon_{min}$ training examples can be ignored. This threshold is used to reduce the number of outliers when training the classifier. %TODO this threshold does not exist anymore in the current implementation!!
+The total number of collections is limited to the size of the superset of $F$, although in practice, not all possibilities are likely. Furthermore, collections with less than $\epsilon_{min}$ training examples could be ignored. This threshold can be used to reduce the number of outliers when training the classifier. 
 
 After the most likely \gls{ac} has been selected, its forward model can be consulted for the prediction. The local model is queried using the interaction state together with the given action primitive as input. The output of the local model is the predicted interaction state. 
 More precisely, the local model predicts how the current interaction state changes. These predicted changes are then added to features of the given interaction state this \gls{ac} is responsible for.
@@ -114,11 +109,6 @@ The predictions of the actual object states need to be extracted from this inter
 \end{figure}
 
 \subsection{From target state to action primitive \label{sec:pairPlanning}}
-
-%TODO
-%(TODO consider redoing the planning algorithm more similar to the way it is done
-%in the most recent model, which works, maybe the same ideas can be employed 
-%here)
 
 In order to get a suitable action primitive given a target configuration several steps are required as visualized in figure \ref{fig:PairPlanning}. 
 First the difference state between the current situation and the target configuration is computed. Similar to the computation within the episodes above, a difference set $S$ can be computed from this difference state. Afterwards, the \gls{ac} that corresponds to the same set of features is selected. In the case that this collection is not yet known, the most similar collection is chosen instead. In this context, the most similar \gls{ac} is the one that covers most of the changed features in the computed difference set. If multiple alternatives exist, the \gls{ac} responsible for the changes in the most features is chosen. This is because more changing features means that the inverse model has more degrees of freedom to reach the target.
@@ -135,8 +125,6 @@ The preconditions need to be checked against the currently given configuration o
 	\label{fig:PairPlanning}
 \end{figure}
 
-%The action is then checked by consulting the already trained forward models. 
-%In case the forward models predict that the selected action does not reduce the difference to the target, a different action needs to be selected. This is done by querying a different abstract collection. Alternatively, a random action can be performed in order to produce new episodes. These in turn would improve both the forward as well as the inverse models of their respective abstract collections.
 
 \subsection{Theoretical discussion \label{sec:interactionTheory}}
 %TODO do not really like this yet
@@ -168,7 +156,7 @@ Unfortunately, no guarantees can be given about how well the interaction space i
 
 The alternative to modeling the interaction space, is to model each object and perform predictions for each object separately. 
 The general components of this architecture are visualized in figure \ref{fig:GateOverview}.
-The idea is to train local forward and inverse models for each object, or object group in the \textit{Predictor}. %TODO consider changing this name
+The idea is to train local forward and inverse models for each object, or object group in the \textit{Predictor}. 
 Instead of distinguishing between different interaction scenarios as in the previous concept, objects that behave differently are distinguished. 
 An object group can be considered a collection of objects that are similar in the way they behave during interactions. Therefore they can be represented by a single local model. One example would be two identically shaped block objects that only have different colors. In order to detect if two objects should be grouped together or not, one can start with training separate local models and compare their outputs. If two models appear to be similar, they can be merged together. Ideally, a similarity measure for objects is provided. Following the assumption that similar objects should behave similarly, such a measure would allow immediate grouping of objects.
 
@@ -207,11 +195,9 @@ The gating function then uses these features to determine if the object will be 
 On the other hand, if an interaction is predicted, the \textit{Predictor} uses the local forward model responsible for the current object. 
 The local model predicts the changes in the object states instead of the final states. In order to get the actual predicted object state, these changes are added to the current object state.
 
-When more than one object other than the actuator is present, the same process can be repeated. In order to predict interactions between two non actuator objects, a prediction chain is performed. First the actuator is predicted as described above. Afterwards, the objects that are directly influenced by the actuator are predicted. These predictions can then in turn be used as new \enquote{actuators} for interactions between them and other objects. %TODO consider removing this or moving this elsewhere since it is not done
-
-%TODO decide which is used
-%(STILL TO TRY) In order to predict multi object interactions, the gate function can be used to first collect all involved objects before
-%invoking the appropriate predictor. (e.g. by interpolating the different input features).
+When more than one object other than the actuator is present, the same process can be repeated. 
+In order to predict interactions between two non actuator objects, a prediction chain is performed. First the actuator is predicted as described above. Afterwards, the objects that are directly influenced by the actuator are predicted. 
+The predictions of these objects can then in turn be used as new \enquote{actuators} for interactions between them and other objects. However, additional problems arise as explained in section \ref{sec:gateTheoDisc} below.
 
 \subsection{From target object state to action primitive \label{sec:gatePlanning}}
 
@@ -233,7 +219,7 @@ However, in most situations the actuator configuration will not meet the precond
 
 Considering the current object's position, an action is calculated to move the actuator towards the intermediate target. This might result in a circling movement of the actuator around the object. Moving the actuator directly towards the intermediate target position might result in moving the object in a more unfavorable position and is therefore avoided. Since these steps are performed at every timestep, the model can quickly adapt itself to changes in the environment.
 	
-\subsection{Theoretical discussion}
+\subsection{Theoretical discussion \label{sec:gateTheoDisc}}
 
 Representing each object by itself has the advantage, that no transformations outside of the concept are required. Instead all objects are represented for themselves within the model. 
 Consequently, any noise in any object does not directly influence another object's state. Noisy data in one object might still influence the prediction of another object, for example if the noise leads to an erroneous classification by the gating function. However, the effect is not as direct and unavoidable as in the pairwise interaction concept.
@@ -241,7 +227,7 @@ Consequently, any noise in any object does not directly influence another object
 The big disadvantage of this approach is that impossible configurations can be predicted more easily. This can happen due to an inaccurate prediction made by either the actuator's or the object's forward model.
 An impossible configuration is even bound to be predicted when the gating function misclassifies that no interaction takes place when it should. In this case the actuator is predicted to move into the other object.
 
-Extending this concept to multiple objects is easier in theory since each object can be considered separately. However, training the gating functions with multiple objects is difficult. When one object's state changes during an update from the environment, the model needs to determine which other object caused this change in order to train the gating function on the correct relative interaction features. Depending on the situation, this determination can be very difficult and hardly be done without additional prior knowledge. 
+Extending this concept to multiple objects is easier in theory since each object can be considered separately. However, training the gating functions with multiple objects is difficult. When one object's state changes during an update from the environment, the model needs to determine which other object caused this change in order to train the gating function on the correct relative interaction features. Depending on the situation, this causal determination can be very difficult and hardly be done without additional prior knowledge. 
 %TODO example for such a situation?
 
 Apart from the representation, this concept requires an additional assumption about the scenario compared to the interaction state concept. The assumption that object states can only change through interactions with an actuator also means that an object does not continue sliding after it has been pushed. This restricts the possible weights of the objects and speeds of the actuator.

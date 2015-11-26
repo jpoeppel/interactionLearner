@@ -80,9 +80,9 @@ class MetaNode(object):
     def mergeCombinations(self):
 #        kInts = [[int(i) for i in k.split(';')] for k in self.signCombinations.keys()]
         keys = [k for k in self.signCombinations.keys() if self.signCombinationNumbers[k] >= np.mean(self.signCombinationNumbers.values())]
-        print "keys: ", keys
-        print "numbers: ", self.signCombinationNumbers
-        print "mean: ", np.mean(self.signCombinationNumbers.values())
+#        print "keys: ", keys
+#        print "numbers: ", self.signCombinationNumbers
+#        print "mean: ", np.mean(self.signCombinationNumbers.values())
         sortedNumZeros = sorted(keys, key=lambda s: s.count('0'), reverse=True)
         resWeights = {}
         resSums = {}
@@ -99,10 +99,12 @@ class MetaNode(object):
             for k in sortedNumZeros[1:]:
                 kInts = np.array([int(i) for i in curK.split(';')])
                 k2Ints = np.array([int(i) for i in k.split(';')])
-                if not np.any(kInts*k2Ints < 0):
+#                if not np.any(kInts*k2Ints < 0):
+                if not np.any(kInts*k2Ints < 0) and np.sum(kInts*k2Ints ==0)-np.sum(np.logical_and(kInts == 0,k2Ints==0)) < 2:
                     tmpSum += self.signCombinationSums[k]
                     tmpWeight += self.signCombinations[k]
                     tmpNumber += self.signCombinationNumbers[k]
+#                    print "merging {} with {}".format(curK, k)
 #                    resSums[curK] += self.signCombinationSums[k]
 #                    resWeights[curK] += self.signCombinations[k]
 #                    resNumber[curK] += self.signCombinationNumbers[k]
@@ -135,6 +137,7 @@ class MetaNode(object):
 #        l = sorted([(k,self.signCombinations[k]/self.signCombinationNumbers[k], self.signCombinationNumbers[k]) for k in self.signCombinations.keys()], key=itemgetter(1), reverse=True)
         print "l: ", l
 #        print "weight dif: ", self.signCombinations[l[1][0]]/self.signCombinations[l[0][0]]
+        #TODO make better, relative weights often too similar, maybe harder threshold?
         if len(l) > 1 and l[1][1]/l[0][1] > 0.5:
 #        if len(l) > 1 and self.signCombinations[l[1][0]]/self.signCombinations[l[0][0]] >0.5 :
             comb1 = l[0][0].split(";")
@@ -147,12 +150,12 @@ class MetaNode(object):
 #            pre2 = self.signCombinationSums[l[1][0]]
 #            w1 = self.signCombinations[l[0][0]]#/self.signCombinationNumbers[l[0][0]]
 #            w2 = self.signCombinations[l[1][0]]#/self.signCombinationNumbers[l[1][0]]
-#            print "pre1: ", pre1
-#            print "pre2: ", pre2
-#            print "comb1: ", comb1
-#            print "comb2: ", comb2
-#            print "comb1 w: ", w1
-#            print "comb2 w: ", w2
+            print "pre1: ", pre1
+            print "pre2: ", pre2
+            print "comb1: ", comb1
+            print "comb2: ", comb2
+            print "comb1 w: ", w1
+            print "comb2 w: ", w2
             for i in xrange(len(comb1)):
                 if comb1[i] == comb2[i]:# or comb1[i] == '0' or comb2[i] == '0':
                     res[i] = (pre1[i]+pre2[i])/(w1+w2)
@@ -162,7 +165,7 @@ class MetaNode(object):
                     res2[i] = pre2[i]/w2
             return res, res2
         else:
-            print "only one combination"
+#            print "only one combination"
             return mergedSums[l[0][0]]/mergedWeights[l[0][0]], None
 #            return self.signCombinationSums[l[0][0]]/self.signCombinations[l[0][0]], None
             
@@ -201,23 +204,23 @@ class MetaNetwork(object):
                 self.nodes[index].train(pre,abs(difs[i]))
 
                 if self.targetIndex != None and index == self.targetIndex:
-                    print "target: {} successfully found.".format(index)
+#                    print "target: {} successfully found.".format(index)
                     self.targetIndex =None
                     self.preConIndex = 4  #For exploration
                     targetIndexFound = True
                     
         ### For exploration            
-        if self.preConsToTry != None:
-            print "precons similarity: ", np.linalg.norm(pre-self.preConsToTry)
-            print "given pres: ", pre
-            print "desired pres: ", self.preConsToTry
-        if self.preConsToTry != None and np.linalg.norm(pre-self.preConsToTry) < 0.01:
-            print "similar precons reached: ", np.linalg.norm(pre-self.preConsToTry)
-            if not targetIndexFound:
-                print "similar precons did not yield expected results."
-                print "targetIndex: ", self.targetIndex
-                print "actual difs: ", difs
-                self.tryNext = True
+#        if self.preConsToTry != None:
+#            print "precons similarity: ", np.linalg.norm(pre-self.preConsToTry)
+#            print "given pres: ", pre
+#            print "desired pres: ", self.preConsToTry
+#        if self.preConsToTry != None and np.linalg.norm(pre-self.preConsToTry) < 0.01:
+#            print "similar precons reached: ", np.linalg.norm(pre-self.preConsToTry)
+#            if not targetIndexFound:
+#                print "similar precons did not yield expected results."
+#                print "targetIndex: ", self.targetIndex
+#                print "actual difs: ", difs
+#                self.tryNext = True
 
                 
     def tobeNamed(self):
@@ -274,18 +277,18 @@ class MetaNetwork(object):
                     
             
             if self.curIndex == None:
-                print "target difs: ", targetDifs
+#                print "target difs: ", targetDifs
                 sortedDifs = np.argsort(abs(targetDifs))     
                 print "sortedDifs: ", sortedDifs
                 maxDif = sortedDifs[-1]
                 index = str(maxDif*np.sign(targetDifs[maxDif]))
                 self.curSecIndex =str(sortedDifs[-2]*np.sign(targetDifs[sortedDifs[-2]]))
-#                print "targetDifs: ", targetDifs
-#                print "maxindex: ", index
+                print "targetDifs: ", targetDifs
+                print "maxindex: ", index
                 if not index in self.nodes:
-                    print "index i {} for targetDif {}, not known".format(index, targetDifs[abs(float(index))])
-                    print "nodes: ", self.nodes.keys()
-                    print "targetDifs: ", targetDifs
+#                    print "index i {} for targetDif {}, not known".format(index, targetDifs[abs(float(index))])
+#                    print "nodes: ", self.nodes.keys()
+#                    print "targetDifs: ", targetDifs
                     return None
                 else:
                     self.curIndex = index

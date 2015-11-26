@@ -31,7 +31,7 @@ class Config(object):
     
     def __init__(self):
         #ITM general
-        self.SIGMAE = 0.5 #For besttwo
+        self.SIGMAE = 0.05 #For besttwo
         self.TESTMODE = BESTTWO
         self.EMAX = 0.001
         self.EMAX_2 = self.EMAX**2
@@ -45,9 +45,9 @@ class Config(object):
         self.gateClassifierEtaOut = 0.0
         self.gateClassifierEtaA = 0.0
         self.gateClassifierTestMode = 0 #Winner
-        self.gateMask = range(8) #[2,3] #These two configuration!
+        self.gateMask =  range(8) #[2,3] #These two configuration!
         self.actuatorEtaIn = 0.0
-        self.actuatorEtaOut = 0.1
+        self.actuatorEtaOut = 0.0
         self.actuatorEtaA = 0.0
         self.actuatorTestMode = None
         #Gate general settings
@@ -64,7 +64,7 @@ class Config(object):
         self.aCSelectorEtaOut = 0.0
         self.aCSelectorEtaA = 0.0
         self.aCSelectorTestMode = 0
-        self.aCSelectorMask = range(8) #
+        self.aCSelectorMask = range(8) # [5,6] 
         if SHORT_TS:
             self.episodeDifThr = 0.001
             self.frequency = 100
@@ -82,16 +82,26 @@ class Config(object):
         self.testSeed = 4321
         self.fixedTrainSeed = False
         self.trainSeed = 1234
-        self.startRunRange = 0.6
-        self.testPositions = np.arange(-0.35,0.351,0.035) #np.arange(-0.35,0.351,0.035)#[-0.105, 0.0, 0.105] #
+        self.startRunRange = 0.5
+        self.testPositions = np.arange(-0.8, 0.41, 0.06) #np.arange(-0.35,0.351,0.035) #np.arange(-0.35,0.351,0.035)#[-0.105, 0.0, 0.105] #[-0.25, 0.0, 0.25] #
         self.fixedFirstThreeTrains = False
         self.perfectTrainRuns = False
         
         self.numTooSlow = 0
         self.resetErrors = 0
+        self.targets = {0: np.array([0.6,0.7, -2.1]), 1: np.array([-0.6,0.7,0.75]), 
+                        2:np.array([-0.6,-0.7,0]), 3:np.array([0.6,-0.7,np.pi])}
 
 
     def toString(self, usedGate):
+        """
+            Returns a string representation of the configuration
+            
+            Parameters
+            ---------
+            usedGate : bool
+                True if the gate model was used, False for the interaction model
+        """
         s = "###General configs###\n"
         s += "ITM Sigma: {}\n".format( self.SIGMAE)
         s += "ITM default testmode: {} \n".format(self.TESTMODE)

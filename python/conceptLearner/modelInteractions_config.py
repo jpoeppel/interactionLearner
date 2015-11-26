@@ -356,7 +356,7 @@ class ModelInteraction(object):
         else:
             if self.isTargetReached():
                 self.target = None
-                print "Target reached!"
+#                print "Target reached!"
                 return np.zeros(2)
             else:
                 targetInteraction = self.curInteractionStates[self.target.id]
@@ -372,8 +372,8 @@ class ModelInteraction(object):
 #                print "maxIndex: ", maxIndex
 #                print "maxFeature: ", maxFeature
                 featuresString = ",".join(map(str,targetChangingFeatures))
-                print "featuresString: ", featuresString
-                print "available ACs: ", self.featuresACMapping.keys()
+#                print "featuresString: ", featuresString
+#                print "available ACs: ", self.featuresACMapping.keys()
 #                responsibleACs = []
 
 #                for k in self.featuresACMapping.keys():
@@ -395,14 +395,14 @@ class ModelInteraction(object):
 #                    i+=1
                 
                 preConditions = self.inverseModel.getPreconditions(targetDifs)
-                print "usedAC: ", i-1
+#                print "usedAC: ", i-1
                 print "Preconditions: ", preConditions
                 relTargetPos = preConditions[5:7]
                 globTargetPos = np.ones(3)
                 globTargetPos[:2] = np.copy(relTargetPos)
                 globTargetPos = np.dot(targetInteraction.trans, globTargetPos)[:2]
                 relAction = preConditions[8:10]
-                print "relAction: ", relAction
+#                print "relAction: ", relAction
                 curRelPos = targetInteraction.vec[5:7]
                 globCurPos = np.ones(3)
                 globCurPos[:2] = np.copy(curRelPos)
@@ -414,7 +414,7 @@ class ModelInteraction(object):
                 
                 difPos = globTargetPos-globCurPos
                 globAction = np.dot(targetInteraction.trans[:2,:2],relAction)
-                print "global Action: ", globAction
+#                print "global Action: ", globAction
 #                wrongSides = curRelPos*relTargetPos < 0
 #                if np.any(wrongSides):
 #                    if max(abs(relTargetPos[wrongSides]-curRelPos[wrongSides])) > 0.05:
@@ -422,12 +422,12 @@ class ModelInteraction(object):
 #                        return targetInteraction.circle()
     
                 if np.linalg.norm(difPos) > 0.1:
-                    print "circling, too far"
+#                    print "circling, too far"
                     return targetInteraction.circle(relTargetPos)
                 if np.linalg.norm(difPos) > 0.01:
-                    print "doing difpos"
+#                    print "doing difpos"
                     return 0.3*difPos/np.linalg.norm(difPos)                
-                print "global action"
+#                print "global action"
                 if np.linalg.norm(globAction) == 0.0:
                     return globAction
                 return  0.3*globAction/np.linalg.norm(globAction)

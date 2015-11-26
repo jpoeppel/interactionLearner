@@ -118,7 +118,7 @@ class ITM(object):
 #            if npdot(w.inp-x,s.inp-x) > 0 and ndif > config.EMAX_2:
 #                nI = len(self.nodes)
 #                print "input norm: ", npnorm(w.inp-x)
-                if npnorm(w.inp-x) > 0.001:
+                if npnorm(w.inp-x) > config.EMAX:
                     nI = self.idCounter
                     n= Node(x,nI,y)
 #                    print "creating new node: x {}, y: {}".format(x,y)
@@ -141,6 +141,8 @@ class ITM(object):
 #                        print "printing all nodes: ", [(n.inp, n.out) for n in self.nodes.values()]
 #                        print "after printing all nodes"
 #                        raise NotImplementedError
+#                    print "adapting output with y: ", y
+#                    print "wout before: ", w.out
                     dwout = 0.5*(y-w.out)
 #                    dif = x-w.inp
 #                    ndif = npdot(dif,dif)
@@ -149,6 +151,7 @@ class ITM(object):
 #                    cor = npdot(w.A,dif)
 #                    dwout = 0.5*(y-w.out+cor) + npdot(w.A,dwIn)
                     w.out += dwout
+#                    print "wout after: ", w.out
 #                    if ndif > 0.0:
 #                        w.A += 0.5*npouter((y-w.out+cor), dif/ndif)
 #            if npdot(wsdif,wsdif) < config.EMAX05_2:

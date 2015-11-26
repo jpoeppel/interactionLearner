@@ -215,7 +215,7 @@ class Actuator(Object):
         else:
             #Only predict position
             p = self.predictor.test(action, testMode=config.actuatorTestMode)
-#            print "predicting actuator change: ", p
+            print "predicting actuator change: ", p
             self.predVec += p
 #            res.vec[1:4] += p
         res.lastVec = np.copy(self.vec)
@@ -315,17 +315,21 @@ class GateFunction(object):
     
     def __init__(self):
         self.classifier = Classifier()
+        self.classifier2 = {}
         
         pass
     
     def test(self, o1, o2, action):
         vec = o1.getRelVec(o2)
+        if o1.id in self.classifier2:
+            return self.classifier2[o1.id].test(vec,action)
+        else:
+            return 0
 #        print "testing gate with relVec: ", vec[config.gateMask]
-        return self.classifier.test(vec, action)
+#        return self.classifier.test(vec, action)
         
     def checkChange(self, pre, post):
         dif = pre.getLocalChangeVec(post)
-#        if np.linalg.norm(dif[0:2]) > 0.0 or abs(dif[2]) > 0.0:
         if np.linalg.norm(dif) > 0.0:    
             return True, dif
         return False, dif
@@ -343,11 +347,15 @@ class GateFunction(object):
         #TODO For multiple objects: Causal determination, make hypothesis and test these!
         vec = o1Pre.getRelVec(o2Post)
         hasChanged, dif = self.checkChange(o1Pre, o1Post)
+
+        if not o1Pre.id in self.classifier2:
+            self.classifier2[o1Pre.id] = Classifier()
+        self.classifier2[o1Pre.id].train(vec, action, int(hasChanged))
+        
+#        self.classifier.train(vec, action, int(hasChanged))
         if hasChanged:
-            self.classifier.train(vec, action, int(hasChanged))
             return True, dif
         else:
-            self.classifier.train(vec, action, int(hasChanged))
             return False, dif
 
         
@@ -440,10 +448,10 @@ class ModelGate(object):
         
     def isTargetReached(self):
         targetO = self.curObjects[self.target.id]
-        print "targetO.vec: ", targetO.vec
+#        print "targetO.vec: ", targetO.vec
         difVec = targetO.vec-self.target.vec
         norm = np.linalg.norm(difVec)
-        print "dif norm: ", norm
+#        print "dif norm: ", norm
         if norm < 0.01:
             return True
         return False
@@ -551,21 +559,21 @@ class ModelGate(object):
                 if pre == None:
                     return self.explore()
                 relTargetPos = pre[4:6]
-                print "rel target pos: ", relTargetPos
-                relTargetVel = pre[8:10]
-                print "relTargetVel: ", relTargetVel
+#                print "rel target pos: ", relTargetPos
+                relTargetVel = pre[6:8]
+#                print "relTargetVel: ", relTargetVel
                 
                 pos, vel = targetO.getGlobalPosVel(relTargetPos, relTargetVel)
-                print "target vel: ", vel
-                print "target pos: ", pos
-                print "cur pos: ", self.actuator.vec[0:2]
+#                print "target vel: ", vel
+#                print "target pos: ", pos
+#                print "cur pos: ", self.actuator.vec[0:2]
                 difPos = pos-self.actuator.vec[0:2]
 #                print "difpos norm: ", np.linalg.norm(difPos)
                 relVec = targetO.getRelVec(self.actuator)
                 
 #                relVec = targetO.getRelObjectVec(self.actuator)
                 relPos = relVec[4:6]
-                print "relPos: ", relPos
+#                print "relPos: ", relPos
                 # Determine Actuator position that allows action in good direction
 #                wrongSides = relPos*relTargetPos < 0
 #                if np.any(wrongSides):
@@ -574,25 +582,25 @@ class ModelGate(object):
 #                        print "try circlying"
 #                        return targetO.circle(self.actuator, 2*relTargetPos-relPos)
                 if np.linalg.norm(difPos) > 0.1:
-                    print "circling, too far"
+#                    print "circling, too far"
                     return targetO.circle(self.actuator, relTargetPos)
                 if np.linalg.norm(difPos) > 0.01:
                     difPosAction = 0.3*difPos/np.linalg.norm(difPos)
-                    print "difpos action: ", difPosAction
+#                    print "difpos action: ", difPosAction
                     tmpAc = self.actuator.predict(difPosAction)
                     if not self.gate.test(targetO, tmpAc, difPosAction):
-                        print "doing difpos"
+#                        print "doing difpos"
                         return difPosAction
                     else:
                         predRes = self.predictor.predict(targetO, tmpAc, difPosAction)
                         if np.linalg.norm(predRes.vec-self.target.vec) > np.linalg.norm(targetO.vec-self.target.vec):
-                            print "circlying since can't do difpos"
+#                            print "circlying since can't do difpos"
                             return targetO.circle(self.actuator, relTargetPos)
                         else:
-                            print "doing difpos anyways"
+#                            print "doing difpos anyways"
                             return difPosAction
 
-                print "using vel"
+#                print "using vel"
                 normVel = np.linalg.norm(vel)
                 if normVel == 0.0 or (normVel > 0.01 and normVel < 0.2):
                     return vel

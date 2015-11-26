@@ -6,8 +6,8 @@ Created on Fri Nov 20 17:27:38 2015
 @author: jpoeppel
 """
 
-from conceptLearner.inverseModel import MetaNode
-from conceptLearner.inverseModel import MetaNetwork
+from interactionLearner.inverseModel import MetaNode
+from interactionLearner.inverseModel import MetaNetwork
 
 import numpy as np
 

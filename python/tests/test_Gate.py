@@ -6,9 +6,9 @@ Created on Fri Sep 18 20:26:18 2015
 @author: jpoeppel
 """
 
-from conceptLearner.modelGate import Object
-from conceptLearner.modelGate import MetaNode
-from conceptLearner.modelGate import MetaNetwork
+from interactionLearner.modelGate import Object
+from interactionLearner.modelGate import MetaNode
+from interactionLearner.modelGate import MetaNetwork
 import numpy as np
 
 class TestObject:

@@ -6,10 +6,10 @@ Created on Tue Oct  6 15:24:16 2015
 @author: jpoeppel
 """
 
-from conceptLearner.modelInteractions_config import Object
-from conceptLearner.modelInteractions_config import InteractionState
-from conceptLearner.modelInteractions_config import Episode
-import conceptLearner.common as common
+from interactionLearner.modelInteractions_config import Object
+from interactionLearner.modelInteractions_config import InteractionState
+from interactionLearner.modelInteractions_config import Episode
+import interactionLearner.common as common
 
 import numpy as np
 from sets import Set

@@ -8,7 +8,7 @@ Created on Tue Sep 29 16:35:34 2015
 
 import pytest
 
-from conceptLearner.common import *
+from interactionLearner.common import *
 
 import numpy as np
 

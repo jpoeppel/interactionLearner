@@ -6,7 +6,7 @@ Created on Tue Oct 20 13:03:55 2015
 @author: jpoeppel
 """
 
-from conceptLearner.modelGate_2D_config import Object
+from interactionLearner.modelGate_2D_config import Object
 
 import numpy as np
 
@@ -38,10 +38,10 @@ class TestObject:
     
     def test_getRelVec(self):
         relVec = self.o1.getRelVec(self.o2)
-        assert np.linalg.norm(relVec-np.array([15,8,0.425,0.0, 0.0,-0.5,0.0,0.0,0.0,0.0])) < 0.0001
+        assert np.linalg.norm(relVec-np.array([15,8,0.425,0.0, 0.0,-0.5,0.0,0.0])) < 0.0001
         self.o2.lastVec = np.array([0.0,-0.005,0.0])
         relVec = self.o1.getRelVec(self.o2)
-        assert np.linalg.norm(relVec-np.array([15,8,0.425,-0.005, 0.0,-0.5,0.0,0.005,0.0,0.005])) < 0.0001
+        assert np.linalg.norm(relVec-np.array([15,8,0.425,-0.005, 0.0,-0.5,0.0,0.005])) < 0.0001
         
     def test_getRelObjectVec(self):
         vec = self.o1.getRelObjectVec(self.o2)

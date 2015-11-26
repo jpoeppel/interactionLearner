@@ -7,8 +7,8 @@ Created on Wed Jun 17 13:22:13 2015
 """
 
 #from conceptLearner.topoMaps import ITM
-from conceptLearner.itm import Node
-from conceptLearner.itm import ITM
+from interactionLearner.itm import Node
+from interactionLearner.itm import ITM
 import numpy as np
 
 class TestITM:

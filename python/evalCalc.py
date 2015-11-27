@@ -125,16 +125,16 @@ def readPushTaskData():
     for f in sorted(fileList, key=natSort):
         if f.startswith(".") or "_config" in f or "ITMInformation" in f or not "Mode2" in f:
             continue
-        if not "gate" in f:
+        if "gate" in f:
             continue
 #        if not "Configuration_0_E20FoldsAll" in f:
 #            continue
-        if not "2Objects" in f:
-            continue
+#        if not "2Objects7Train" in f:
+#            continue
 #        if not "Sigma005" in f:
 #            continue
-#        if not "E20Folds" in f:
-#            continue
+        if not "E20FoldsSigma005" in f:
+            continue
     #    if "Start0" in f:
     #        continue
         nameOnly = f.replace('.txt','')
@@ -166,16 +166,16 @@ def readPushTaskData():
         trainData = data[trainrows,:]
         firstTrainFrames = trainData[:,3] == 0
     #    startingTrainPositionsX = trainData[firstTrainFrames,12]
-#        currentExperiment.trainStartPosX[numTrainRuns] = np.copy(trainData[firstTrainFrames,12])
-        currentExperiment.trainStartPosX[numTrainRuns] = np.copy(trainData[firstTrainFrames,20])
+        currentExperiment.trainStartPosX[numTrainRuns] = np.copy(trainData[firstTrainFrames,12])
+#        currentExperiment.trainStartPosX[numTrainRuns] = np.copy(trainData[firstTrainFrames,20])
         
         testrows = np.invert(trainrows)
         testData = data[testrows,:]
-#        testDifs = np.copy(testData[:,:14])
-#        testDifs[:,5:14] -= testData[:,15:]
+        testDifs = np.copy(testData[:,:14])
+        testDifs[:,5:14] -= testData[:,15:]
         
-        testDifs = np.copy(testData[:,:22])
-        testDifs[:,4:] -= testData[:,22:]
+#        testDifs = np.copy(testData[:,:22])
+#        testDifs[:,4:] -= testData[:,22:]
         
         firstFrames = testData[:,3] == 0
         
@@ -185,15 +185,22 @@ def readPushTaskData():
     #    currentExperiment.testStartPosX[numTrainRuns] = testData[firstFrames,12] 
         
         #Consider filtering, i.e. only last frame
-#        actDifs = testDifs[lastFrames,12:14]
-#        oriDifs = testDifs[lastFrames,11]
-#        posDifs = testDifs[lastFrames,5:7]
-        
-        actDifs = testDifs[lastFrames,20:22]
+        actDifs = testDifs[lastFrames,12:14]
         oriDifs = testDifs[lastFrames,11]
         posDifs = testDifs[lastFrames,5:7]
-        oriDifs2 = testDifs[lastFrames,19]
-        posDifs2 = testDifs[lastFrames,13:15]
+        
+#        actDifs = testDifs[lastFrames,20:22]
+        
+#        actDifsnorms = np.linalg.norm(actDifs, axis=1)
+#        print actDifsnorms
+#        print "len norms: ", len(actDifsnorms)
+#        print sum(actDifsnorms < 0.1)
+#        lastFrames[lastFrames] = np.logical_and(lastFrames[lastFrames], actDifsnorms < 0.1)
+        
+#        oriDifs = testDifs[lastFrames,11]
+#        posDifs = testDifs[lastFrames,5:7]
+#        oriDifs2 = testDifs[lastFrames,19]
+#        posDifs2 = testDifs[lastFrames,13:15]
         
         
         numTestRuns = int(np.max(testData[:,2]))+1
@@ -205,18 +212,18 @@ def readPushTaskData():
         for i in xrange(numTestRuns):
             iMask = testData[lastFrames,2] == i
             posDifsTmp = posDifs[iMask]
-            posDifsTmp2 = posDifs2[iMask]
+#            posDifsTmp2 = posDifs2[iMask]
             if ABSOLUT_ORIS:
                 oriDifsTmp = np.abs(oriDifs[iMask])
-                oriDifsTmp2 = np.abs(oriDifs2[iMask])
+#                oriDifsTmp2 = np.abs(oriDifs2[iMask])
             else:
                 oriDifsTmp = oriDifs[iMask]
-                oriDifsTmp2 = oriDifs2[iMask]
+#                oriDifsTmp2 = oriDifs2[iMask]
             testPosRes[i] = (np.mean(np.linalg.norm(posDifsTmp, axis=1)), np.mean(oriDifsTmp), 
                             np.std(np.linalg.norm(posDifsTmp, axis=1)), np.std(oriDifsTmp))
             
-            testPosRes2[i] = (np.mean(np.linalg.norm(posDifsTmp2, axis=1)), np.mean(oriDifsTmp2), 
-                            np.std(np.linalg.norm(posDifsTmp2, axis=1)), np.std(oriDifsTmp2))
+#            testPosRes2[i] = (np.mean(np.linalg.norm(posDifsTmp2, axis=1)), np.mean(oriDifsTmp2), 
+#                            np.std(np.linalg.norm(posDifsTmp2, axis=1)), np.std(oriDifsTmp2))
             tmpActDifs[i] = (np.mean(np.linalg.norm(actDifs[iMask],axis=1)), np.std(np.linalg.norm(actDifs[iMask],axis=1)))
             startPosMask = testData[:,2] == i
 #            startingTestPos[i] = np.mean(testData[firstFrames*startPosMask,12])
@@ -389,12 +396,12 @@ def analysePushTask():
     experiments = readPushTaskData()
     for e in experiments.values():
     
-#        learnCurve(e)
+        learnCurve(e)
 #    learnCurve(experiments.values()[0], experiments.values()[1])
-        eachTestPosSep(e)
+#        eachTestPosSep(e)
     
         plt.tight_layout()
-        plt.savefig("../pdfs/EachPos" + e.name + ".pdf", 
+        plt.savefig("../pdfs/LearningCurve" + e.name + ".pdf", 
                 #This is simple recomendation for publication plots
                 dpi=1000, 
                 # Plot will be occupy a maximum of available space

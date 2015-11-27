@@ -33,8 +33,8 @@ import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
 
-GATE = True
-#GATE = False
+#GATE = True
+GATE = False
 
 if GATE:
     import modelGate_2D_config as model
@@ -47,7 +47,7 @@ import configuration
 from configuration import config
 
 #Select used configuration
-CONFIGURATION = configuration.FIXFIRSTTHREETRAININGRUNS #| configuration.HARDCODEDACT
+CONFIGURATION = 0#configuration.FIXFIRSTTHREETRAININGRUNS #| configuration.HARDCODEDACT
 config.switchToConfig(CONFIGURATION)
 
 #config.perfectTrainRuns = True
@@ -56,13 +56,13 @@ tmpL = range(len(config.testPositions))
 np.random.shuffle(tmpL)
 mapping = {i: tmpL[i] for i in range(len(tmpL))}
 
-FILEEXTENSION = "_E2Objects2Gates"
+FILEEXTENSION = "_E20FoldsSigma005"
 
-trainRuns = [6]
-NUMBER_FOLDS = 5
+trainRuns = [1,2,3,5,10,20,30]
+NUMBER_FOLDS = 20
 RECORD_SIMULATION = True
 
-TWO_OBJECTS = True
+TWO_OBJECTS = False
 
 
 logging.basicConfig()
@@ -558,11 +558,13 @@ class GazeboInterface():
                     posX = -0.47
                 elif self.trainRun == 5:
                     posX = -0.6
+                elif self.trainRun == 6:
+                    posX = -0.4
                                 
         if config.perfectTrainRuns:
             posX = config.testPositions[mapping[self.trainRun]]
                 
-        self.lastStartConfig = {8:np.array([posX,0.0,0.0]), 15:np.array([0.0,0.25,0.0]), 27:np.array([-0.6,0.25,0.0])}
+        self.lastStartConfig = {8:np.array([posX,0.0,0.0]), 15:np.array([0.0,0.25,0.0]), 27:np.array([-0.6,0.35,0.0])}
             
         self.sendPose("gripper", np.array([posX,0.0,0.03]), 0.0)
         self.stepCounter = 0
@@ -573,7 +575,7 @@ class GazeboInterface():
         self.runStarted = True
         posX = config.testPositions[self.testRun]
         
-        self.lastStartConfig = {8:np.array([posX,0.0,0.0]), 15:np.array([0.0,0.25,0.0]), 27:np.array([-0.6,0.25,0.0])}
+        self.lastStartConfig = {8:np.array([posX,0.0,0.0]), 15:np.array([0.0,0.25,0.0]), 27:np.array([-0.6,0.35,0.0])}
         
         self.sendPose("gripper", np.array([posX, 0.0,0.03]), 0.0)
         self.stepCounter = 0
@@ -622,11 +624,16 @@ class GazeboInterface():
                 else:
                     self.lastPrediction = self.worldModel.predict(self.lastPrediction, self.direction)
                 self.worldModel.update(worldState, self.lastAction)
+                
                 self.lastAction = self.direction
                 self.sendPrediction()
                 self.sendCommand(self.lastAction)
+                
             else:
                 self.testRun += 1
+                if self.testRun == NUM_TEST_RUNS:
+                    self.done = True
+                    self.active = False
         else:
             self.pauseWorld()
             

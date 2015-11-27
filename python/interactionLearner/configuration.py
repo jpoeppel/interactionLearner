@@ -83,7 +83,9 @@ class Config(object):
         self.fixedTrainSeed = False
         self.trainSeed = 1234
         self.startRunRange = 0.5
-        self.testPositions = np.arange(-0.8, 0.41, 0.06) #np.arange(-0.35,0.351,0.035) #np.arange(-0.35,0.351,0.035)#[-0.105, 0.0, 0.105] #[-0.25, 0.0, 0.25] #
+        #Each pos 2 Objects: np.arange(-0.8, 0.41, 0.06) 
+        #Each pos 1 object: np.arange(-0.35,0.351,0.035)
+        self.testPositions = np.arange(-0.35,0.351,0.035)
         self.fixedFirstThreeTrains = False
         self.perfectTrainRuns = False
         

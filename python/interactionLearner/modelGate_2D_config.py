@@ -315,18 +315,22 @@ class GateFunction(object):
     
     def __init__(self):
         self.classifier = Classifier()
-        self.classifier2 = {}
+#        self.classifier2 = {}
         
         pass
     
     def test(self, o1, o2, action):
         vec = o1.getRelVec(o2)
-        if o1.id in self.classifier2:
-            return self.classifier2[o1.id].test(vec,action)
-        else:
-            return 0
+#        if o1.id in self.classifier2:
+#            p= self.classifier2[o1.id].test(vec,action)
+#            if o1.id == 27:
+#                print "prediction for gate: ", p
+#                print "nodes in clas: ", [(w.inp, w.out) for w in self.classifier2[o1.id].clas.nodes.values()]
+#            return p
+#        else:
+#            return 0
 #        print "testing gate with relVec: ", vec[config.gateMask]
-#        return self.classifier.test(vec, action)
+        return self.classifier.test(vec, action)
         
     def checkChange(self, pre, post):
         dif = pre.getLocalChangeVec(post)
@@ -347,12 +351,13 @@ class GateFunction(object):
         #TODO For multiple objects: Causal determination, make hypothesis and test these!
         vec = o1Pre.getRelVec(o2Post)
         hasChanged, dif = self.checkChange(o1Pre, o1Post)
-
-        if not o1Pre.id in self.classifier2:
-            self.classifier2[o1Pre.id] = Classifier()
-        self.classifier2[o1Pre.id].train(vec, action, int(hasChanged))
         
-#        self.classifier.train(vec, action, int(hasChanged))
+
+#        if not o1Pre.id in self.classifier2:
+#            self.classifier2[o1Pre.id] = Classifier()
+#        self.classifier2[o1Pre.id].train(vec, action, int(hasChanged))
+        
+        self.classifier.train(vec, action, int(hasChanged))
         if hasChanged:
             return True, dif
         else:

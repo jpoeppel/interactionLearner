@@ -154,11 +154,11 @@ class ITM(object):
 #                    print "wout after: ", w.out
 #                    if ndif > 0.0:
 #                        w.A += 0.5*npouter((y-w.out+cor), dif/ndif)
-#            if npdot(wsdif,wsdif) < config.EMAX05_2:
-##            if npnorm(wsdif) < 0.004:
-#                if len(self.nodes) > 2:
-#                    print "deleting second node"
-#                    self.deleteNode(sI)             
+            if npdot(wsdif,wsdif) < config.EMAX_2:
+#            if npnorm(wsdif) < 0.004:
+                print "deleting second node"
+                if len(self.nodes) > 2:
+                    self.deleteNode(sI)             
         else:
 #            To few nodes
 #            nI = len(self.nodes)

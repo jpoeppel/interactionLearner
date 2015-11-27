@@ -2,8 +2,8 @@
 
 \section{Circling action \label{sec:circling}}
 
-The circling action was designed to make do with the features available where possible.
-For the interaction model the distance between the actuator and block needed to be computed as well. The distance is required since the explicit use of object shape information outside of the distance computation was not desired. 
+In order to provide action primitives that move the actuator around an object, a circling action was required. The computation of the circling action was designed based on the available features in the object state model.
+Therefore, the distance between the actuator and the object needed to be computed additionally for the interaction model. The distance is used in order to be able to avoid the object without explicit knowledge about the object's shape. Some shape information is however required in order to compute the distance. 
 The process is described in algorithm \ref{alg:circling}:
 
 \begin{algorithm}

@@ -18,23 +18,25 @@ Provide simple (memory-based) models that
 in the context of simple object interactions.
 
 In order to meet these goals, the two concepts described in chapter \ref{chap:concept} were developed and implemented as described in chapter \ref{chap:modelReal}. 
-The first requirement was enforced by the given framework which requires the implementations to be updated and queried quickly. Furthermore, the open loop evaluation in chapter \ref{chap:evaluation} showed one-shot learning capabilities of the developed regression and classification model (see section \ref{sec:ITM}) which is an extension of the well known \gls{gng} similar to the work of Carlevarino et al.\cite{carlevarino2000incremental}.
+The first requirement was enforced by the given framework which requires the implementations to be updated and queried quickly. Furthermore, the open loop evaluation in chapter \ref{chap:evaluation} showed one-shot learning capabilities of the underlying regression and classification models. For both regression and classification this thesis provides an an extension of the well known \gls{gng} (see section \ref{sec:ITM}).
 
-In the \textit{Push Task Simulation} it was shown, that the second requirement was at least partly fulfilled since prediction up to 150 steps into the future were possible without preprocessing the used features, or using special metrics. Both models successfully predicted future positions and orientations with acceptable precision.
+In the \textit{Push Task Simulation} it was shown, that the second requirement was at least partly fulfilled since prediction up to 150 steps into the future were possible without preprocessing the used features, or using domain specific metrics. Both models successfully predicted future positions and orientations with acceptable precision.
 
 The evaluations in the \textit{Push Task Simulation} have further shown that even better prediction performances can be achieved when only a few characteristic training samples are provided.
 
 The results in the \textit{Move to Target} task show that the third requirement was also fulfilled by reaching different provided targets reliably as long as all possible interaction types have been experienced. The results further proved the successful application of the developed inverse model described in section \ref{sec:invModel} which allows extrapolation in this dynamic setting.
 By not only predicting and reaching positions but also orientations, these concepts outperform the work in \cite{pushing} at least for simple objects while requiring less training data. 
 
-The memory based approach does suffer from the fact that generalization is mostly only possible in the form of interpolating between experiences. Extrapolation is not possible as the most similar experiences are always used to generate predictions.
+The memory-based approach does suffer from the fact that generalization is only possible in the form of interpolating between experiences. Extrapolation is not possible as the most similar experiences are always used to generate predictions.
 Furthermore, the interaction state concept, cannot deal with multiple objects as it is unclear how to extract an object state from multiple predicted interaction states.
+The object state concept on the other hand has been successfully used in situations with two objects as long as no object-object interactions need to be predicted.
 
-Overall, this thesis demonstrated that 
+Overall, this thesis has demonstrated that 
 
 \begin{itemize}
-\item Memory based approaches can be used to incrementally adapt to unknown environments with very limited domain knowledge.
-\item The developed inverse model can be used in interactive settings to retrieve action primitive for extrapolated target configuration.
+\item The developed memory-based approaches can be used to incrementally learn about and interact in simple dynamic environments. 
+\item Topological approaches can be successfully used for regression and classification tasks.
+\item The developed inverse model can be used in interactive settings to retrieve action primitives for extrapolated target configuration.
 \end{itemize} 
 
 
@@ -44,17 +46,17 @@ Obviously, the proposed concepts and implementations offer several ways of impro
 
 \begin{itemize}
 \item The developed \gls{aitm} as well as the \gls{tiim} are heavily affected by the feature quality. While no additional prior knowledge or preprocessing should be used, it should be possible to extend the developed methods to automatically adapt their distance metric as done in the \gls{lvq} \cite{lvq}.
-\item Alternatively, as already mentioned in the concept of the interaction model, local optimization such as local feature selection could be employed
-\item The developed inverse model sometimes selects suboptimal preconditions, which could be improved using more sophisticated strategies.
+\item Alternatively, as already mentioned in the concept of the interaction model, local optimization such as local feature selection could be employed.
+\item The developed inverse model sometimes selects suboptimal preconditions, which could be improved using more sophisticated merging strategies.
 \item The \gls{tiim} could be extended to optimize multiple feature dimensions synchronously instead of one after another.
 \item The amount of feature knowledge required to reach a target could be reduced by learning the relations between the different feature dimensions automatically.
 \item Currently, the models are trained by providing action primitives to try from the outside. The information in the inverse model can be used as a rough estimate for the knowledge the model has already acquired about its environment. By extending on this, potential new prototypes could be evaluated and their preconditions first estimated and then tested in order to provide exploration capabilities to the existing concepts.
 \item The amount of required meta parameters should be reduced, especially domain specific parameters such as $\eta_{max}$. A possible solution might be to use a similar strategy as in the \gls{aitm} where the order of magnitude of the current output vector is used in order to determine a suitable threshold.
-\item The models could be extended to work in environments with multiple objects. Object-object interactions are especially challenging and the problems mentioned in sections \ref{sec:interactionTheory} and \ref{sec:gateTheoDisc} need to be addressed.
+\item The models could be extended to work in environments with multiple objects including object-object interactions. For this the problems mentioned in sections \ref{sec:interactionTheory} and \ref{sec:gateTheoDisc} need to be addressed.
 \item The ideas of both models could be combined, e.g. by adding a gating function to the interaction state model in order to reduce the amount of possible \acrlongpl{ac}.
 \end{itemize}
 
-The most promising direction with regards for the goal of autonomous adaption to unknown environments is the exploration of automatic metric learning as it would also serve as feature selection. This allows the use of feature vectors of higher dimensionality making the proposed concepts more suitable to real world tasks and more complex systems.
+The most promising direction for future research regarding the goal of autonomous adaption to unknown environments is the exploration of automatic metric learning. If the used distance metric could be adapted, redundant feature dimensions could be removed automatically. This would allow the use of feature vectors of higher dimensionality making the proposed concepts more suitable to real world tasks and more complex systems. 
 
 %\begin{itemize}
 %	\item Compare to related work where possible (especially with \cite{pushing})

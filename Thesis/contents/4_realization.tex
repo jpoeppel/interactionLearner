@@ -12,9 +12,9 @@
 %	\item Actual architectures resemble concepts closely
 %	\item Crux lies in the regression model (AITM)
 %\end{itemize}
-
-In order to evaluate the developed ideas, prototypes of the two concepts described in the previous section have been implemented in Python 2.7. Both prototypes are developed as such that they can be evaluated in the same way in the next chapter. The implementations follow the presented concepts very closely in most cases. As such the general data flow is the same as was presented in the figures  \ref{fig:PairPrediction}, \ref{fig:PairPlanning}, \ref{fig:GatePrediction} and \ref{fig:GatePlanning}.
-Relevant decisions and assumptions made specifically for the implementation are highlighted and explained in this chapter. %TODO maybe needs to be changed
+The previous chapter introduced two concepts that were develop with the goal of adapting themselves to unknown situations through interaction.
+In order to evaluate the developed ideas, prototypes of the two concepts have been implemented in Python 2.7. Both prototypes are developed as such that they can be evaluated in the same way in the next chapter. The implementations follow the presented concepts very closely in most cases. As such the general data flow is the same as was presented in the figures  \ref{fig:PairPrediction}, \ref{fig:PairPlanning}, \ref{fig:GatePrediction} and \ref{fig:GatePlanning}.
+Relevant implementation details as well as made assumptions are highlighted and explained in this chapter.
 
 Section \ref{sec:basics} starts with describing common design decisions that apply to both concepts. Afterwards the relevant implementations details regarding the two prototypes are presented in section \ref{sec:pairRealization} for the interaction state concept and in section \ref{sec:gateRealization} for the object state concept. Finally, section \ref{sec:technologies} describes the used technologies, the underlying regression and classification model and the implementation of the inverse model, in detail.
 
@@ -448,10 +448,13 @@ Since the action primitives control velocities in this scenario, the direction o
 
 \section{Used technologies \label{sec:technologies}}
 
-\subsection{Time invariant inverse Model \label{sec:invModelRealization}} %TODO better name!
+\subsection{The Averaging Inverse Model \label{sec:invModelRealization}} 
 
-The special inverse model is designed to learn typical preconditions that result in a certain change in the features. It is less important how strong the change is, but rather in what direction (positive or negative) the feature changes. The idea behind this inverse model is that, for each feature dimension and each direction this dimension changes in, the average precondition in which such a change is experienced is computed. 
-These preconditions depend on the actual model. In case of the interaction model, this is the combination of interaction state and action primitive, while the object state model used the relative interaction features. However, as described above, this average can be used to derive an action primitive in both cases.
+The \acrfull{tiim} was suggested in the previous chapter in order to deal with the problems involved in computing the input from a given output. In this setting, the problem of extrapolation is the most important one since the models are supposed to reach any target not ones that are reachable by performing a single action primitive.
+
+This special inverse model is designed to learn typical preconditions that result in a certain change in the features. It is less important how strong the change is, but rather in what direction (positive or negative) a feature dimension changes. The idea is to compute the average preconditions for each feature dimension and each direction this dimension changes in. This assumes, that similar situations result in similar changes, for example if a block is pushed from the left it moves to the right.
+ 
+These preconditions depend on the actual model. In case of the interaction model, the combination of interaction state and action primitive is used while the object state model used the relative interaction features. However, as described above, this average can be used to derive an action primitive in both cases.
 
 The implementation of this inverse model consists of two parts: 
 \begin{itemize}
@@ -462,7 +465,7 @@ The implementation of this inverse model consists of two parts:
 \textbf{Network:}
 
 The network is the main part of the inverse model. It contains and manages the different prototypes. 
-A explained in the sections for both models, the inverse model is trained on the preconditions and the difference vector. The difference vector $\vec{d}$ represents either the changes in an interaction or an object state depending on the used model.
+As explained in the sections for both models, the inverse model is trained on the preconditions and the difference vector. The difference vector $\vec{d}$ represents either the changes in an interaction or an object state depending on the used model.
 
 For each actually changing feature dimension within $\vec{d}$ the network creates up to two prototypes. One for positive and one for negative changes within that dimension. That way a prototype represents changes in a given direction (positive or negative) of one specific feature dimension. 
 
@@ -471,17 +474,34 @@ When the network is trained on these situations, three prototypes are created: O
 Since all three situations result in an upward positional change, the corresponding prototype averages the preconditions of all three situations.
 On the other hand, the two orientation prototypes will only be trained on one situation each.
 
+The network is queried to provide preconditions that reduce a given difference vector. Ideally, preconditions that reduce the difference in all features at the same time would be returned. 
+However, averaging the preconditions returned by different prototypes is prone to produce invalid preconditions. 
+Furthermore, depending on the environment, it might not always be possible to reduce all features at the same time. 
+
+In order to avoid invalid preconditions, the network uses a greedy strategy of reducing the feature dimension with the biggest difference\footnote{In order to avoid oscillations between different features and preconditions, the network remembers the selected feature until the sign in the difference flips or the feature difference $||f|| < \epsilon_{Index}$. Again this threshold depends on the expected change of features in the environment.}. Since the feature dimensions are not normalized, the biggest numerical value might not correlate to what humans regard as a big distance. 
+However, this approach works quite well in practice, considering the inverse model does not have any knowledge about the feature's characteristics. 
+
+Once the feature dimension with the biggest difference has been chosen, the corresponding prototype returns up to two possible preconditions as explained below.
+The prototypes are asked to return two preconditions where possible in order to allow greater flexibility of the network: \\
+The network tries to determine preconditions that reduce the difference in the biggest feature dimension while also setting up future movements in order to reduce the next biggest difference. Consider the example in figure \ref{fig:avgProblem} where two valid alternative preconditions are visualized: If the block should not only be rotated counterclockwise but also moved upwards, the position below the block is more favorable. This is because, in order to reduce the positional difference, the preconditions averaged over the situations visualized in figure \ref{fig:InverseModel} would be used. On the other hand, if the block should be moved to the right, the other situation should be preferred.
+
+In order to do that the network queries the preconditions for the second biggest feature dimension as well. By comparing the (euclidean) norms between the four preconditions it is possible to determine which of the two preconditions for the first feature dimension is closer to the preconditions of the second feature dimension.  
+
+In case both alternatives for the first feature are deemed equally good, the first preconditions are used since these correspond to a greater change in the desired feature dimension.
+
+Unfortunately, this strategy, does not always avoid choosing the suboptimal preconditions. Since the preconditions for the second biggest feature dimension can only ever be evaluated based on the current situation, wrong choices might be made. Consider the same example as above, but the block is supposed to be turned by 180°. In that case, the local positional difference, the inverse model tries to reduce, will change its sign by turning the block around. This means that in order to move the block upwards in the global sense after turning it around, the block needs to be pushed downwards regarding its local coordinate system. In this case, the alternative above the block would have been the better choice.
+
 \textbf{Prototype:}
 
-Within a prototype, all collected preconditions are averaged by weighting each input by the magnitude of the change in the feature dimension in the difference vector $\vec{d}$ that the input caused.
-In the given example, the middle scenario receives the biggest weight, since it changes the position more then the outer situations. 
+Within a prototype, all collected preconditions are averaged by weighting each input by the magnitude of the change in the feature dimension in $\vec{d}$ that the input caused.
+In the example in figure \ref{fig:InverseModel}, the middle scenario receives the biggest weight, since it changes the position more then the outer situations. 
 
 While this average works great in the given example for the positional node, it does not work for all features as can be seen in figure \ref{fig:avgProblem}.
 
 \begin{figure}
 	\centering
 	\includegraphics{avgProblem.pdf}
-	\caption{Visualization of the averaging problem for point symmetric features. The circles represent the actuator while the rectangle represents a block object. The gray arrows symbolize the local coordinate system of the block. Both pushing scenarios result in a rotation of the object in the same direction. However, averaging the relative x and y positions would result in an invalid precondition.} 
+	\caption{Visualization of two alternative preconditions for a positive rotation of the block. The circles represent the actuator while the rectangle represents a block object. The gray arrows symbolize the local coordinate system of the block. Averaging these preconditions in the prototype would result in an invalid precondition.} 
 	\label{fig:avgProblem}
 \end{figure}
 
@@ -500,7 +520,7 @@ Going back to the example in figure \ref{fig:avgProblem}, assume that the follow
 		\hline y velocity & \textit{+} & \textit{-} \\ 
 		\hline 
 	\end{tabular} 
-	\caption{Table showing the sign combinations for the example in figure \ref{fig:avgProblem}.}
+	\caption{The sign combinations of preconditions in the example in figure \ref{fig:avgProblem}.}
 	\label{tab:signCombinations}
 \end{table}
 
@@ -508,7 +528,7 @@ In this case, averages for both possible combinations are updated in the prototy
 
 Unfortunately, noisy data will lead to the creation of multiple combinations that are basically equivalent. For example it might be, that due to some motor or sensor noise, a small $x$ velocity $>\epsilon_{Node}$ was detected in one of the two situations. In that case a third combination with an x velocity sign different from \textit{0} is created as well. As long as this velocity is very small, this combination would still be valid. In the worst case noise can create invalid combinations. An example would be if the sensors pick up a change in the object's orientation although the actuator moved away from the object. Since the model cannot know what is a valid training example and what is invalid noise, all combinations are created equally.
 
-When the prototype is asked to return the averaged preconditions, it tries to find up to two valid combinations. These two combinations would ideally represent two valid alternatives, as in the example above. 
+When the prototype is asked to return the averaged preconditions, it tries to find up to two valid combinations for the network. These two combinations would ideally represent two valid but different alternatives, as in the example above. 
 In order to create these averages, the following steps are performed:
 \begin{enumerate}
 \item Merge equivalent (valid) combinations.
@@ -522,7 +542,9 @@ The prototypes try to merge equivalent combinations. This is done, by making a s
 In this sense, combinations are considered equivalent and are merged, if they do not have any opposing signs at any of their input features.
 Table \ref{tab:signCombinations2} summarizes the sign combinations experienced from the three scenarios in the first example, presented in figure \ref{fig:InverseModel}.
 Since a \textit{0} does not oppose either a \textit{+} or a \textit{-}, all three combinations can be merged together.
-In order to further avoid undesired effects, the merging process can be made more strict by only combining combinations that are similar even in their \textit{0} signs. This implementation allows only one feature dimension to differ after the opposing sign check in order to better preserve \textit{0} sign feature dimensions.
+Depending on the used features and the amount of noise in the data, special care needs to be given when merging combinations. In the example above, the resulting combination should ideally represent a x position close to 0 since that would result in the biggest positional change. In case the weights of either combination 1 or combination 2 is significantly bigger than the other, the average over all three situations would result in an x position different from 0.
+In order to further avoid such undesired effects, the merging process can be made more strict by only combining combinations that are similar even in their \textit{0} signs.
+This implementation allows only one feature dimension to differ after the opposing sign check in order to better preserve \textit{0} sign feature dimensions.
 
 \begin{table}
 	\centering
@@ -534,16 +556,16 @@ In order to further avoid undesired effects, the merging process can be made mor
 		\hline y velocity & \textit{+} & \textit{+} & \textit{+} \\ 
 		\hline 
 	\end{tabular} 
-	\caption{Table showing the sign combinations for the example in figure \ref{fig:InverseModel}.}
+	\caption{Table showing the sign combinations for the example in figure \ref{fig:InverseModel} where the block is pushed at three different positions from below.}
 	\label{tab:signCombinations2}
 \end{table}
 
-The actual merging is described in algorithm \ref{alg:combinationMerging}. In order to avoid merging invalid combinations, the combinations are first filtered. This model assumes, that valid combinations are experienced more often than invalid ones that are results from noise. 
-Especially, since small noise can also be filtered out by only considering feature changes above a certain threshold when training the prototypes. That way, all combinations that have been experienced less often then the average number of experiences over all combinations are filtered out. %TODO maybe make clearer
+The actual merging process is described in algorithm \ref{alg:combinationMerging}. The sign combination of a given precondition is used as \textit{key} in order to reference the corresponding weights, the sum of preconditions and the number of occurrences of that sign combination. 
+In order to avoid merging invalid combinations, the combinations are first filtered. This model assumes, that valid combinations are experienced more often than invalid ones that are results from noise. 
+Especially, since small noise can also be filtered out by only considering feature changes above a certain threshold when training the prototypes. That way, all combinations that have been experienced less often then the average number of experiences over all combinations are filtered out. 
+The resulting combinations are checked for their equivalence by iteratively comparing the combination with the most \textit{0}s to all other combinations until all have been processed.
 
-After equivalent combinations have been merged, the resulting input features might represent a new combination. This combination is computed and used as new hash for storing the resulting values. 
-
-\begin{algorithm}
+\begin{algorithm}[H]
 \begin{algorithmic}[1]
 	\Require{List of combinations L}
 	\Require{Hashmap of combination weights W}
@@ -552,7 +574,7 @@ After equivalent combinations have been merged, the resulting input features mig
 	
 	\Ensure{Hashmap of merged combination weights W$^*$}
 	\Ensure{Hashmap of merged combination input sums I$^*$}
-	\Ensure{Hashmap of merged combination occurence numbers N$^*$}
+	\Ensure{Hashmap of merged combination occurrence numbers N$^*$}
 	\Statex
 	\Let{usefulKeys}{filterInvalidCombinations(L, N)}
 	\Let{sortedKeys}{sortByNumZeros(usefulKeys)}
@@ -570,60 +592,30 @@ After equivalent combinations have been merged, the resulting input features mig
 			\EndIf
 		\EndFor
 		\Let{newKey}{recomputeCombination(tmpSum, tmpWeight)}
-		\Let{W$^*$}{tmpWeight}
-		\Let{I$^*$}{tmpSum}
-		\Let{N$^*$}{tmpNumber}
+		\Let{W$^*$[newKey]}{tmpWeight}
+		\Let{I$^*$[newKey]}{tmpSum}
+		\Let{N$^*$[newKey]}{tmpNumber}
 	\EndWhile
 \end{algorithmic}
 \caption{Description of the merging process for combinations within a node.}
 \label{alg:combinationMerging}
 \end{algorithm}
 
-%\begin{algorithm}
-%	\KwIn{List of combinations L}
-%	\KwIn{Hashmap of combination weights W}
-%	\KwIn{Hashmap of combination input sums I}
-%	\KwIn{Hashmap of combination occurence numbers N}
-%	
-%	\KwOut{Hashmap of merged combination weights W$^*$}
-%	\KwOut{Hashmap of merged combination input sums I$^*$}
-%	\KwOut{Hashmap of merged combination occurence numbers N$^*$}
-%	\BlankLine
-%	usefulKeys = filterInvalidCombinations(L, N) \\
-%	sortedKeys = sortByNumZeros(usefulKeys) \\
-%	\While{sortedKeys not empty}{
-%		currentKey = sortedKeys[0] \\
-%		tmpWeight = 0 \\ %W[currentKey] \\
-%		tmpSum = 0 \\ %I[currentKey] \\
-%		tmpNumber = 0 \\ %N[currentKey] \\
-%		\ForEach{key in sortedKeys}{
-%			\If{isEquivalent(currentKey, key)}{
-%				tmpWeight += W[key] \\
-%				tmpSum += I[key] \\
-%				tmpNumber += N[key] \\
-%				remove key from sortedKeys \\
-%			}
-%		}
-%		newKey = recomputeCombination(tmpSum, tmpWeight) \\
-%		W$^*$ = tmpWeight \\
-%		I$^*$ = tmpSum \\
-%		N$^*$ = tmpNumber \\
-%	}
-%	\caption{Description of the merging process for combinations within a node.}
-%	\label{alg:combinationMerging}
-%\end{algorithm}
+After equivalent combinations have been merged, the resulting input features might represent a new combination. This combination is computed and used as the new key for storing the resulting values. 
+
+
 
 \textbf{2) Selecting combinations with the highest contribution:}
 
 If only one combination remained after the merging process, the preconditions from that combination are returned. 
 Otherwise, the prototype sorts the resulting combinations based on their average contribution. This can easily be computed by dividing the total weight by the number of experiences for each combination.
-In that case the best two combinations are considered if their average contribution is not too far apart\footnote{In this implementation this means, that the second highest average contribution is not less then half of the highest average contribution.}.
+In that case the best two combinations are considered if their average contribution is not too far apart\footnote{In this implementation this means, that the second highest average contribution is not less then half of the highest average contribution.}. Otherwise, only the best combination is used as if no alternative exist.
 
 \textbf{3) Compute preconditions:}
 
 From the two combinations with the biggest contribution, two preconditions are computed as described in algorithm \ref{alg:averaging}.
 
-\begin{algorithm}
+\begin{algorithm}[h]
 \begin{algorithmic}[1]
 	\Require{$\vec{pre}_1$ Input sum of the first combination}
 	\Require{$\vec{pre}_2$ Precondition sum of the second combination}
@@ -651,53 +643,17 @@ From the two combinations with the biggest contribution, two preconditions are c
 \label{alg:averaging}
 \end{algorithm}
 
-%\begin{algorithm}
-%	\KwIn{$\vec{pre}_1$ Input sum of the first combination}
-%	\KwIn{$\vec{pre}_2$ Precondition sum of the second combination}
-%	\KwIn{$w_1$ Total weight for the first combination}
-%	\KwIn{$w_2$ Total weight for the second combination}
-%	\KwIn{$\vec{comp}_1$ Vector containing feature signs for the first combination}
-%	\KwIn{$\vec{comp}_2$ Vector containing feature signs for the second combination}
-%	\KwOut{average$_1$}
-%	\KwOut{average$_2$}
-%	\BlankLine
-%	size = len($\vec{comp}_1$) \\
-%	\For{i = 1..size}{
-%		c$_{1i}$ = $\vec{comp}_1$[i] \\
-%		c$_{2i}$ = $\vec{comp}_2$[i] \\
-%		\eIf{c$_{1i}$ == c$_{2i}$}{
-%			average$_1$[i] = $\frac{pre_{1i} + pre_{2i}}{w_1+w_2}$ \\
-%			average$_2$[i] = average$_1$[i] \\
-%		}{
-%			average$_1$[i] = $\frac{pre_{1i}}{w_1}$	\\
-%			average$_1$[i] = $\frac{pre_{2i}}{w_2}$  
-%		}  
-%	}
-%	\caption{Description of the averaging process within the nodes if at least two combinations are present.}
-%	\label{alg:averaging}
-%\end{algorithm}
+The signs of both combinations are compared and the feature dimensions in the preconditions of both combinations are averaged if their signs are identical.
+The feature dimensions are considered separately otherwise.
 
-Where possible, the prototypes return two results since there are cases, such as the example in figure \ref{fig:avgProblem}, where at least two different options are valid. When wanting to rotate the object, both preconditions visualized in the figure are valid options. Which one should be preferred needs to be determined by the network.
-
-The inverse model is queried to provide preconditions that reduce a given difference vector. Ideally, preconditions that reduce the difference in all features at the same time would be returned. 
-However, averaging the preconditions returned by different nodes is prone to produce invalid preconditions. 
-Furthermore, depending on the environment, it might not always be possible to reduce all features at the same time. 
-
-In order to avoid invalid preconditions, the network uses a greedy strategy of reducing the feature with the biggest difference\footnote{In order to avoid oscillations between different features and preconditions, the network remembers the selected feature until the sign in the difference flips or the feature difference $||f|| < \epsilon_{Index}$. Again this threshold depends on the expected change of features in the environment.}. Since the feature dimensions are not normalized, the biggest numerical value might not correlate to what humans regard as a big distance. 
-However, this approach works quite well in practice, considering the model does not have any knowledge about the feature's characteristics. 
-
-Once the feature dimension with the biggest difference has been chosen, the corresponding prototype returns up to two possible preconditions. The same is done for the second biggest feature dimension. By comparing the norm between the four preconditions it is possible to determine which of the two preconditions for the first feature dimension is closer to the preconditions of the second feature. By choosing the closer one, the network ensures that the actuator uses a favorable alternative with respect to the next feature difference that is to be reduced. Consider the example in figure \ref{fig:avgProblem}: If the block should not only be rotated counterclockwise but also moved upwards, the position below the block is more favorable. This is because, in order to reduce the positional difference, the preconditions averaged over the situations visualized in figure \ref{fig:InverseModel} would be used. On the other hand, if the block should be moved to the right, the other situation should be preferred. %TODO consider making a figure highlighting this
-
-In case both alternatives for the first feature are deemed equally good, the first preconditions are used since these correspond to a greater change in the desired feature.
-
-Unfortunately, this strategy, does not always avoid choosing the suboptimal preconditions. Since the preconditions for the second biggest feature dimension can only ever be evaluated based on the current situation, wrong choices might be made. Consider the same example as above, but the block is supposed to be turned by 180°. In that case, the local positional difference, the inverse model tries to reduce, will change its sign by turning the block around. This means that in order to move the block upwards in the global sense after turning it around, the block needs to be pushed downwards regarding its local coordinate system. %TODO consider moving this to discussion?
+Using these two components of the network and its prototypes, it is possible to abstract from the actual quantities in feature changes during training and instead focus in the direction. For the purpose of incrementally reaching target configurations this direction is sufficient in combination with the circling strategies explained in sections \ref{sec:pairPlanningReal} and \ref{sec:gatePlanningReal}.
 
 
 \subsection{Adapted Instantaneous Topological Map \label{sec:ITM}}
 %TODO Add pseudo code at the beginning to show general process or nice figure!
-%TODO find better name! Consider calling it something closer to kNN since that is kind of what it becomes
-The underlying regression and classification model that is used throughout this thesis is an adaptation of the \acrfull{itm} which will be called \acrfull{aitm} throughout this thesis.
-The \gls{itm} \cite{itm} is an adaptation of the \gls{gng} \cite{gng} algorithm to create topological maps. Instead of \glspl{gng} global update rules for inserting new nodes in the map, the \gls{itm} uses local update rules in order to be better suited for correlated inputs. 
+
+The underlying regression and classification model that is used throughout this thesis is an adaptation of the \acrfull{itm} and is therefore called \acrfull{aitm} throughout this thesis.
+The \gls{itm} \cite{itm} itself is an adaptation of the \gls{gng} \cite{gng} algorithm to create topological maps. Instead of \glspl{gng} global update rules for inserting new nodes in the map, the \gls{itm} uses local update rules in order to be better suited for correlated inputs. 
 In order to be applicable to classification and regression, the \gls{itm} was further extended by an output function using the idea of \gls{llm} \cite{LLM}. In order to extend a topological map with an output function, each node represent the corresponding output vector $\vec{w}^i_{out}$ along its input vector $\vec{w}^i_{in}$. The \gls{llm} extends each node further with a local linear mapping $A^i$. This matrix is used to improve the function approximation within each Voronoi cell. With this, the output of each node given an input vector $\vec{x}$ is computed by equation \ref{eq:llmOut}:
 
 \begin{equation}
@@ -732,7 +688,7 @@ The nearest node $n$ and the second closest node $s$ are determined by comparing
 \label{eq:itmNearest}
 \end{equation}
 
-During training, the network receives an input-output pair and updates its nodes. First, the two closest nodes $nearest$ and $second$ are computed as stated in equation \ref{eq:itmNearest}. Afterwards, only the node $nearest$ is adapted:
+During training, the network receives an input-output pair and updates its nodes. First, the two closest nodes $nearest$ and $second$ are computed as stated in equation \ref{eq:itmNearest}. Afterwards, only the node $nearest$ is adapted in accordance to the update rules of the \gls{llm}:
 
 \begin{equation}
 \begin{split}
@@ -742,18 +698,19 @@ During training, the network receives an input-output pair and updates its nodes
 \end{split}
 \end{equation}
 
-The initial matrix $A$ is a zero matrix with proper dimensions. The learning rates $\eta_{in}, \eta_{out}$ and $\eta_A$ are meta parameters that need to be determined. In case $\eta_A$ is set to 0, no linear approximation is learned for each Voronoi cell. This means, that each cell has only the constant output of $\vec{w}^n_{out}$. This thesis uses a $\eta_{in} = 0$ because the differences between $\vec{x}^\alpha$ and  $\vec{w}^n_{in}$ are often very small, which results in numeric instabilities when updating the matrix $A$.
+The initial matrix $A$ is a zero matrix with proper dimensions\footnote{Usually one initializes the matrix $A$ at random or with prior knowledge. However, in this thesis a zero matrix is used in order to avoid using invalid linear interpolations while the matrix has not been adapted to the data.}. 
+The learning rates $\eta_{in}, \eta_{out}$ and $\eta_A$ are meta parameters that need to be determined. In case $\eta_A$ is set to 0, no linear approximation is learned for each Voronoi cell. This means, that each cell has only the constant output of $\vec{w}^n_{out}$. This thesis uses a $\eta_{in} = 0$ because the differences between $\vec{x}^\alpha$ and  $\vec{w}^n_{in}$ are often very small, which results in numeric instabilities when updating the matrix $A$. 
 
-After the winning node has been updated, the classical \gls{itm} algorithm uses local relations between the new input, the winning node and the second node in order to determine if a new node should be inserted or if some node should be deleted. As long as there are no big jumps in consecutive training samples, this approach works quite well. However, when resetting the environment between consecutive training runs, larger gabs can arise. Furthermore, this network has already been extended by an output function which can now also be used during training. This adapted \gls{itm} inserts new nodes into the network if the current network output varies too much from the target output, i.e if:
+After the winning node has been updated, the classical \gls{itm} algorithm uses local relations between the new input, the winning node and the second node in order to determine if a new node should be inserted or if some node should be deleted. As long as there are no big jumps in consecutive training samples, this approach works quite well. However, when resetting the environment between consecutive training runs, larger gabs can arise. Furthermore, this network has already been extended by an output function which can now also be used during training. This \gls{aitm} inserts new nodes into the network based on the difference between the current networks output and the target output:
 
 \begin{equation}
 ||\vec{y}^{net}(\vec{x}^\alpha)-\vec{y}^\alpha|| > \epsilon_{ITM}
 \end{equation}
 
-In this case a node is inserted, if the current input is not too close to the winning node, i.e.:
+If the output varies too much, a new node at the position of $\vec{x}^\alpha$ is created unless its distance to the winning node is too small
 
 \begin{equation}
-||\vec{x}^\alpha - \vec{w}^n_{in}|| > \epsilon_{max}
+||\vec{x}^\alpha - \vec{w}^n_{in}|| \le \epsilon_{max}
 \end{equation}
 
 $\epsilon_{max}$ represents the maximum distance nodes should be apart and needs to be chosen to represent the order of magnitude of the norm of the input vectors.
@@ -775,14 +732,21 @@ d = \begin{cases}
 \end{cases}
 \end{equation}
 
-When the output has a norm of $0$ a fixed threshold $10^k$ is chosen. Ideally $k$ should represent the average order of magnitude of the input. This average can be computed incrementally from the non-zero output norms. The benefit of such a dynamic threshold is that it automatically adapts to different use cases. For example, when the \gls{aitm} is used for classification, the output values will be class labels in the form of positive natural numbers. In this case $d$ equals $-1$ which results in a threshold of 0.1 which allows to distinguish conflicting class labels.
+When the output has a norm of $0$ a fixed threshold $10^k$ is chosen. Ideally $k$ should represent the average order of magnitude of the input. This average can be computed incrementally from the non-zero output norms\footnote{In this prototypes a fixed $k=3$ is chosen instead.}. The benefit of such a dynamic threshold is that it automatically adapts to different use cases. For example, when the \gls{aitm} is used for classification, the output values will be class labels in the form of positive natural numbers. In this case $d$ equals $-1$ which results in a threshold of 0.1 which allows to distinguish conflicting class labels.
 In regression tasks however, the output values will be real numbers. It is obvious that different thresholds are required for both types of use case. The \gls{aitm} assumes that the orders of magnitude of the output within one use case are generally rather similar and can be used as an approximation of the desired accuracy.
 
-With every update the two winning nodes are connected as neighbors. Node deletions are performed just as in the traditional \gls{itm}: Second winners are removed if they are too far away from the winning node\footnote{Too far here means, if the $||\vec{w}^n_{in} - \vec{w}^s_{in}|| > \epsilon_{max}$. }. Furthermore, isolated nodes will be deleted. A node is considered isolated if it does not have any neighbors left. Neighbor connections are removed if the second winner in an update can replace a previous neighbor:
+With every update the two winning nodes are connected as neighbors. Node deletions are performed just as in the traditional \gls{itm}: Second winners are removed if they are too far away from the winning node, i.e.:
+\begin{equation}
+||\vec{w}^n_{in} - \vec{w}^s_{in}|| > \epsilon_{max}
+\end{equation}
+
+Furthermore, isolated nodes will be deleted. A node is considered isolated if it does not have any neighbors left. Neighbor connections are removed if the second winner in an update can replace a previous neighbor:
 
 \begin{equation}
 \forall c \in N(n): \text{If~} (\vec{w}^n_{in}-\vec{w}^s_{in}) \cdot (\vec{w}^c_{in}-\vec{w}^s_{in}) < 0 \text{~remove connection (n,c)}
 \end{equation}
 
 $N$ denotes the set of neighbors of the winning node $n$.
+
+All norms that are used here are euclidean norms which might not be ideal depending on the used features. However, since the models should not be provided with additional knowledge about the features, this common choice was made.
 

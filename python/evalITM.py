@@ -28,7 +28,13 @@ def readITMInformatin():
         if not "gate" in fn:
             continue
         
-        if not "Mode2_Configuration_0" in fn:
+        if not "Mode2_Configuration_8" in fn:
+            continue
+        
+        if not "Sigma005" in fn:
+            continue
+        
+        if not "E20Fold" in fn:
             continue
 
         nameOnly = fn.replace('.txt','')
@@ -52,6 +58,12 @@ def readITMInformatin():
         acsNodes = []
         acUpdates = {}
         acNodes = {}
+        numACs = []
+        maxAcUpdates = []
+        maxAcNodes = []
+        curNumAcs = None
+        curmaxACUpdates = None
+        curMaxACNodes = None
         print "filename: ", directory+fn
         with open(directory+fn, "r") as f:
             for line in f:
@@ -73,6 +85,14 @@ def readITMInformatin():
                     parts = line.split(" ")
                     predUpdates.append(int(parts[7]))
                     predNodes.append(int(parts[-1]))
+                if line.startswith("####"):
+                    if curNumAcs != None:
+                        numACs.append(curNumAcs)
+                        maxAcUpdates.append(curmaxACUpdates)
+                        maxAcNodes.append(curMaxACNodes)
+                    curNumAcs = 0
+                    curmaxACUpdates = 0
+                    curMaxACNodes = 0
                 if line.startswith("acSelector ITM:"):
                     line = line.rstrip()
                     line = line.replace(",", "")
@@ -80,6 +100,7 @@ def readITMInformatin():
                     acsUpdates.append(int(parts[3]))
                     acsNodes.append(int(parts[-1]))
                 if line.startswith("Abstract collection for"):
+                    curNumAcs += 1
                     line = line.rstrip()
                     endName = line.find("]")+1
                     acName = line[line.find("["):endName]
@@ -89,10 +110,15 @@ def readITMInformatin():
                     if not acName in acUpdates:
                         acUpdates[acName] = []
                         acNodes[acName] = []
+                    if int(parts[3]) > curmaxACUpdates:
+                        curmaxACUpdates = int(parts[3])
+                    if int(parts[3]) > curMaxACNodes:
+                        curMaxACNodes = int(parts[-1])
                     acUpdates[acName].append(int(parts[3]))
                     acNodes[acName].append(int(parts[-1]))
         res[experimentName] = (actUpdates, actNodes, gateUpdates, gateNodes, predUpdates, 
-                            predNodes, acsUpdates, acsNodes,acUpdates,acNodes)
+                            predNodes, acsUpdates, acsNodes,acUpdates,acNodes, 
+                            numACs, maxAcUpdates, maxAcNodes)
     return res
                     
 if __name__ == "__main__":
@@ -112,6 +138,26 @@ if __name__ == "__main__":
         print "predUpdateMean: ", np.mean(res[e][4])
         print "predNodesMean: ", np.mean(res[e][5])
         
+        print "actUpdateMean std: ", np.std(res[e][0])
+        print "actNodesMean std: ", np.std(res[e][1])
+        print "gateUpdateMean std: ", np.std(res[e][2])
+        print "gateNodesMean std: ", np.std(res[e][3])
+        print "predUpdateMean std: ", np.std(res[e][4])
+        print "predNodesMean std: ", np.std(res[e][5])
+        
+        
+        print "acsUpdatesMean: ", np.mean(res[e][6])
+        print "acsNodesMean: ", np.mean(res[e][7])
+        print "number of ACs: ", np.mean(res[e][10])
+        print "maxACUpdateMean: ", np.mean(res[e][11])
+        print "maxACNodesMean: ", np.mean(res[e][12])
+        
+        print "acsUpdatesMean std: ", np.std(res[e][6])
+        print "acsNodesMean std: ", np.std(res[e][7])
+        print "number of ACs std: ", np.std(res[e][10])
+        print "maxACUpdateMean std: ", np.std(res[e][11])
+        print "maxACNodesMean std: ", np.std(res[e][12])
+        
         yactUp.append(np.mean(res[e][0]))
         yactNodes.append(np.mean(res[e][1]))
         gateUp.append(np.mean(res[e][2]))
@@ -124,7 +170,7 @@ if __name__ == "__main__":
 #    plt.plot([1,2,3,5,10,20,30], yactNodes)
 #    plt.plot([1,2,3,5,10,20,30], gateUp, 'o')
 #    plt.plot([1,2,3,5,10,20,30], gateNodes)
-    plt.plot([1,2,3,5,10,20,30], predUp)
-    plt.plot([1,2,3,5,10,20,30], predNodes)
+#    plt.plot([1,2,3,5,10,20,30], predUp)
+#    plt.plot([1,2,3,5,10,20,30], predNodes)
     
     plt.show()

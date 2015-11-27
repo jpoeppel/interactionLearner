@@ -33,8 +33,8 @@ import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
 
-#GATE = True
-GATE = False
+GATE = True
+#GATE = False
 
 if GATE:
     import modelGate_2D_config as model
@@ -47,7 +47,7 @@ import configuration
 from configuration import config
 
 #Select used configuration
-CONFIGURATION = 0#configuration.FIXFIRSTTHREETRAININGRUNS #| configuration.HARDCODEDACT
+CONFIGURATION = configuration.FIXFIRSTTHREETRAININGRUNS #| configuration.HARDCODEDACT
 config.switchToConfig(CONFIGURATION)
 
 #config.perfectTrainRuns = True
@@ -58,11 +58,11 @@ mapping = {i: tmpL[i] for i in range(len(tmpL))}
 
 FILEEXTENSION = "_E20FoldsSigma005"
 
-trainRuns = [1,2,3,5,10,20,30]
+trainRuns = [6]
 NUMBER_FOLDS = 20
-RECORD_SIMULATION = True
+RECORD_SIMULATION = False
 
-TWO_OBJECTS = False
+TWO_OBJECTS = True
 
 
 logging.basicConfig()
@@ -645,7 +645,7 @@ class GazeboInterface():
         
         if self.runStarted:
             if self.runEnded(worldState):
-#                self.pauseWorld()
+                self.pauseWorld()
                 self.resetWorld()
                 self.writeData()
                 self.runStarted = False

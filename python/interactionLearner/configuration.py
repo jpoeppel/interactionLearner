@@ -75,6 +75,9 @@ class Config(object):
             self.frequency = 10
             self.metaNodeThr = 0.01
             self.metaNetDifThr = 0.02
+        #ReachTarget
+        self.close= 0.1
+        self.closeEnough = 0.01
         #General
         self.USE_DYNS = False
         self.NUMDEC = 3
@@ -85,7 +88,7 @@ class Config(object):
         self.startRunRange = 0.5
         #Each pos 2 Objects: np.arange(-0.8, 0.41, 0.06) 
         #Each pos 1 object: np.arange(-0.35,0.351,0.035)
-        self.testPositions = np.arange(-0.35,0.351,0.035)
+        self.testPositions = np.arange(-0.8, 0.41, 0.06) #np.arange(-0.35,0.351,0.035)
         self.fixedFirstThreeTrains = False
         self.perfectTrainRuns = False
         
@@ -122,6 +125,8 @@ class Config(object):
         s += "Perfect train runs: {}\n".format(self.perfectTrainRuns)
         s += "Number of times too slow during whole experiment: {}\n".format(self.numTooSlow)
         s += "Number of reset errors: {}\n".format(self.resetErrors)
+        s += "###Move to target###\"
+        s += "Close threshold: {}\n".format(self.close)
         if usedGate:
             s+= "###Gate configuration###\n"
             s+= "Gating configurations: \n"

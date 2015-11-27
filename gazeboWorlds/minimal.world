@@ -157,8 +157,8 @@
       </link>
       <static>0</static>
     </model>
-    <model name='blockB'>
-      <pose>-0.6 0.25 0.05 0 0 0</pose>
+    <!-- uncomment for two objects<model name='blockB'>
+      <pose>-0.6 0.35 0.05 0 0 0</pose>
       <link name='link'>
         <inertial>
           <mass>1</mass>
@@ -207,7 +207,7 @@
       <static>0</static>
     </model>
     <model name='blockBShadow'>
-      <pose>-0.6 0.25 0.05 0 0 0</pose>
+      <pose>-0.6 0.35 0.05 0 0 0</pose>
       <link name='link'>
         <visual name='visual'>
           <geometry>
@@ -225,6 +225,6 @@
         <gravity>0</gravity>
       </link>
       <static>0</static>
-    </model>
+    </model> -->
   </world>
 </sdf>

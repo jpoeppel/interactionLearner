@@ -121,7 +121,8 @@ it receives and executes the action. In this case, the action affects only half 
 be executed earlier. From the model's point of view, the same action was performed from the same initial situation, but the resulting changes in object states can differ greatly. 
 
 Since this thesis considers a rather simple scenario and these three sources of noise are already present due to the used technologies,
-no additional artificial noise was introduced to the system.
+no additional artificial noise was introduced to the system. Both models needed to be flexible enough to learn from the noisy data without
+fixating on outliers.
 
 \section{Push Task Simulation \label{sec:pushTaskSim}}
 
@@ -203,19 +204,17 @@ The averaged results for the block predictions over all folds for the interactio
 
 \begin{figure}[h]
 \centering
-\includegraphics[width=0.7\textwidth]{LearningCurveinteractionModel_C_0E20FoldsAllACSF.pdf}
+\includegraphics[width=0.7\textwidth]{LearningCurveinteractionModel_C_0E20FoldsSigma005.pdf}
 \caption{Learning curve for the interaction concept in the first configuration. Difference in position and orientation for the block predictions and differences for the actuator position at the end of a run are shown. Error bars indicate one standard deviation. Blue error bars represents averages over all 21 test positions, while red error bars only averages over the 15 test positions where the block is actually moved.}
 \label{fig:learnCurveInteraction1}
 \end{figure}
 
-The positional prediction error starts around \m{0.26} with a standard deviation of around \m{0.17} when the model is only trained with a single training example. The prediction performance improves to roughly \m{0.08} with a standard deviation of around \m{0.04}.
-The predicted orientation error starts at an average of about \rad{0.81} with standard deviation of \rad{0.51} but improves to around \rad{0.25} with standard deviation of \rad{0.08} when increasing the number of random training examples.
-The performances for position and orientation do not increase much more when training on 30 runs instead of 20. (\m{0.10} $+/-$ \m{0.07} for position after 20 runs and \rad{0.278} $+/-$ \rad{0.11} for orientation).
-The actuator position predictions start with an error of \m{0.05} with a standard deviation of \m{0.03} and go down to \m{0.03} with a standard deviation of \m{0.02} already after 10 training runs.
+The positional prediction error starts around \m{0.24} with a standard deviation of around \m{0.15} when the model is only trained with a single training example. The prediction performance improves to roughly \m{0.09} with a standard deviation of around \m{0.05}.
+The predicted orientation error starts at an average of about \rad{0.8} with standard deviation of \rad{0.5} but improves to around \rad{0.25} with standard deviation of \rad{0.09} when increasing the number of random training examples.
+The performances for position and orientation do not increase much more after the first 10 training runs (\m{0.12} $+/-$ \m{0.08} for position and \rad{0.33} $+/-$ \rad{0.16} for orientation).
+The actuator position predictions remain fairly constant with errors around \m{0.03} with a standard deviation of \m{0.02} for all training scenarios.
 
 When only considering the testing positions where the actuator actually interacts with the block (red error bars), predicted errors improve slightly.
-
-[TODO results for 2nd interaction configuration?]
 
 The results for the same experiment with the object state with gating function model using the first configuration are presented in figure \ref{fig:learnCurveGate1}.
 
@@ -234,6 +233,50 @@ Predictions for the actuator position are fairly constant around \m{0.002} with 
 
 Unlike in the other model, prediction errors are slightly worse for the block position and orientation when only considering the 15 testing positions where an actual interaction takes place. Actuator prediction are slightly more accurate however.
 
+Memory-based regression methods such as \gls{nn} approaches often suffer from the increasing computational complexity as the number of training samples increases.
+Table \ref{tab:learnCurveGateNodes} shows the average number of update calls and number of nodes in the \glspl{aitm} used by the object state model after training for the different number of training runs. Similarly, table \ref{tab:learnCurveInteractionNodes} presents similar numbers for the interaction state model. Since the number of learned \glspl{ac} varies between the runs, only the number of nodes for the \gls{ac} with the most nodes is recorded. 
+Only 149 update calls are made at most for each run because the models are not updated after the 150th timestep.
+
+
+\begin{table}
+\footnotesize 
+	\centering
+	\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}} c c c c c}
+			\hline \textbf{Train runs} & \textbf{Object Updates}&  \textbf{Object Nodes} & \textbf{Gate Updates} &\textbf{Gate Nodes} \\ 
+			\hline \hline 
+			 1 & 93.5 & 26.55 & 149 & 3.7 \\
+			 2 & 194.35 & 39.4 & 298 & 5.55 \\  
+			 3 & 287.25 & 67.4 & 447 & 6.4 \\
+			 5 & 479.6 & 111.95 & 745 & 6.8 \\
+			 10 & 963.7 & 219.65 & 1490 & 7.75 \\
+			 20 & 1894.25 & 438.2 & 2980 & 10.4 \\
+			 30 & 2883.8 & 603.05 & 4470 & 10.2 \\
+			\hline 
+	\end{tabular*} 
+	\caption{Record of the average number of nodes that resulted from the recorded number of update calls in the regression and classification \gls{aitm} for the object state model.}
+	\label{tab:learnCurveGateNodes}
+\end{table}
+
+Interestingly, the number of nodes required for the gating function is rather constant whereas the local forward model in the predictor creates a node between every 4th and 5th update call on average. 
+
+\begin{table}
+\footnotesize 
+	\centering
+	\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}} c c c c c}
+			\hline \textbf{Train runs} & \textbf{AC Updates}&  \textbf{AC Nodes} & \textbf{ACS Updates} &\textbf{ACS Nodes} \\ 
+			\hline \hline 
+			 1 & 93.5 & 26.55 & 149 & 3.7 \\
+			 2 & 194.35 & 39.4 & 298 & 5.55 \\  
+			 3 & 287.25 & 67.4 & 447 & 6.4 \\
+			 5 & 479.6 & 111.95 & 745 & 6.8 \\
+			 10 & 963.7 & 219.65 & 1490 & 7.75 \\
+			 20 & 1894.25 & 438.2 & 2980 & 10.4 \\
+			 30 & 2883.8 & 603.05 & 4470 & 10.2 \\
+			\hline 
+	\end{tabular*} 
+	\caption{Record of the average number of nodes that resulted from the recorded number of update calls in the regression and classification \gls{aitm} for the interaction model. Only the number of the \gls{ac} with the most nodes is recorded.}
+	\label{tab:learnCurveInteractionNodes}
+\end{table}
 
 \textbf{Generalization on selected training data:}
 
@@ -284,27 +327,22 @@ In order to be able to interpret these results, figure \ref{fig:EachPosEndPos} s
 \label{fig:EachPosEndPos}
 \end{figure}
 
-%TODO
-[TODO]
-\begin{itemize}
-\item second configuration
-\item PushTaskSimulation2
-\end{itemize}
-
 \textbf{Generalization in the open loop:}
 
-While the previous scenarios test the accumulated prediction error, it is often not required to make accurate predictions 150 steps into the future. Instead it is more important to adapt to changes in the environment quickly. For that reason, a variation of the \textit{Push Task Simulation} was also evaluated. In this variation, the models are not trained before testing, but will instead continuously receive updates from the environment. That way the models online learning capabilities are evaluated. The models will still make consecutive predictions based on their last prediction. Their last predictions will not be corrected based on the actual environment and the models do not get or compute any feedback as to how good their last prediction was. 
+While the previous scenarios test the accumulated prediction error, it is often not required to make accurate predictions 150 steps into the future. Instead it is more important to adapt to changes in the environment quickly. For that reason, a variation of the \textit{Push Task Simulation} was also evaluated. In this variation, the models are not trained before testing, but will instead continuously receive updates from the environment. That way the models online learning capabilities are evaluated. The models will still make consecutive predictions based on their last prediction. Their last predictions are not corrected based on the actual environment and the models do not get or compute any feedback as to how good their last prediction was. 
 
-Due to the good performance both models exhibit in this scenario, a statistical evaluation is pointless. Instead figure \ref{fig:pushTaskSim2} shows images from two consecutive random test runs. %TODO which model/configuration
+A qualitative evaluation is provided in figure \ref{fig:pushTaskSim2}. The figure shows images of consecutive interactions of the object state model with the environment. The transparent object represent the last predictions, while the darker objects represent the actual states of the objects. In order to be able to actually see meaningful differences between consecutive interactions, these images where taken in a setting where the model is only updated every 10Hz, meaning that the model was updated and queried every 0.1 seconds in simulation time instead of the 0.01 seconds used for all the other evaluations. No other adaptation to the model was made. The top row shows the first run the model performs while the second row shows the following run. The testing positions were predefined.
 
 \begin{figure}
 \centering
-%\includegraphics[width=\textwidth]{pushTaskSim2.png}
-\caption{Sequenced images of the \textit{Push Task Simulation} variation. Top row shows images of the first test run, while the second row shows images of the second test run.}
+\includegraphics[width=\textwidth]{pushTaskSim2.png}
+\caption{Consecutive interactions in the \textit{Push Task Simulation} variation. Top row shows images of the first test run, while the second row shows images of the second test run on the other side of the object. }
 \label{fig:pushTaskSim2}
 \end{figure}
 
-[Explanation of the images here]
+The leftmost images show the initial configuration at the start of both runs. While no prediction is made for the actuator in the 2nd image of the top row, the actuator is predicted correctly in the 2nd run. The top row continues to lag one frame behind with its predictions. The final block predictions are accurate again.
+In the 2nd run, the actuator predictions are good. However, the model predicts the same rotation as in the first run once the actuator comes close to the object. After a few other frames, the predictions start turning in the other direction, but do not catch up to the actual objects.
+
 
 \subsection{Extension to multiple objects \label{sec:multipleObjects}}
 
@@ -316,19 +354,22 @@ The model was not altered in any way for the results presented in figure \ref{fi
 \begin{figure}
 \centering
 \includegraphics[width=0.7\textwidth]{EachPosgateModel_C_8E2ObjectsV2.pdf}
-\caption{Prediction errors for the object state model with two objects. The training positions are highlighted by the block lines. Error bars indicate one standard deviation.}
+\caption{Prediction errors for the object state model with two objects. The training positions are highlighted by the black lines. Error bars indicate one standard deviation.}
 \label{fig:eachPosTwoObjects}
 \end{figure}
 
 The gating function often classifies incorrectly for the red object, but the blue object does not seem to be influenced by the new object at all since the results are basically identical to the ones presented in \ref{fig:eachPosGate}.
-The standard implementation only uses a single global gating function. Training object group specific gating functions produces the results in \ref{fig:eachPosTwoObjects2Gates}
+
+By introducing a seventh training position in between both objects, improves the prediction quality due to better performance of the gating function as can be seen in figure \ref{fig:eachPosTwoObjects7Trains}.
+
 
 \begin{figure}
 \centering
-%\includegraphics[width=\textwidth]{EachPosTwoObjects.pdf}
-\caption{Prediction errors for the adapted object state model with two objects. In this case individual gating functions are trained for each object. The training positions are highlighted by the block lines. Error bars indicate one standard deviation.}
-\label{fig:eachPosTwoObjects2Gates}
+\includegraphics[width=0.7\textwidth]{EachPosgateModel_C_8E20Folds2Objects7Train.pdf}
+\caption{Prediction errors for the object state model with two objects with an additional separating training positions. The training positions are highlighted by the black lines. Error bars indicate one standard deviation.}
+\label{fig:eachPosTwoObjects7Trains}
 \end{figure}
+
 
 \section{Move to Target \label{sec:moveToTarget}}
 

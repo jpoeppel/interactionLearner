@@ -16,7 +16,7 @@
 In order to evaluate the developed ideas, prototypes of the two concepts described in the previous section have been implemented in Python 2.7. Both prototypes are developed as such that they can be evaluated in the same way in the next chapter. The implementations follow the presented concepts very closely in most cases. As such the general data flow is the same as was presented in the figures  \ref{fig:PairPrediction}, \ref{fig:PairPlanning}, \ref{fig:GatePrediction} and \ref{fig:GatePlanning}.
 Relevant decisions and assumptions made specifically for the implementation are highlighted and explained in this chapter. %TODO maybe needs to be changed
 
-Section \ref{sec:basics} starts with describing common design decisions made that apply to both concepts. Afterwards the relevant implementations details regarding the two prototypes are presented in section \ref{sec:pairRealization} for the interaction state concept and in section \ref{sec:gateRealization} for the object state concept. Finally, section \ref{sec:technologies} describes the used technologies such as the underlying regression and classification model and the implementation of the inverse model in detail.
+Section \ref{sec:basics} starts with describing common design decisions that apply to both concepts. Afterwards the relevant implementations details regarding the two prototypes are presented in section \ref{sec:pairRealization} for the interaction state concept and in section \ref{sec:gateRealization} for the object state concept. Finally, section \ref{sec:technologies} describes the used technologies, the underlying regression and classification model and the implementation of the inverse model, in detail.
 
 \section{Basics \label{sec:basics}}
 
@@ -27,7 +27,7 @@ Section \ref{sec:basics} starts with describing common design decisions made tha
 
 The kind of information that is provided by the environment obviously depends on the sensors that are available to the robot. From the information provided by these sensors, features can be computed. The models themselves are greatly independent of what features are actually used. In fact the models do not require any knowledge about what the features represent for prediction. This allows the exact same model to be used in various settings with different features, for example if additional or different sensors are available. In order to yield good results, the used features obviously need to have the necessary expressiveness.
 
-Unfortunately, the model does need to have some partial knowledge about the features when it comes to computing action primitives as will be further explained in the corresponding sections of both models.
+Unfortunately, the models do need to have some partial knowledge about the features when it comes to computing action primitives as will be further explained in the corresponding sections for both models.
 
 These prototypes were evaluated using a physics simulation, further explained in section \ref{sec:environment}. From this simulation the information in table \ref{tab:availInformation} is provided for each object at each update.
 
@@ -47,29 +47,29 @@ These prototypes were evaluated using a physics simulation, further explained in
 	\label{tab:availInformation}
 \end{table}
 
-Furthermore, a unique identifier, the shape and size of the objects are known and can be used to compute additional features for the model. What kind of features are computed from this information is a design decision by the user of these models. Because of the dependence on the used metric in the underlying regression model, using more features might worsen the performance of the models. 
+Furthermore, a unique identifier, the shape and size of the objects are known and can be used to compute additional features. What kind of features are computed from this information is a design decision by the user of these models. Since the underlying regression model is memory-based, using more features might result in worse performances. This is even more likely, if the features are not normalized or no suitable metric is used.
 
 \subsection{Action primitives}
 
-Action primitives are the collection of possible low level actions a robot can perform directly. Higher level actions are usually composed of multiple action primitives. For example, the action \textit{walking} might be composed of the action primitives, \textit{raise leg} and \textit{lower leg}.
+Action primitives are the collection of possible low level actions a robot can perform directly. Higher level actions are usually composed of multiple action primitives. For example, the action \textit{walking} might be composed of the action primitives \textit{raise leg} and \textit{lower leg}.
 
-In the scope of this thesis, the action primitives allow to set the two dimensional velocity of the actuator. 
-The models assume that an action is selected and performed at every iteration, even if the velocity remains the same as in the previous iteration.
-In general, the nature of the action is not all that important to the models as long as it can be represented as a vector. In this case a two dimensional vector is used representing the x and y velocity respectively. The velocities are given according to the global coordinate system of the robot. 
+In the scope of this thesis, the action primitives are defined by the simulation used for the evaluations in the next chapter. In this case a two dimensional action primitive is used, representing the $x$ and $y$ velocity of the actuator. The velocities are given according to the global coordinate system of the robot. 
+In general, the nature of the action is not all that important to the models as long as it can be represented as a vector. 
+However, the models assume that an action primitive is selected and performed at every iteration. This is also true for the used velocity action primitives, even if the velocity does not change by using the same action primitive again. 
 
 The used simulation only accepts velocities with a norm not higher than $0.5\frac{m}{s}$. The implementations make sure to scale all computed action primitives accordingly. While moving towards a target, the implementations scale the action primitives to a norm of $0.3\frac{m}{s}$ in order to not push the objects too far.
 
 \subsection{Used regression and classification model}
 
-As already stated in the introduction and motivated in chapter \ref{chap:stateOfTheArt}, this thesis uses a memory based approach to learn the interactions. For this end, a special adaptation of the \gls{gng} has been developed which can be used for regression as well as classification tasks. This adaptation, called \acrfull{aitm} and explained in section \ref{sec:ITM}, is used for all regression and classification models used in both prototypes unless stated otherwise. 
+As already stated in the introduction and motivated in chapter \ref{chap:stateOfTheArt}, this thesis uses a memory-based approach to learn the interactions. For this end, a special adaptation of the \gls{gng} has been developed which can be used for regression as well as classification tasks. This adaptation, called \acrfull{aitm} and explained in section \ref{sec:ITM}, is used for all regression and classification models used in both prototypes unless stated otherwise. 
 
 \subsection{Using local features and predicting differences \label{sec:localFeatures}}
 
 Both prototypes only use local (differential) features as inputs for their trained regression and classification models. 
 Local features mean that all features are represented relative to some reference object's coordinate frame. The exact computation of the features is explained in sections \ref{sec:intFeatures} for the interaction model and \ref{sec:gateFeatures} for the object state model.
-Using local features assumes that similar interactions behave identical regardless where in the environment they take place. 
+Using local features assumes that similar interactions behave identical regardless of where they take place in the environment. 
 Only the local relations between the involved objects determine the outcome of the interaction. 
-For the given task of pushing interactions this assumption will hold true as long as the environment only has constant effects on the objects. The environment used for the evaluations, described in section \ref{sec:environment}, fulfills these conditions since it only affects the objects through gravity and friction, which are constant throughout the entire environment. 
+For the given task of pushing interactions this assumption will hold true as long as the environment only has constant effects on the objects. The environment used for the evaluations, described in section \ref{sec:environment}, fulfills these conditions since it only affects the objects through gravity and friction, which are constant in the given scenario. 
 
 The great advantage of this approach is that the interactions can be learned regardless of the object's actual configuration in the environment. In fact training data from all configurations can be used to learn a certain interaction. Furthermore, this approach provides free generalization to any configuration in the environment without the need of additional training data.
 
@@ -82,47 +82,74 @@ Consider the feature position: An object cannot change its position from one tim
 
 \section{Modeling pairwise interaction \label{sec:pairRealization}}
 
-The implementation of the pairwise interaction model also contains the components visualized in the overview figure \ref{fig:PairOverview}.
-The Abstract Collection Selector trains a classifier that selects any of the $n$ learned \glspl{ac}. Within each \glspl{ac}, there exist a local forward model which performs the predictions.
+The implementation of the pairwise interaction model contains the components visualized in the overview figure \ref{fig:PairOverview}.
+The \acrfull{acs} trains a classifier that selects any of the $n$ learned \glspl{ac}. Within each \glspl{ac}, there exist a local forward model which performs the predictions.
 However, instead of training local inverse models for each \gls{ac}, one global inverse model is used in this implementation. The reasons for this decision are explained in section \ref{sec:pairPlanningReal}.
 Just as the local ones would, the global inverse model returns preconditions that result in a specific change of the interaction state.
-The forward model as well as the selector both use the same underlying mechanism with the \acrfull{aitm}. For the reasons explained in section \ref{sec:invModel}, the special \acrfull{tiim} is used.
+The forward model as well as the selector both use the same underlying mechanism in the \acrfull{aitm}. For the reasons explained in section \ref{sec:invModel}, the special \acrfull{tiim} is used for the global inverse model.
 
-Algorithm \ref{alg:intUpdate} explains the steps that are performed each time new information is received from the environment.
+As mentioned before, the model is constantly updated with new information provided by the environment. The steps that are performed to update the model each time new information is received are explained in algorithm \ref{alg:intUpdate}.
 
 \begin{algorithm}
-	\KwIn{New worldstate ws}
-	\KwIn{Used action $act$}
-	\KwData{Last worldstate ws$_\text{old}$}
-	\KwData{Set of Abstract Collections L}
-	\KwData{Inverse Model IM}
-	\KwData{Abstract Collection Selector ACS}
-	\BlankLine
-	\ForEach{interaction state i $\in$ ws}{
-		i$_\text{old}$ = extractInteractionState(ws$_\text{old}$, i)
-		newEpisode = Episode(i$_\text{old}$, $act$, i) \\
-		$S$ = computeChangedFeatures(newEpisode) \\
-		\tcc*[h]{Check if a corresponding AC already known} \\
-		\If{$S$ $\notin$ L}{
-			newAC = AbstractCollection($S$) \\
-			L = L $\cup$ newAC 
-		}
-		AC = L$_S$ \tcc*[f]{The Abstract Collection responsible for $S$} \\
-		update AC with newEpisode \\
-		update IM with newEpisode \\
-		update ACS with i$_\text{old}$, $act$ and AC
-	}
-	\caption{Prediction of the update steps in the pairwise interaction model.}
-	\label{alg:intUpdate}
+\begin{algorithmic}[1]
+	\Require{New worldstate ws}
+	\Require{Used action $act$}
+	\Data{Last worldstate ws$_\text{old}$}
+	\Data{Set of Abstract Collections L}
+	\Data{Inverse Model IM}
+	\Data{Abstract Collection Selector ACS}
+	\Statex
+	\ForAll{interaction state i $\in$ ws}
+		\Let{i$_\text{old}$}{extractInteractionState(ws$_\text{old}$, i)}
+		\Let{newEpisode}{Episode(i$_\text{old}$, $act$, i)}
+		\Let{$S$}{computeChangedFeatures(newEpisode)}
+		\If{$S$ $\notin$ L} \Comment{Check if a corresponding AC already known} 
+			\Let{newAC}{AbstractCollection($S$)}
+			\Let{L}{L $\cup$ newAC}
+		\EndIf
+		\Let{AC}{L$_S$} \Comment{The Abstract Collection responsible for $S$} 
+		\State update AC with newEpisode
+		\State update IM with newEpisode
+		\State update ACS with i$_\text{old}$, $act$ and AC
+	\EndFor
+\end{algorithmic}
+\caption{Prediction of the update steps in the pairwise interaction model.}
+\label{alg:intUpdate}
 \end{algorithm}
+
+%\begin{algorithm}
+%	\KwIn{New worldstate ws}
+%	\KwIn{Used action $act$}
+%	\KwData{Last worldstate ws$_\text{old}$}
+%	\KwData{Set of Abstract Collections L}
+%	\KwData{Inverse Model IM}
+%	\KwData{Abstract Collection Selector ACS}
+%	\BlankLine
+%	\ForEach{interaction state i $\in$ ws}{
+%		i$_\text{old}$ = extractInteractionState(ws$_\text{old}$, i)
+%		newEpisode = Episode(i$_\text{old}$, $act$, i) \\
+%		$S$ = computeChangedFeatures(newEpisode) \\
+%		\tcc*[h]{Check if a corresponding AC already known} \\
+%		\If{$S$ $\notin$ L}{
+%			newAC = AbstractCollection($S$) \\
+%			L = L $\cup$ newAC 
+%		}
+%		AC = L$_S$ \tcc*[f]{The Abstract Collection responsible for $S$} \\
+%		update AC with newEpisode \\
+%		update IM with newEpisode \\
+%		update ACS with i$_\text{old}$, $act$ and AC
+%	}
+%	\caption{Prediction of the update steps in the pairwise interaction model.}
+%	\label{alg:intUpdate}
+%\end{algorithm}
 
 The changed feature set $S$ is computed according to equation \ref{eq:difSet}\footnote{Since local features are used, both $Pre$ and $Post$ need to be transformed to the same coordinate frame, see section \ref{sec:episodes} for details.}. The structure and used features within the interaction state are explained in section \ref{sec:intFeatures} while the episodes are explained in section \ref{sec:episodes}.
 
-When updating an \gls{ac} its forward model needs to be updated. The forward model is trained using the combination of the old interaction state  i$_\text{old}$ and the action primitive $act$ as input and the difference vector $\vec{d}$ between the old interaction state and the new one as desired output. The exact training of the \gls{aitm} is explained in section \ref{sec:ITM}. 
+When updating an \gls{ac} its forward model needs to be updated. The forward model is trained using the combination of the old interaction state  i$_\text{old}$ and the action primitive $act$ as input and the difference vector $\vec{d}$ between the old and the new interaction state as desired output. The exact training of the \gls{aitm} is explained in section \ref{sec:ITM}. 
 
 The global inverse model is trained on the same features as the forward model. The exact process behind the training is explained in section \ref{sec:invModelRealization}.
 
-The Abstract Collection Selector is also trained on the same combination of i$_\text{old}$ and $act$ as input, but it uses the identifier of the responsible \gls{ac} as desired output.
+The \gls{acs} is also trained on the same combination of i$_\text{old}$ and $act$ as input, but it uses the identifier of the responsible \gls{ac} as desired output.
 Since the selector also uses the \gls{aitm} as classifier, the exact update rules are explained below.
 
 When used for prediction the model follows the process visualized in figure \ref{fig:PairPrediction} and described in section \ref{sec:pairPrediction}.
@@ -150,7 +177,7 @@ The pairwise interaction model basically only uses the interaction state and the
 		 Relative Orientation & Relative orientation of the second object \\
 		\hline 
 	\end{tabular*} 
-	\caption{This table shows exemplary features used to represent one interaction state. Relative positions and velocities refer to the coordinate system of the reference object.}
+	\caption{Features used to represent one interaction state. Relative positions and velocities refer to the coordinate system of the reference object.}
 	\label{tab:pairInteractionFeatures}
 \end{table}
 
@@ -214,7 +241,7 @@ Afterwards the difference vector can simply be computed by:
 \end{equation}
 
 During training, the \glspl{ac} extract the feature differences that they are responsible for from $\vec{d}$ and use those as target output of the local regression model.
-Finally, the set of changing features $S$ can then again be computed as stated in equation \ref{eq:difSet} while substituting $Post$ for $Post^*$.
+Finally, the set of changing features $S$ can then again be computed as stated in equation \ref{eq:difSet} while substituting $Post$ with $Post^*$.
 
 \subsection{From target object state to action primitives\label{sec:pairPlanningReal}}
 
@@ -226,8 +253,8 @@ Following the concept provided in section \ref{sec:pairPlanning}, this reduced d
 Having said that, since only changes of a subset of the entire interaction state are considered, there will usually not be an \gls{ac} that is responsible exactly for these changes. 
 Instead there will be several \glspl{ac}, that are responsible for changes in these features. In theory, the \gls{ac} responsible for the most feature changes should be chosen in this situation. 
 
-Unfortunately, the developed inverse model does not work with the segmentation performed by the \glspl{ac}. The main reason for that is, that the inverse model trains separate prototypes for each feature dimension.
-Each prototype tries to learn the preconditions that have the most influence on the given feature dimension. A single feature dimension is often represented in multiple \glspl{ac}. Therefore, each local model only experiences a subset of the preconditions responsible for changes in a specific feature dimension. When the \gls{tiim} is trained only on these local parts, the prototypes do not learn the preconditions well.
+Unfortunately, the developed inverse model does not work well with the segmentation performed by the \glspl{ac}. The main reason for that is, that the inverse model trains separate prototypes for each feature dimension.
+Each prototype tries to learn the preconditions that have the most influence on the given feature dimension. A single feature dimension is often represented in multiple \glspl{ac}. Therefore, each local inverse model would only experience a subset of the preconditions responsible for changes in a specific feature dimension. When the \gls{tiim} is trained only on these local parts, the prototypes do not learn the preconditions well.
 
 On top of that, the \gls{tiim} is a model with close to constant update and query times\footnote{The number of prototypes and averages that are learned per prototype are independent of the number of training examples. See section \ref{sec:invModelRealization} for details.}. Therefore, the main reasons for training multiple local models do not apply to this inverse model.
 
@@ -244,7 +271,7 @@ Once the actuator has come close\footnote{This implementation uses the threshold
 
 \section{Object space with gating function \label{sec:gateRealization}}
 
-The realization consists mainly of the parts visualized in figure \ref{fig:GateOverview}. 
+The realization of the second prototype consists mainly of the parts visualized in figure \ref{fig:GateOverview}. 
 Depending on whether the actuator models are to be learned as well, three to five different parts need to be trained in this model: The predictor occupies a similar role to the \glspl{ac} in the previous model. For each distinct object group, a local forward model is trained using the relative interaction features (described in section \ref{sec:gateFeatures}) as input and the changes in the object states as output. Just as the interaction model, the inverse model is also trained on the same input and output data each time new information is available from the environment. 
 In this implementation, object groups are simply divided by the object identifier. 
 The gating function trains a classifier in order to predict if an actuator object influences another object. The classifier is trained, using the relative interaction features as input. The output, i.e. if an interaction took place or not, is determined by computing the change between the previous object state and the current one.
@@ -252,36 +279,68 @@ The gating function trains a classifier in order to predict if an actuator objec
 Algorithm \ref{alg:gateUpdate} summarizes all steps performed at each update step.
 
 \begin{algorithm}
-	\KwIn{New worldstate ws}
-	\KwIn{Used action $act$}
-	\KwData{Last worldstate ws$_\text{old}$}
-	\KwData{Predictor}
-	\KwData{Gate}
-	\BlankLine
-	newActuator = extractActuator(ws) \\
-	updateActuator(newActuator, $act$) \\
-	\ForEach{object state o $\in$ ws}{
-		o$_\text{old}$ = extractObject(ws$_\text{old}$, o) \\
-		relFeatures = computeRelativeFeatures(o, newActuator) \\ 
-		change = computeLocalChange(o$_\text{old}$, o) \\
-		hasChanged = $||$change$||$ > 0 \\
-		updateGate(relFeatures, hasChanged) \\
-		\If{hasChanged}{
-			updatePredictor(relFeatures, change) \\
-		}
-	}
-	
-	\BlankLine
-\caption{Algorithm summarizing the steps performed by the object state model at each update from the environment.}
+\begin{algorithmic}[1]
+	\Require{New worldstate ws}
+	\Require{Used action $act$}
+	\Data{Last worldstate ws$_\text{old}$}
+	\Data{Predictor}
+	\Data{Gate}
+	\Statex
+	\Let{newActuator}{extractActuator(ws)}
+	\State updateActuator(newActuator, $act$)
+	\ForAll{object state o $\in$ ws}
+		\Let{o$_\text{old}$}{extractObject(ws$_\text{old}$, o)}
+		\Let{relFeatures}{computeRelativeFeatures(o$_\text{old}$, newActuator)}
+		\Let{change}{computeLocalChange(o$_\text{old}$, o)}
+		\Let{hasChanged}{$||$change$|| > \epsilon_{change}$}
+		\State updateGate(relFeatures, hasChanged)
+		\If{hasChanged}
+			\State updatePredictor(relFeatures, change)
+		\EndIf
+	\EndFor
+\end{algorithmic}
+\caption{Summary of the steps performed by the object state model at each update from the environment.}
 \label{alg:gateUpdate}
 \end{algorithm}
 
-Extracting the actuator or an object state is simply an attribute lookup in the worldstate. Since differential features are used, the new object state needs to be transformed to the coordinate frame of the old object state before computing the change.
 
-When the object state has changed, the predictor is updated with the relative interaction features as input and the change as output. In this implementation the predictor determines the object by the identifier in the relative features in order to train only the local forward and inverse models responsible for the current object group.
+%\begin{algorithm}
+%	\KwIn{New worldstate ws}
+%	\KwIn{Used action $act$}
+%	\KwData{Last worldstate ws$_\text{old}$}
+%	\KwData{Predictor}
+%	\KwData{Gate}
+%	\BlankLine
+%	newActuator = extractActuator(ws) \\
+%	updateActuator(newActuator, $act$) \\
+%	\ForEach{object state o $\in$ ws}{
+%		o$_\text{old}$ = extractObject(ws$_\text{old}$, o) \\
+%		relFeatures = computeRelativeFeatures(o, newActuator) \\ 
+%		change = computeLocalChange(o$_\text{old}$, o) \\
+%		hasChanged = $||$change$||$ > 0 \\
+%		updateGate(relFeatures, hasChanged) \\
+%		\If{hasChanged}{
+%			updatePredictor(relFeatures, change) \\
+%		}
+%	}
+%	
+%	\BlankLine
+%\caption{Algorithm summarizing the steps performed by the object state model at each update from the environment.}
+%\label{alg:gateUpdate}
+%\end{algorithm}
 
-Finally, the actuator is updated. This update trains the local forward and inverse model of the actuator, if no predefined ones were provided.
-All update calls also update the information available in the last worldstate ws$_\text{old}$. Consequently, at the end of the update routine, the old worldstate and the current worldstate are identical.
+At the beginning of each update step, the current and last states for the actuator as well as the objects is retrieved from the current and last worldstate respectively.
+Extracting the actuator or an object state is simply an attribute lookup in the worldstate. 
+
+The actuator is updated first. If no local forward and inverse models are predefined, an \gls{aitm} is updated with the used action primitive as input and the change in the actuator's state as output.
+
+Afterwards each object is considered separately. The object's change needs to be computed. Since the local models want to predict local changes, the change in an object's state needs to be computed with respect to the coordinate frame before the update. This requires the features to be transformed as described in section \ref{sec:gateFeatures}.
+
+Furthermore, the relative interaction features between the old object state and the new actuator state need to be computed. The new actuator state is used because the model uses the predicted actuator state when making predictions instead of the current one. Therefore, the model needs to train using actuator state that results from the last action primitive, instead of the old actuator state.
+
+The computed change is used to determine if the current object has actually changed by comparing the norm of the change with $\epsilon_{change}$. This threshold should be set according to the noise level in the received information. This implementation uses $\epsilon_{change} = 0$.
+
+When the object state has changed, the predictor is updated with the relative interaction features as input and the change as output. In this implementation the predictor determines the object group by the identifier in the relative features in order to train only the local forward and inverse models responsible for the current object group. Ideally, the model would be able to automatically determine object groups through interaction and comparing their behavior.
 
 When used to predict the next world state, the process visualized in figure \ref{fig:GatePrediction} and described in section \ref{sec:gatePrediction} is used for every object in the current worldstate. As mentioned in the concept, prediction is a sequential process in this model: \\
 First the next actuator state is predicted by querying its local forward model given the selected action primitive. The predicted actuator state is then used to compute the relative interaction features with the current object. This feature vector is then used to query both the gate and if required the object's local forward model in the predictor. 
@@ -292,7 +351,7 @@ As in the other model, computing action primitives is more complicated and requi
 \subsection{Used features \label{sec:gateFeatures}}
 
 Similar to the interaction model, this model also introduces a \textit{Worldstate}. This worldstate is computed at each update from the environment. In this case, the worldstate simply collects the states of all objects in the environment. The actuator, although technically an object, is regarded separately in the worldstate. Since the model directly predicts the new object states, no finalization is required. 
-This model uses a different kind of feature representation. The object states describe the specific features of each object and basically represent what is provided by the environment. This implementation can use dynamic features such as velocities, but does not require them. Table \ref{tab:gateObjectFeatures} summarizes the basic features that are used to represent object states.
+The object states describe the specific features of each object and basically represent what is provided by the environment. This implementation can use dynamic features such as velocities, but does not require them. Table \ref{tab:gateObjectFeatures} summarizes the basic features that are used to represent object states.
 
 \begin{table}
 	\centering
@@ -305,13 +364,14 @@ This model uses a different kind of feature representation. The object states de
 		 Orientation & Object rotation around the z-axis of the global coordinate system \\ 
 		\hline 
 	\end{tabular*} 
-	\caption{Table showing the different dynamic features used to represent objects.}
+	\caption{The different dynamic features used to represent objects.}
 	\label{tab:gateObjectFeatures}
 \end{table}
 
-While additional information, such as information about the shape of the objects, is available, the model itself does not require it. However, when computing the relative interaction features, at least information about the shape is required. Furthermore, the model stores not only the current state of each object but also the previous one. This is required in order to make finite difference estimations about the objects dynamics such as velocity. In case the dynamics are directly provided by the environment, this previous state does not need to be stored. However, omitting the velocities and only estimating them when needed reduces the output dimensionality of the regression models. This is because the model predicts changes in all features that it experiences. Since the model does not have or require any knowledge about the features for prediction, a selective prediction is not possible. Therefore, it is beneficial to reduce the number of features that need to be predicted. 
+While additional information, such as information about the shape of the objects, is available, the model itself does not require it. However, when computing the relative interaction features, at least information about the shape is required. Furthermore, the model stores not only the current state of each object but also the previous one. This is required in order to make finite difference estimations about the objects dynamics such as velocity. 
+In case the dynamics are directly provided by the environment, this previous state does not need to be stored. However, omitting the velocities and only estimating them when needed reduces the output dimensionality of the regression models. This is because the model predicts changes in all features that it experiences. Since the model does not have or require any knowledge about the features for prediction, a selective prediction is not possible. Therefore, it is beneficial to reduce the number of features that need to be predicted. 
 
-The different regression and classification models are trained using relative interaction features as input. As mentioned in the concept description, these features are similar to the interaction state described above. However, they do not need to represent the reference object since this model assumes, that the global configuration of the reference object does not influence the interaction. Therefore it is sufficient to model the actuator relative to the reference object, with additional information that might be useful for the learner.
+The different regression and classification models are trained using relative interaction features as input. As mentioned in the concept description, these features are similar to the interaction state described in the pairwise interaction model above. However, not all information about both objects needs to be expressed. This is because, the each object's information is available. Furthermore, as mentioned before, the model assumes that the global configuration of an object does not influence an interaction.  Therefore it is sufficient to model the actuator relative to the reference object. Additional information that might be useful for the learner is also provided.
 The relative interaction features are summarized in table \ref{tab:gateInteractionFeatures}. 
 
 \begin{table}
@@ -329,30 +389,18 @@ The relative interaction features are summarized in table \ref{tab:gateInteracti
 		 Relative y Velocity & Relative y velocity of the second object \\
 		\hline 
 	\end{tabular*} 
-	\caption{Table summarizing the different relative interaction features used to make predictions about interactions. Relative positions and velocities refer to the coordinate system of the reference object.}
+	\caption{The different relative interaction features used to make predictions about interactions. Relative positions and velocities refer to the coordinate system of the reference object.}
 	\label{tab:gateInteractionFeatures}
 \end{table}
 
-The \textit{Closing} feature $c$ is computed as described in equation \ref{eq:closing} and visualized in figure \ref{fig:closing}.
+The \textit{Closing} feature $c$ is visualized in figure \ref{fig:closing}. Its computation is given by equation \ref{eq:closing}.
 
 \begin{equation}
   c = \vec{n} \cdot \vec{rv}
  \label{eq:closing}
 \end{equation}
 
-$\vec{n}$ represents the normal from the reference object towards the second object and $\vec{rv}$ represents the non normalized relative velocity vector of that second object. This equates to the cosine between these two vectors weighted by the magnitude of the relative velocity. This feature is minimal when the second object is moving directly towards the reference object. A positive closing value on the other hand indicates that the objects are moving away from each other. When the feature becomes 0 it indicates that the distance will not change. As mentioned above, the relative velocity is estimated by the finite difference of the current and last position.
-
-The other relative features are computed by transforming their global counterparts to the coordinate system of the reference object. Equation \ref{eq:trans} shows this exemplary for the position:
-
-\begin{equation}
-	\vec{relPos} = T^{-1} \times \vec{gPos}
-\label{eq:trans}
-\end{equation}
-
-where $T^{-1}$ is the transformation matrix computed from the reference objects orientation and global position as defined by equation \ref{eq:transMatrix}. $\vec{gPos}$ is the position vector of the second object in homogeneous coordinates. 
-
-The distance is calculated by computing the distances from all corners of one objects to all edges of the second object. 
-The distance between the two objects corresponds to the closest of these corner-edge distances. In case of round objects, such as the actuator, the center is considered as a corner and the radius is subtracted from the computed distance.
+$\vec{n}$ represents the normal vector from the reference object towards the second object and $\vec{rv}$ represents the non normalized relative velocity vector of that second object. This equates to the cosine between these two vectors weighted by the magnitude of the relative velocity. This feature is minimal when the objects are moving directly towards one another. A positive closing value on the other hand indicates that the objects are moving away from each other. When the feature becomes 0 it indicates that the distance will not change. As mentioned above, the relative velocity is estimated by the finite difference of the current and last position.
 
 \begin{figure}
 	\centering
@@ -361,24 +409,37 @@ The distance between the two objects corresponds to the closest of these corner-
 	\label{fig:closing}
 \end{figure} 
 
+The other relative features are computed by transforming their global counterparts to the coordinate system of the reference object. Equation \ref{eq:trans} shows this exemplary for the position:
+
+\begin{equation}
+	\vec{relPos} = T^{-1} \times \vec{gPos}
+\label{eq:trans}
+\end{equation}
+
+where $T^{-1}$ is the transformation matrix computed from the reference objects orientation and global position as defined by equation \ref{eq:transMatrix}. $\vec{gPos}$ is the position vector of the second object in homogeneous coordinates. The same transformation is required when computing the change in an object's state. 
+
+The distance is calculated by computing the distances from all corners of one objects to all edges of the second object. 
+The distance between the two objects corresponds to the closest of these corner-edge distances. In case of round objects, such as the actuator, the center is considered as a corner and the radius is subtracted from the computed distance.
+
+
 \subsection{From target object state to action primitive \label{sec:gatePlanningReal}}
 
-The overall process of computing a suitable action primitive that allows to push an object towards a given target configuration is quite similar to the one in the previous model explained in section \ref{sec:pairPlanningReal}. However, due to the differences in representation, the process is actually easier in this model. 
+The overall process of computing a suitable action primitive that allows to push an object towards a given target configuration is quite similar to the one in the previous model that is explained in section \ref{sec:pairPlanningReal}. However, due to the differences in representation, the process is actually easier in this model. 
 First of all, since the model works directly with the object states, the target representation does not need to be changed. A specified target object state can directly be used by the model. 
 Furthermore, for each object group only one inverse model exist, which directly avoids the problems with multiple local inverse models mentioned in section \ref{sec:pairPlanningReal}. 
 
-The preconditions are received as visualized in figure \ref{fig:GatePlanning}: 
-First the difference vector between the current object state and the target state is computed. Afterwards, the local inverse model responsible for the given object is queried for the preconditions given this difference vector. The actual computation of these preconditions is explained in section \ref{sec:invModelRealization}.
+The preconditions are computed as visualized in figure \ref{fig:GatePlanning}: \\
+First the difference vector between the current object state and the target state is calculated. Afterwards, the local inverse model responsible for the given object is queried for the preconditions given this difference vector. The actual computation of these preconditions is explained in section \ref{sec:invModelRealization}.
 
 Once the preconditions have been computed, the same analysis as in the other model needs to be performed. These preconditions are in the form of the relative interaction features described above.
 Unlike in the prediction case, the model needs to have knowledge about what some of the features represent. Specifically, the information about the local actuator position $\vec{p}_{cond}$ needs to be extracted from these preconditions. Afterwards, $\vec{p}_{cond}$ can be compared with the local actuator position $\vec{p}_{cur}$. $\vec{p}_{cur}$ is extracted from the current relative interaction features between the object and the actuator. 
 If these two positions are too far apart\footnote{This implementation considers an euclidean distance of 0.1 as too far apart. This threshold has proven to be suitable in the environment presented in section \ref{sec:environment}.} a circling action is performed. Unfortunately, this needs to be provided by the user since the model has no information about the shape of the objects or what circling means. In this implementation, each object state, that needs to be defined by the user anyways, provides a method that computes an action that circles the actuator around the object in a fixed distance.
-See exact algorithm used to compute the circling action is given in Appendix \ref{sec:circling}.
+The exact algorithm used to compute the circling action is given in Appendix \ref{sec:circling}.
 
 The model uses a circling action instead of directly moving towards the desired position, because the target position might be on another side of the object. When moving the actuator straight towards $\vec{p}_{cond}$ the object might be influenced in a negative way.
 
 If the actuator is close but not close enough\footnote{This implementation considers a euclidean distance of < 0.01 as close enough.} the direction $\vec{d} = \vec{p}_{cond} - \vec{p}_{cur}$ can be used as action primitive.
-However, regardless of how fine the threshold is set, the object might still be in the way of this direction in some cases. In order to avoid, moving the object in an unintended way, the direction is only followed if the gate predicts that the next action will not influence the object. Otherwise, the same circling movement as described above is performed.
+However, regardless of how fine the \enquote{closeness} threshold is set, the object might still be in the way of this direction in some cases. In order to avoid, moving the object in an unintended way, the direction is only followed if the gate predicts that the next action will not influence the object. Otherwise, the same circling movement as described above is performed.
 
 Once the actuator is close enough to $\vec{p}_{cond}$, the actual action primitive needs to be extracted from the preconditions. 
 While the action primitives were directly included in the preconditions in the interaction model, they are not included in the preconditions for this model. 
@@ -483,38 +544,74 @@ Especially, since small noise can also be filtered out by only considering featu
 After equivalent combinations have been merged, the resulting input features might represent a new combination. This combination is computed and used as new hash for storing the resulting values. 
 
 \begin{algorithm}
-	\KwIn{List of combinations L}
-	\KwIn{Hashmap of combination weights W}
-	\KwIn{Hashmap of combination input sums I}
-	\KwIn{Hashmap of combination occurence numbers N}
+\begin{algorithmic}[1]
+	\Require{List of combinations L}
+	\Require{Hashmap of combination weights W}
+	\Require{Hashmap of combination input sums I}
+	\Require{Hashmap of combination occurence numbers N}
 	
-	\KwOut{Hashmap of merged combination weights W$^*$}
-	\KwOut{Hashmap of merged combination input sums I$^*$}
-	\KwOut{Hashmap of merged combination occurence numbers N$^*$}
-	\BlankLine
-	usefulKeys = filterInvalidCombinations(L, N) \\
-	sortedKeys = sortByNumZeros(usefulKeys) \\
-	\While{sortedKeys not empty}{
-		currentKey = sortedKeys[0] \\
-		tmpWeight = 0 \\ %W[currentKey] \\
-		tmpSum = 0 \\ %I[currentKey] \\
-		tmpNumber = 0 \\ %N[currentKey] \\
-		\ForEach{key in sortedKeys}{
-			\If{isEquivalent(currentKey, key)}{
-				tmpWeight += W[key] \\
-				tmpSum += I[key] \\
-				tmpNumber += N[key] \\
-				remove key from sortedKeys \\
-			}
-		}
-		newKey = recomputeCombination(tmpSum, tmpWeight) \\
-		W$^*$ = tmpWeight \\
-		I$^*$ = tmpSum \\
-		N$^*$ = tmpNumber \\
-	}
-	\caption{Description of the merging process for combinations within a node.}
-	\label{alg:combinationMerging}
+	\Ensure{Hashmap of merged combination weights W$^*$}
+	\Ensure{Hashmap of merged combination input sums I$^*$}
+	\Ensure{Hashmap of merged combination occurence numbers N$^*$}
+	\Statex
+	\Let{usefulKeys}{filterInvalidCombinations(L, N)}
+	\Let{sortedKeys}{sortByNumZeros(usefulKeys)}
+	\While{sortedKeys not empty}
+		\Let{currentKey}{sortedKeys[0]}
+		\Let{tmpWeight}{0}
+		\Let{tmpSum}{0}
+		\Let{tmpNumber}{0}
+		\ForAll{key in sortedKeys}
+			\If{isEquivalent(currentKey, key)}
+				\Let{tmpWeight}{tmpWeight + W[key]}
+				\Let{tmpSum}{tmpSum + I[key]}
+				\Let{tmpNumber}{tmpNumber + N[key]}
+				\State remove key from sortedKeys
+			\EndIf
+		\EndFor
+		\Let{newKey}{recomputeCombination(tmpSum, tmpWeight)}
+		\Let{W$^*$}{tmpWeight}
+		\Let{I$^*$}{tmpSum}
+		\Let{N$^*$}{tmpNumber}
+	\EndWhile
+\end{algorithmic}
+\caption{Description of the merging process for combinations within a node.}
+\label{alg:combinationMerging}
 \end{algorithm}
+
+%\begin{algorithm}
+%	\KwIn{List of combinations L}
+%	\KwIn{Hashmap of combination weights W}
+%	\KwIn{Hashmap of combination input sums I}
+%	\KwIn{Hashmap of combination occurence numbers N}
+%	
+%	\KwOut{Hashmap of merged combination weights W$^*$}
+%	\KwOut{Hashmap of merged combination input sums I$^*$}
+%	\KwOut{Hashmap of merged combination occurence numbers N$^*$}
+%	\BlankLine
+%	usefulKeys = filterInvalidCombinations(L, N) \\
+%	sortedKeys = sortByNumZeros(usefulKeys) \\
+%	\While{sortedKeys not empty}{
+%		currentKey = sortedKeys[0] \\
+%		tmpWeight = 0 \\ %W[currentKey] \\
+%		tmpSum = 0 \\ %I[currentKey] \\
+%		tmpNumber = 0 \\ %N[currentKey] \\
+%		\ForEach{key in sortedKeys}{
+%			\If{isEquivalent(currentKey, key)}{
+%				tmpWeight += W[key] \\
+%				tmpSum += I[key] \\
+%				tmpNumber += N[key] \\
+%				remove key from sortedKeys \\
+%			}
+%		}
+%		newKey = recomputeCombination(tmpSum, tmpWeight) \\
+%		W$^*$ = tmpWeight \\
+%		I$^*$ = tmpSum \\
+%		N$^*$ = tmpNumber \\
+%	}
+%	\caption{Description of the merging process for combinations within a node.}
+%	\label{alg:combinationMerging}
+%\end{algorithm}
 
 \textbf{2) Selecting combinations with the highest contribution:}
 
@@ -527,30 +624,58 @@ In that case the best two combinations are considered if their average contribut
 From the two combinations with the biggest contribution, two preconditions are computed as described in algorithm \ref{alg:averaging}.
 
 \begin{algorithm}
-	\KwIn{$\vec{pre}_1$ Input sum of the first combination}
-	\KwIn{$\vec{pre}_2$ Precondition sum of the second combination}
-	\KwIn{$w_1$ Total weight for the first combination}
-	\KwIn{$w_2$ Total weight for the second combination}
-	\KwIn{$\vec{comp}_1$ Vector containing feature signs for the first combination}
-	\KwIn{$\vec{comp}_2$ Vector containing feature signs for the second combination}
-	\KwOut{average$_1$}
-	\KwOut{average$_2$}
-	\BlankLine
-	size = len($\vec{comp}_1$) \\
-	\For{i = 1..size}{
-		c$_{1i}$ = $\vec{comp}_1$[i] \\
-		c$_{2i}$ = $\vec{comp}_2$[i] \\
-		\eIf{c$_{1i}$ == c$_{2i}$}{
-			average$_1$[i] = $\frac{pre_{1i} + pre_{2i}}{w_1+w_2}$ \\
-			average$_2$[i] = average$_1$[i] \\
-		}{
-			average$_1$[i] = $\frac{pre_{1i}}{w_1}$	\\
-			average$_1$[i] = $\frac{pre_{2i}}{w_2}$  
-		}  
-	}
-	\caption{Description of the averaging process within the nodes if at least two combinations are present.}
-	\label{alg:averaging}
+\begin{algorithmic}[1]
+	\Require{$\vec{pre}_1$ Input sum of the first combination}
+	\Require{$\vec{pre}_2$ Precondition sum of the second combination}
+	\Require{$w_1$ Total weight for the first combination}
+	\Require{$w_2$ Total weight for the second combination}
+	\Require{$\vec{comp}_1$ Vector containing feature signs for the first combination}
+	\Require{$\vec{comp}_2$ Vector containing feature signs for the second combination}
+	\Ensure{$\vec{average}_1$}
+	\Ensure{$\vec{average}_2$}
+	\Statex
+	\Let{size}{len($\vec{comp}_1$)}
+	\For{i = 1..size}
+		\Let{c$_{1i}$}{$\vec{comp}_1$[i]}
+		\Let{c$_{2i}$}{$\vec{comp}_2$[i]}
+		\If{c$_{1i}$ == c$_{2i}$}
+			\Let{$\vec{average}_1$[i]}{$\frac{pre_{1i} + pre_{2i}}{w_1+w_2}$}
+			\Let{$\vec{average}_2$[i]}{$\vec{average}_1$[i]}
+		\Else
+			\Let{$\vec{average}_1$[i]}{$\frac{pre_{1i}}{w_1}$}
+			\Let{$\vec{average}_2$[i]}{$\frac{pre_{2i}}{w_2}$ }
+		\EndIf
+	\EndFor
+\end{algorithmic}
+\caption{Description of the averaging process within the nodes if at least two combinations are present.}
+\label{alg:averaging}
 \end{algorithm}
+
+%\begin{algorithm}
+%	\KwIn{$\vec{pre}_1$ Input sum of the first combination}
+%	\KwIn{$\vec{pre}_2$ Precondition sum of the second combination}
+%	\KwIn{$w_1$ Total weight for the first combination}
+%	\KwIn{$w_2$ Total weight for the second combination}
+%	\KwIn{$\vec{comp}_1$ Vector containing feature signs for the first combination}
+%	\KwIn{$\vec{comp}_2$ Vector containing feature signs for the second combination}
+%	\KwOut{average$_1$}
+%	\KwOut{average$_2$}
+%	\BlankLine
+%	size = len($\vec{comp}_1$) \\
+%	\For{i = 1..size}{
+%		c$_{1i}$ = $\vec{comp}_1$[i] \\
+%		c$_{2i}$ = $\vec{comp}_2$[i] \\
+%		\eIf{c$_{1i}$ == c$_{2i}$}{
+%			average$_1$[i] = $\frac{pre_{1i} + pre_{2i}}{w_1+w_2}$ \\
+%			average$_2$[i] = average$_1$[i] \\
+%		}{
+%			average$_1$[i] = $\frac{pre_{1i}}{w_1}$	\\
+%			average$_1$[i] = $\frac{pre_{2i}}{w_2}$  
+%		}  
+%	}
+%	\caption{Description of the averaging process within the nodes if at least two combinations are present.}
+%	\label{alg:averaging}
+%\end{algorithm}
 
 Where possible, the prototypes return two results since there are cases, such as the example in figure \ref{fig:avgProblem}, where at least two different options are valid. When wanting to rotate the object, both preconditions visualized in the figure are valid options. Which one should be preferred needs to be determined by the network.
 

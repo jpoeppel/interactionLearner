@@ -14,28 +14,60 @@ The process is described in algorithm \ref{alg:circling}:
 \Require{Local direction $\vec{t}$ from target to object}
 \Ensure{Velocity vector $\vec{v}$ that moves the actuator around the object towards the target.}
 \Statex
-\If{$dist < 0.04$} 
-	\Let{$\vec{v}$}{$-{norm} \cdot \vec{d}_{global}$} 
-\ElsIf{$dist$ > 0.06} 
-	\Let{$\vec{v}$}{${norm} \cdot \vec{d}_{global}$} 
-\Else 
-	\Let{$\vec{v}$}{computeTangent( $\vec{d}_{global}$, $\vec{d}_{local}$, $\vec{t}$)}  
-\EndIf
-\State \Return{$\vec{v}$}
+\Function {circling} {$dist$, $\protect\vec{d}_{local}$, $\protect\vec{d}_{global}$, $\protect\vec{t}$, $\protect\vec{v}$}
+	\If{$dist < 0.04$} 
+		\Let{$\vec{v}$}{$-{norm} \cdot \vec{d}_{global}$} 
+	\ElsIf{$dist$ > 0.06} 
+		\Let{$\vec{v}$}{${norm} \cdot \vec{d}_{global}$} 
+	\Else 
+		\Let{$\vec{v}$}{computeTangent( $\vec{d}_{global}$, $\vec{d}_{local}$, $\vec{t}$)}  
+	\EndIf
+	\State \Return{$\vec{v}$}
+\EndFunction
 \Statex
-\Function {computeTangent}{$\vec{d}_{global}$, $\vec{d}_{local}$, $\vec{t}$}
-	\Let{$\vec{tan}$}{$[-\vec{d}_{global}[1], \vec{d}_{global}[0]]$}
-	\State \Return{$\vec{tan}$}
+\Function {computeTangent}{$\protect\vec{d}_{global}$, $\protect\vec{d}_{local}$, $\protect\vec{t}$}
+	\Let{$tan^x$}{$-d_{global}^y$}
+	\Let{$tan^y$}{$d_{global}^x$}
+	\Let{actAngle}{$\arctan_2 (d_{local}^y, d_{local}^x)$}
+	\Let{targetAngle}{$\arctan_2 (\vec{t}[1], \vec{t}[0])$}
+	\Let{angDif}{targetAngle + $\pi$ - (actAngle + $\pi$)}
+	\If{angDif > 0}
+		\If{|angDif| < $\pi$}
+			\State \Return $\vec{tan}$
+		\Else
+			\State \Return $-\vec{tan}$
+		\EndIf
+	\Else
+		\If{|angDif| < $\pi$}
+			\State \Return $-\vec{tan}$
+		\Else
+			\State \Return $\vec{tan}$
+		\EndIf
+	\EndIf
 \EndFunction
 \end{algorithmic}
-\caption{Pseudocode for computing a suitable circling action.}
+\caption{Pseudocode for computing a suitable circling action. The resulting tangent needs to be normalized according to the situation.}
 \label{alg:circling}
 \end{algorithm}
 
 
 Using the distance, the actuator can stay within a save distance of \m{0.04} to \m{0.06} of the object. Outside this area, the actuator moves straight towards or away from the center of the object. This ensures, that the actuator does not collide with the object while circling.
 Inside this area, the actuator uses one of the two tangents to the global direction from the actuator to the object. Which tangent to use is determined by the angles of the vectors between actuator-object and target-object with respect to the local x axis of the objects coordinate system. 
-The direction, that reduces the difference the most is chosen.
+The direction, that reduces the difference the most is chosen. The direction is determined as shown in the function \textit{ComputeTangent}.
+
+\newpage
 
 \section{Protobuf messages \label{sec:protobufMessages}}
+
+The following Protobuf messages were defined in order to communicate with the simulation:
+
+\begin{itemize}
+\item ActuatorCommand: Allows to send commands for the actuator. Only moving is used for this thesis.
+\item ModelState: Provides information about a single object. Includes name,identifier, position, orientation, linear and angular velocity.
+\item ModelState\textunderscore V: A list of ModelStates in order to transmit information about all objects at the same time
+\item WorldState: Includes a ModelState\textunderscore V filled Modelstates for all objects and contacts information. The contact information is not used in the current setting though.
+\end{itemize}
+
+Apart from these self defined messages, this thesis also uses some of the already predefined ones from gazebo such as Contacts, Vector3d. A complete overview of all available messages for the used version can be found at: \\ \url{http://osrf-distributions.s3.amazonaws.com/gazebo/msg-api/2.2.1/classes.html}
+(last checked December 2015).
 

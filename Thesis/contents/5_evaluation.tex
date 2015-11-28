@@ -71,7 +71,7 @@ The information for all objects is packed into a custom Protobuf message, which 
 Furthermore, the plug-in receives custom control messages. These messages allow the Python interface to influence the simulation.
 While the exact messages are explained in the Appendix \ref{sec:protobufMessages}, table \ref{tab:commands} gives an overview about the possible commands, that can be send to the simulation.
 
-On the Python side, an interface was written with the help of the module pygazebo \cite{pygazebo}, which provides Python bindings for the message passing system used by gazebo. This interface handles the messages that are received from and send to the simulation. 
+On the Python side, an interface was written with the help of the module  pygazebo\footnote{Pygazebo is a Python module developed by Josh Pieper: \url{https://github.com/jpieper/pygazebo} (Accessed November 2015).}, which provides Python bindings for the message passing system used by gazebo. This interface handles the messages that are received from and send to the simulation. 
 At each update step, the interface performs four to five actions:
 \begin{enumerate}
 \item Construct a suitable worldstate from the provided information
@@ -180,19 +180,40 @@ Some meta parameters, such as $\eta_{max}$ had to be predetermined and adapted t
 
 In order for both models to be more comparable, the local actuator models as well as the gating function were also learned online in the object state concept, even though it is possible to provide accurate models by hand in this situation.
 
-In this evaluation, the implementations are evaluated in the configuration described in the last chapter with meta parameters chosen as indicated by table \ref{tab:parameters}
+In this evaluation, the implementations are evaluated in the configuration described in the last chapter with meta parameters chosen as indicated by table \ref{tab:parameters}.
+Both models use almost the same set of meta parameters. While the interaction model specifies $\epsilon_{noise}$ to determine the set of changed features, the object state model uses $\epsilon_{change}$ to determine when an object state has changed.
 
-%TODO fill
 \begin{table}[H]
 	\centering
+	\footnotesize
 	\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}} c c c }
-			\hline \textbf{Parameter} & \textbf{Interaction} & \textbf{Gate} \\ 
+			\hline 
+			& \textbf{Parameter} & \textbf{Value}  \\ 
 			\hline \hline 
-			 $\sigma$ & 0.05 & 0.05 \\
-			 $\eta_{max}$ & 0.001 & 0.001 \\  
+	 		 Simulation & Step size & 0.001 s  \\
+			 & Real time update rate & 500 \\
+			 & Update rate models & 100 Hz \\
+			 & Number decimals & 3  \\
+			 \hline
+			 \gls{aitm}& $\sigma$ & 0.05 \\
+			 & $\epsilon_{max}$ & 0.001\\  
+			 & $\eta_{in}$ & 0 \\
+			 & $\eta_{out}$ & 0  \\
+			 & $\eta_{A}$ & 0  \\
+			 \hline
+ 			 Episodes & $\epsilon_{noise}$ & 0.01  \\
+ 			 \hline
+ 			 Gating function & $\epsilon_{change}$  & 0 \\
+ 			 \hline
+ 			 \gls{tiim} & $\epsilon_{index}$ & 0.002  \\
+ 			 & $\epsilon_{Node}$ & 0.001  \\
+ 			 & Number of differing dimensions  & 1  \\
+ 			 \hline
+			 Move To Target & $\epsilon_{close}$ & 0.1  \\
+			 & $\epsilon_{closeEnough}$ & 0.01 \\
 			\hline 
 	\end{tabular*} 
-	\caption{Summary of the meta parameters used for the presented evaluations.}
+	\caption{Summary of the meta parameters used for the presented evaluations. The learning rates $\eta_x$ are the same for all instances of the \gls{aitm}.}
 	\label{tab:parameters}
 \end{table}
 

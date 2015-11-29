@@ -2,8 +2,8 @@
 
 \section{Circling action \label{sec:circling}}
 
-In order to provide action primitives that move the actuator around an object, a circling action was required. The computation of the circling action was designed based on the available features in the object state model.
-Therefore, the distance between the actuator and the object needed to be computed additionally for the interaction model. The distance is used in order to be able to avoid the object without explicit knowledge about the object's shape. Some shape information is however required in order to compute the distance. 
+In order to provide action primitives that move the actuator around an object, a circling action was required. The computation of the circling action was designed based on the available features in the gating model.
+Therefore, the distance between the actuator and the object needed to be computed additionally for the interaction state model. The distance is used in order to be able to avoid the object without explicit knowledge about the object's shape. Some shape information is however required in order to compute the distance. 
 The process is described in algorithm \ref{alg:circling}:
 
 \begin{algorithm}
@@ -68,6 +68,36 @@ The following Protobuf messages were defined in order to communicate with the si
 \item WorldState: Includes a ModelState\textunderscore V filled Modelstates for all objects and contacts information. The contact information is not used in the current setting though.
 \end{itemize}
 
-Apart from these self defined messages, this thesis also uses some of the already predefined ones from gazebo such as Contacts, Vector3d. A complete overview of all available messages for the used version can be found at: \\ \url{http://osrf-distributions.s3.amazonaws.com/gazebo/msg-api/2.2.1/classes.html}
+The included information of these messages is summarized in table \ref{tab:protobuf}
+
+\begin{table}
+	\footnotesize
+	\centering
+	\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}} c c c}
+			\hline \textbf{Message} & \textbf{Field} & \textbf{Type} \\
+			\hline \hline 
+			 ActuatorCommand & cmd & Command (NOTHING, MOVE, GRAB, RELEASE)  \\ 
+			  & direction & Vector3d \\
+			  \hline
+			 ModelState & name & String \\
+			  & id & uint32 \\
+			  & is\textunderscore static & bool \\ 
+			  & pose & Pose \\
+			  & scale & Vector3d \\
+			  & linVel & Vector3d \\
+			  & angVel & Vector3d \\
+			  & type & uint32 \\
+			 \hline
+			 ModelState\textunderscore V & models & [ModelState] \\
+			 \hline
+			 WorldState & model\textunderscore v & ModelState\textunderscore V \\
+			  & contact & Contacts \\
+			\hline 
+	\end{tabular*} 
+	\caption{Summary of custom Protobuf messages including their fields.}
+	\label{tab:protobuf}
+\end{table}
+
+Apart from these self defined messages, this thesis also uses some of the already predefined ones from gazebo such as Contacts, Pose and Vector3d. A complete overview of all available messages for the used version can be found at: \\ \url{http://osrf-distributions.s3.amazonaws.com/gazebo/msg-api/2.2.1/classes.html}
 (last checked December 2015).
 

@@ -28,8 +28,9 @@ This thesis uses an update rate of 500 when the models are to be updated at 100H
 The simulation sends information about the objects every x simulation steps, where x depends on the chosen update rate and step size. When using 100Hz, the simulation publishes the objects' information every 10 steps of physics simulation.
 
 A very simple two dimensional environment is used, only containing a spherical actuator and a rectangular cube object such as the one that can be seen in figure \ref{fig:gazeboWorld}. In all but one testing scenarios only one of two possible block objects is used mainly due to the reasons discussed in sections \ref{sec:interactionTheory} and \ref{sec:gateTheoDisc}.
-The dimensions of all objects as well as their friction coefficients used by the physics simulation are listed in table \ref{tab:environmentObjects}.
+The dimensions of all objects as well as their friction coefficients and masses used by the physics simulation are listed in table \ref{tab:environmentObjects}.
 The fairly high friction coefficient for the blocks was chosen in order to better suit the assumption of the object state model. By increasing the friction the blocks are less likely to slide. The high mass for the actuator was chosen so that the used velocities actually move the other object since forces are not set directly.
+The red block shows less rotatory dynamics due to its shorter edges than the blue block
 
 The used action primitives were chosen based on their ease of implementation in the simulation, since it is quite easy to change the global velocity of an object
 at runtime. For simplicity the spherical actuator's orientation is fixed to 0 so that the global velocities always correspond to the local coordinate system of the actuator.
@@ -56,6 +57,7 @@ at runtime. For simplicity the spherical actuator's orientation is fixed to 0 so
 	\label{fig:gazeboWorld}
 \end{figure}
 
+All experiments were performed on the same computer using an Intel Core i7-5820K @ 3300 Mhz CPU. 
 
 \subsection{Communication}
 Gazebo uses a client-server architecture. The actual simulation is being performed by the server.
@@ -127,14 +129,14 @@ The \textit{Push Task Simulation} is designed to test the accuracy of the forwar
 
 \subsection{Scenario description}
 
-In this task, the actuator is controlled by a constant action primitive which first moves the actuator towards an object and then pushes it.
+In this task, the actuator is controlled by a constant action primitive which first moves the actuator towards the blue object and then pushes it.
 In order to evaluate different interactions, the actuator starts at different starting positions on a line parallel to the object. 
 
 The distance between the starting line and the center of the object is 25 cm. With the used speed, the actuator reaches the object in about 35 update steps after the start of a run. Depending on the third issue explained above, this number can vary a little.
 
 After 150 update steps, a \textit{run} ends and the objects are reset. This means, that the object will be placed at its resting position and the actuator is moved back to the starting line. 
 
-During a run, the object's status can change in a number of ways. In case the actuator goes past the object, it will not change at all. If it is pushed in the center, it will be translated up to \m{0.6}. Furthermore, depending on where the object is pushed, it will be rotated up to \rad{1.02} (around 58°) in either direction. %TODO only true for the blue object
+During a run, the object's status can change in a number of ways. In case the actuator goes past the object, it will not change at all. If it is pushed in the center, it will be translated up to \m{0.6}. Furthermore, depending on where the object is pushed, it will be rotated up to \rad{1.02} (around 58°) in either direction. 
 The maximum rotation is experienced when the actuator starts around \m{0.105} away from the origin.
 
 An example starting and end configuration can be seen in figure \ref{fig:pushTaskSim}. 
@@ -146,7 +148,7 @@ Furthermore, the predicted states of both the actuator and the object are send t
 	\centering
 	\includegraphics[width=0.8\textwidth]{PushTaskSim.png}
 	\caption{Exemplary start and end configuration of a \textit{Push Task Simulation} run. The left side shows the start configuration, while on the right the corresponding end configuration can be seen.
-		The opaque objects (dark blue and black) represent the actual block and actuator, while the transparent objects symbolize the predicted states of the objects.}
+		The opaque objects (blue and black) represent the actual block and actuator, while the transparent objects symbolize the predicted states of the objects.}
 	\label{fig:pushTaskSim}
 \end{figure}
 
@@ -155,8 +157,8 @@ The models will not get any feedback from the real environment in this setting d
 In order to be able to make predictions at all, the model will first perform a number of training runs. During these training runs, the models are provided with the current worldstate from the simulation in order to train their local models.
 
 In all runs, an action primitive is used that sets the velocity of the actuator to $0.5\frac{m}{s}$ straight upwards. Although only a constant global action is used, the prediction task is still challenging enough: \\
-The constant action primitive does make it easy for the object state concept to learn the forward model of the actuator. However, the local forward model for the object is not as simple because the velocity is not constant in local coordinates but rather depends on the object's orientation. 
-Similarly, in the interaction concept the used action primitive is also transformed to the local coordinate frame of the reference object.
+The constant action primitive does make it easy for the gating concept to learn the forward model of the actuator. However, the local forward model for the object is not as simple because the velocity is not constant in local coordinates but rather depends on the object's orientation. 
+Similarly, in the interaction state concept the used action primitive is also transformed to the local coordinate frame of the reference object.
 
 Different kinds of training scenarios are evaluated in this task which are further explained below when their results are presented.
 
@@ -172,16 +174,15 @@ The positional difference is computed by the euclidean distance between the cent
 Each training and testing setting is repeated 20 times and the average differences in position and orientation as well as their standard deviations are reported. 
 
 \subsection{Evaluated configuration}
-%TODO
-The implementations of both concepts offer several possible configurations, ranging from using different features to using hard coded components in the gating concept and choosing different learning rates for the underlying regression and classification models. 
 
-Since the goal of this thesis was to provide models that adapt to their environment with as little prior knowledge as possible, standard parameters are where possible. This includes setting all learning rates to zero for the \gls{aitm}. This choice is corresponds to disabling the adaptation within the \gls{aitm}.
-Some meta parameters, such as $\eta_{max}$ had to be predetermined and adapted to the given situation beforehand.
+The implementations of both concepts offer several possible configurations, ranging from using different features to using hard coded components in the gating concept and choosing different learning rates for the underlying regression and classification models. 
 
 In order for both models to be more comparable, the local actuator models as well as the gating function were also learned online in the object state concept, even though it is possible to provide accurate models by hand in this situation.
 
+Since the goal of this thesis was to provide models that adapt to their environment with as little prior knowledge as possible, standard parameters are chosen where possible. 
+
 In this evaluation, the implementations are evaluated in the configuration described in the last chapter with meta parameters chosen as indicated by table \ref{tab:parameters}.
-Both models use almost the same set of meta parameters. While the interaction model specifies $\epsilon_{noise}$ to determine the set of changed features, the object state model uses $\epsilon_{change}$ to determine when an object state has changed.
+Both models use almost the same set of meta parameters. While the interaction state model specifies $\epsilon_{noise}$ to determine the set of changed features and $\epsilon_{min}$ to determine the minimum number of episodes within an \gls{ac}, the gating model uses $\epsilon_{change}$ to determine when an object state has changed.
 
 \begin{table}[H]
 	\centering
@@ -203,6 +204,8 @@ Both models use almost the same set of meta parameters. While the interaction mo
 			 \hline
  			 Episodes & $\epsilon_{noise}$ & 0.01  \\
  			 \hline
+ 			 \acrlong{acs} & $\epsilon_{min}$ & 1 \\ 
+ 			 \hline
  			 Gating function & $\epsilon_{change}$  & 0 \\
  			 \hline
  			 \gls{tiim} & $\epsilon_{index}$ & 0.002  \\
@@ -221,31 +224,30 @@ Both models use almost the same set of meta parameters. While the interaction mo
 
 \textbf{Generalization on random training data:}
 
-%TODO if another object is added, specify which one is used here
-The first test evaluates the prediction accuracy against the number of random training runs. The training run start positions were chosen at random in the range of \m{-0.25} to \m{0.25}. This means that they span the entire width of the block objects.
+The first test evaluates the prediction accuracy against the number of random training runs. The training run start positions were chosen at random in the range of \m{-0.25} to \m{0.25}. This means that they span the entire width of the (blue) block objects.
 For each number of training runs that were evaluated, 21 test runs were performed with starting positions in the range of \m{-0.35} to \m{0.35} at \m{0.035} intervals. This means that 6 test runs went past the object without interacting with it.
-The averaged results for the blue block predictions over all folds for the interaction state model in the first configuration can be seen in figure \ref{fig:learnCurveInteraction1}. The averages over all test positions as well as only over the 15 central test positions are shown.
+The averaged results for the blue block predictions over all folds for the interaction state model can be seen in figure \ref{fig:learnCurveInteraction1}. The averages over all test positions as well as only over the 15 central test positions are shown.
 
 \begin{figure}[h]
 \centering
 \includegraphics[width=0.7\textwidth]{LearningCurveinteractionModel_C_0E20FoldsSigma005.pdf}
-\caption{Learning curve for the interaction concept with the blue block. Difference in position and orientation for the block predictions and differences for the actuator position at the end of a run are shown. Error bars indicate one standard deviation. Blue error bars represents averages over all 21 test positions, while red error bars only averages over the 15 test positions where the block is actually moved.}
+\caption{Learning curve for the interaction state concept with the blue block. Difference in position and orientation for the block predictions and differences for the actuator position at the end of a run are shown. Error bars indicate one standard deviation. Blue error bars represents averages over all 21 test positions, while red error bars only averages over the 15 test positions where the block is actually moved.}
 \label{fig:learnCurveInteraction1}
 \end{figure}
 
 The positional prediction error starts around \m{0.24} with a standard deviation of around \m{0.15} when the model is only trained with a single training example. The prediction performance improves to roughly \m{0.09} with a standard deviation of around \m{0.05}.
 The predicted orientation error starts at an average of about \rad{0.8} with a standard deviation of \rad{0.5} but improves to around \rad{0.25} with a standard deviation of \rad{0.09} when increasing the number of random training examples.
-The performances for position and orientation do not increase much more after the first 10 training runs (\m{0.12} $+/-$ \m{0.08} for position and \rad{0.33} $+/-$ \rad{0.16} for orientation).
+The performances for position and orientation do not increase much more after the first 10 training runs (\m{0.12} $+/-$\footnote{The notation $+/-$ is used to as an abbreviation for " with a standard deviation of ".} \m{0.08} for position and \rad{0.33} $+/-$ \rad{0.16} for orientation).
 The actuator position predictions errors are ranging between \m{0.03} and \m{0.05} with standard deviations between \m{0.02} and \m{0.04}.
 
 When only considering the testing positions where the actuator actually interacts with the block (red error bars), predicted errors improve slightly.
 
-The results for the same experiment with the object state with gating function model using the first configuration are presented in figure \ref{fig:learnCurveGate1}.
+The results for the same experiment with the gating model using are presented in figure \ref{fig:learnCurveGate1}.
 
 \begin{figure}[h]
 \centering
 \includegraphics[width=0.7\textwidth]{LearningCurvegateModel_C_0E20FoldsAllGateFSigma005.pdf}
-\caption{Learning curve for the object state with gating function concept using the blue block. Difference in position and orientation for the block predictions and differences for the actuator position at the end of a run are shown. Error bars indicate one standard deviation. Blue error bars represents averages over all 21 test positions, while red error bars only averages over the 15 test positions where the block is actually moved.}
+\caption{Learning curve for the gating concept using the blue block. Difference in position and orientation for the block predictions and differences for the actuator position at the end of a run are shown. Error bars indicate one standard deviation. Blue error bars represents averages over all 21 test positions, while red error bars only averages over the 15 test positions where the block is actually moved.}
 \label{fig:learnCurveGate1}
 \end{figure}
 
@@ -279,10 +281,11 @@ Table \ref{tab:learnCurveInteractionNodes} presents the average numbers of updat
 	\label{tab:learnCurveInteractionNodes}
 \end{table}
 
-The data in the table indicates, that on \gls{ac} dominates the space since the number AC Updates for the \gls{ac} with the most nodes is significantly bigger than the average number of Update calls divided by the average number of \glspl{ac}.
-
-Similarly, table \ref{tab:learnCurveGateNodes} shows the respective number of update calls and nodes for the \glspl{aitm} used by the object state model.
+The data in the table indicates, that one \gls{ac} dominates the space since the number of AC Updates for the \gls{ac} with the most nodes is significantly bigger than the average number of Update calls divided by the average number of \glspl{ac}.
 The \glspl{ac} appear to keep a node for every 3 to 4 update calls. The \gls{acs}, which is trained on every update, also creates a node for about every 4th update.
+
+Similarly, table \ref{tab:learnCurveGateNodes} shows the respective number of update calls and nodes for the \glspl{aitm} used by the gating model.
+
 
 \begin{table}
 \footnotesize 
@@ -326,7 +329,7 @@ The further away from the training positions, the worse the prediction for both 
 
 It is also interesting to note, that the position and orientation are predicted very consistently (most standard deviations below \m{0.02} and all below \rad{0.02}).
 
-The results for the same experiment performed with the object state model are presented in figure \ref{fig:eachPosGate}.
+The results for the same experiment performed with the gating model are presented in figure \ref{fig:eachPosGate}.
 
 \begin{figure}
 \centering
@@ -335,7 +338,7 @@ The results for the same experiment performed with the object state model are pr
 \label{fig:eachPosGate}
 \end{figure}
 
-The object state with gating function successfully does not make predictions for the test runs that go past the object after seeing the three fixed training runs. However, no predictions are also made for the first interacting test positions on either side which results in constant errors in position of \m{0.14} and in orientation of \rad{0.58}.
+The gating model successfully does not make predictions for the test runs that go past the object after seeing the three fixed training runs. However, no predictions are also made for the first interacting test positions on either side which results in constant errors in position of \m{0.14} and in orientation of \rad{0.58}.
 For the other test positions that actually interact with the block, the predictions are better for positions close to the training examples as in the other model.
 The predicted errors are not quite as symmetric as in the other model.
 The central position has a prediction error of close to 0 with a standard deviation below \m{0.01}. 
@@ -356,32 +359,34 @@ In order to be able to interpret these results, figure \ref{fig:EachPosEndPos} s
 \label{fig:EachPosEndPos}
 \end{figure}
 
-The number of required nodes for this experiment is slightly lower then when learning on random data and show hardly any variance. The interaction model consistently trains eight \glspl{ac} of which the biggest one contains around 6 nodes. The \gls{acs} requires 3.5 nodes on average. 
-The object state model constantly requires 9 nodes in the gating function and around 58 nodes for the local forward model of the block.
+The number of required nodes for this experiment is slightly lower then when learning on random data and show hardly any variance. The interaction state model consistently trains eight \glspl{ac} of which the biggest one contains around 6 nodes. The \gls{acs} requires 72.6 nodes on average. 
+The gating model constantly requires 9 nodes in the gating function and around 58 nodes for the local forward model of the block.
 
 \textbf{Generalization with constant feedback:}
 
-While the previous scenarios test the accumulated prediction error, it is often not required to make accurate predictions 150 steps into the future. Instead it is more important to adapt to changes in the environment quickly. For that reason, a variation of the \textit{Push Task Simulation} was also evaluated. In this variation, the models are not trained before testing, but will instead continuously receive updates from the environment. That way the models online learning capabilities are evaluated. The models will still make consecutive predictions based on their last prediction. Their last predictions are not corrected based on the actual environment and the models do not get or compute any feedback as to how good their last prediction was. 
+While the previous scenarios test the accumulated prediction error, it is often not required to make accurate predictions 150 steps into the future. Instead it is more important to adapt to changes in the environment quickly. For that reason, a variation of the \textit{Push Task Simulation} was also evaluated. In this variation, the models are not trained before testing, but will instead continuously receive updates from the environment. That way the models' online learning capabilities are evaluated. The models will still make consecutive predictions based on their last prediction. Their last predictions are not corrected based on the actual environment and the models do not get or compute any feedback as to how good their last prediction was. 
 
 A qualitative evaluation is provided in figure \ref{fig:pushTaskSim2}. Each row in the figure represents one run as described before. The leftmost images show the initial configuration at the start of the run. The rightmost images show the interaction step where the block prediction changed for the last time. 
-The first row shows the first run as performed the object state model. An image sequence for the interaction state model looks almost identical and was therefore omitted. The second row shows the second run performed by the object state model, while the third row shows the same run performed by the interaction state model.
+The first row shows the first run as performed the gating model. An image sequence for the interaction state model looks almost identical and was therefore omitted. The second row shows the second run performed by the gating model, while the third row shows the same run performed by the interaction state model.
 
 The transparent object represent the last predictions, while the opaque objects represent the actual states of the objects. 
-In order to be able to actually see meaningful differences between consecutive interactions, these images where taken in a setting where the model is only updated every 10Hz, meaning that the model was updated and queried every 0.1 seconds in simulation time instead of the 0.01 seconds used for all the other evaluations. No other adaptation to the models was made. 
+In order to be able to actually see meaningful differences between consecutive interactions, these images where taken in a setting where the models are only updated every 10Hz, meaning that the models were updated and queried every 0.1 seconds in simulation time instead of the 0.01 seconds used for all the other evaluations. No other adaptation to the models was made. 
 
 \begin{figure}
 \centering
 \includegraphics[width=\textwidth]{pushTaskSim2.png}
-\caption{Consecutive interactions in the \textit{Push Task Simulation} variation. Top row shows images of the first test run, while the second row shows images of the second test run on the other side of the object. }
+\caption{Consecutive interactions in the \textit{Push Task Simulation} variation. Top row shows images of the first test run, while the second row shows images of the second test run on the other side of the object for the gating model. The third row shows the same second test run performed by the interaction state model.}
 \label{fig:pushTaskSim2}
 \end{figure}
 
 While no prediction is made for the actuator in the 2nd image of the top row, the actuator is predicted correctly in the 2nd run. The top row continues to lag one frame behind with its predictions. The final block predictions are accurate again.
-In the 2nd run, the actuator predictions are good. However, the model predicts the same rotation as in the first run once the actuator comes close to the object. After a few other frames, the predictions start turning in the other direction, but do not catch up to the actual object. The object state model does not change its prediction for the block anymore after the actual actuator passed the actual block. However, the interaction state model continues to make predictions until it reaches the point shown in the image which leads to a better prediction at the end of the run.
+In the 2nd run, the actuator predictions are good. However, the models predict the same rotation as in the first run once the actuator comes close to the object. After a few other frames, the predictions start turning in the other direction, but do not catch up to the actual object. The gating model does not change its prediction for the block anymore after the actual actuator passed the actual block. However, the interaction state model continues to make predictions until it reaches the point shown in the image which leads to a better prediction at the end of the run.
+
+All three experiments have also been performed using the red object. However, the results are qualitatively very similar and partly better, especially for the experiment with fixed training runs, which is why they are not reported here.
 
 \subsection{Extension to multiple objects \label{sec:multipleObjects}}
 
-Environments rarely only contain a single object, however, so far in this thesis, only one object was considered. While it is difficult for the interaction model to handle multiple objects due to the reasons explained in section \ref{sec:interactionTheory}, the object state model handles objects separately anyways. In this evaluation the red block described in table \ref{tab:environmentObjects} is added to the scene and six fixed training positions (three interacting with each object) are used. The blue block remains at the same position as in the previous experiments, while the red block is located left of it with a center position of \m{-0.6} in x direction and \m{0.35} in y direction. This position ensures that the distance from the starting line remains the same compared to the blue object.
+Environments rarely only contain a single object, however, so far in this thesis, only one object was considered. While it is difficult for the interaction model to handle multiple objects due to the reasons explained in section \ref{sec:interactionTheory}, the object state model handles objects separately anyways. In this evaluation the red block described in table \ref{tab:environmentObjects} is added to the scene and six fixed training positions (three interacting with each object) are used. The blue block remains at the same position as in the previous experiments, while the red block is located left of it with a center position of \m{-0.6} in x direction and \m{0.35} in y direction. This position ensures that the distance from the starting line to the edge of the block remains the same compared to the blue object.
 The object is then tested on a fixed set of 21 testing positions ranging from \m{-0.8} to \m{0.4} in intervals of \m{0.06}.
 
 
@@ -419,17 +424,19 @@ As in the experiment before, figure \ref{fig:eachPosTwoObjectsEndPos} shows the 
 
 \section{Move to Target \label{sec:moveToTarget}}
 
-The \textit{Move to Target} task is designed to evaluate the concept's ability to reach a given target configuration incrementally. AS mentioned in the 
+The \textit{Move to Target} task is designed to evaluate the concept's ability to reach a given target configuration incrementally. As mentioned in the 
 realization chapters of both models, this thesis assumes that the inverse model has been sufficiently trained, i.e. it has seen all required changes in feature dimensions, before a target is specified. 
 
 \subsection{Scenario description}
 
-In this task only a target configuration for the blue block object is given to the models. At each update step the models are updated with the current worldstate.
+In this task only a target configuration for the blue block object is given to the models. Only the blue block is tested because its dynamics are more complex than that of the red block. This is mainly due to the fact that the red block only rotates when pushed at the corners while the blue block rotates a lot easier.
+
+At each update step the models are updated with the current worldstate.
 This means that they can adapt their inverse model during testing.
 Afterwards, the interface queries the model for the next action primitive which is then send to the simulation. This is repeated until the target configuration is reached or a maximum number of steps of 3000 has been performed.
 The models consider a target configuration as reached, if the norm of the difference vector between the target representation and the current situation is smaller than 0.01. This means, that the combined vector of positional difference as well as difference of orientation must have a norm smaller 0.01. The models do not know about the oscillation of the orientation feature, i.e. that an orientation of $-\pi = \pi$ which can lead to false negatives.
 
-The models are first trained on a fixed set of training runs. The set is designed to show important interactions to the models before testing. The eight training configurations are shown in figure \ref{fig:moveToTargetTraining}.
+The models are first trained on a fixed set of eight training runs. The set is designed to show important interactions to the models before testing. The eight training configurations are shown in figure \ref{fig:moveToTargetTraining}.
 These training runs ensure that the inverse models can learn reasonable preconditions for all relevant feature changes.
 
 \begin{figure}
@@ -443,7 +450,7 @@ The training runs are performed by placing the actuator in a suitable starting p
 The used action primitives all have a norm of $0.5\frac{m}{s}$.
 
 After training, both the actuator and the block are returned to their initial position. The block is located \m{0.25} above the global origin without any rotation, while the actuator is placed directly on top of the global origin.
-Figure \ref{fig:moveToTargetScenario} visualizes the situation where the actuator just starts moving after training. The transparent light blue block symbolizes the target configuration of the block.
+Figure \ref{fig:moveToTargetScenario} visualizes the situation where the actuator just starts moving after training. The transparent blue block symbolizes the target configuration of the block. One edge is colored in order to visualize the block's orientation.
 
 \begin{figure}
 \centering
@@ -454,10 +461,7 @@ Figure \ref{fig:moveToTargetScenario} visualizes the situation where the actuato
 
 \subsection{Evaluation criteria}
 
-The performance of the inverse model is measured by the number of actions required to reach the target. If the target has not been reached within the allowed number of steps, the remaining difference is recorded. Similar to the previous task, position and orientation differences are recorded separately.
-
-%TODO still want to do that?
-%Furthermore, the average change in position and orientation per performed action is reported in order to judge the quality of the selected action primitives.
+The performance of the inverse model is measured by the number of actions required to reach the target. If the target has not been reached within the allowed number of steps, the remaining differences in position and orientation are recorded. 
 
 The models are tested with four targets which are shown in figure  \ref{fig:targetPositions}. All target configurations have the same positional difference to the starting position (\m{0.6} in either x direction and \m{0.7} in either y direction) but different orientations: 
 \begin{itemize}
@@ -479,7 +483,7 @@ The testing of each target configuration is repeated 5 times and the averages ov
 
 \subsection{Results}
 
-The results for the interaction models are presented in table \ref{tab:moveToTargetInteractionResults} while the results for the object state with gating function model are presented in table \ref{tab:moveToTargetGateResults}.
+The results for the interaction state models are presented in table \ref{tab:moveToTargetInteractionResults} while the results for the gating model are presented in table \ref{tab:moveToTargetGateResults}.
 
 \begin{table} %USE V2 sigma 0.05
 	\centering
@@ -496,7 +500,7 @@ The results for the interaction models are presented in table \ref{tab:moveToTar
 	\label{tab:moveToTargetInteractionResults}
 \end{table}
 
-The object state with gating function reaches the targets in most cases within the allowed number of steps. Only target one was not reached in one run, however the remaining distance was quite small.
+The gating model reaches the targets in most cases within the allowed number of steps. Only target one was not reached in one run, however the remaining distance was quite small.
 
 \begin{table}
 	\centering
@@ -514,9 +518,9 @@ The object state with gating function reaches the targets in most cases within t
 \end{table}
 
 No target is never reached, but the interaction model had a few problems reaching the first and fourth targets. Looking at the combined error of position and orientation for the runs that did not reach the first and fourth target in detail revealed that in both cases, the model was not able to push the object straight without changing its orientation. The 2 runs that did not reach Target 1 as well as an exemplary third run that did reach can be seen in figure \ref{fig:moveToTargetInteractionT1Detail}.
-In both failed runs, the model first reduces the difference in orientation successfully. However afterwards, it only manages to reduce the positional difference rotating the object away from the target orientation.
+In both failed runs, the model first reduces the difference in orientation successfully. However afterwards, it only manages to reduce the positional difference by rotating the object away from the target orientation. In the successful run on the other hand, the model manages to reduce the positional difference without influencing the objects orientation much.
 
-Snapshots of a successful run towards Target 1 performed by the object state model can be seen in figure \ref{fig:moveToTargetRun}. The image shows how the model first turns the object in the correct orientation. Afterwards the model pushes the object upwards and then towards the right. Finally some minor adjustments regarding the orientation and the position are made.
+Snapshots of a successful run towards Target 1 performed by the gating model can be seen in figure \ref{fig:moveToTargetRun}. The image shows how the model first turns the object in the correct orientation. Afterwards the model pushes the object upwards and then towards the right. Finally some minor adjustments regarding the orientation and the position are made.
 
 \begin{figure}
 \centering

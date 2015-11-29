@@ -48,7 +48,7 @@ import configuration
 from configuration import config
 
 #Select used configuration
-CONFIGURATION = configuration.FIXFIRSTTHREETRAININGRUNS #| configuration.HARDCODEDACT
+CONFIGURATION = 0#configuration.FIXFIRSTTHREETRAININGRUNS #| configuration.HARDCODEDACT
 config.switchToConfig(CONFIGURATION)
 
 #If training on perfect test positions, testpositions are shuffeled
@@ -56,11 +56,11 @@ tmpL = range(len(config.testPositions))
 np.random.shuffle(tmpL)
 mapping = {i: tmpL[i] for i in range(len(tmpL))}
 
-FILEEXTENSION = "DUMMY"
+FILEEXTENSION = ""
 
 trainRuns = [3]
 NUMBER_FOLDS = 1
-RECORD_SIMULATION = True
+RECORD_SIMULATION = False
 
 TWO_OBJECTS = False
 BLOCKNAMES = {15: "blockA", 27:"blockB"}

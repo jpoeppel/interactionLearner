@@ -21,14 +21,10 @@ Config conform
 
 import numpy as np
 from numpy import round as npround
-
-
-import common
-#from topoMaps import ITM
-#from network import Node
-from itm import ITM
 import copy
 
+import common
+from aitm import AITM
 from configuration import config
 from inverseModel import MetaNetwork
 
@@ -36,6 +32,9 @@ from inverseModel import MetaNetwork
 
 
 class Object(object):
+    """
+        Class representing an object in the environment.
+    """
     
     def __init__(self):
         self.id = 0
@@ -48,32 +47,90 @@ class Object(object):
         """
             Computes the relative (interaction) vector of the other object with respect
             to the own reference frame.
+            
+            Parameters
+            ----------
+            other : Object
+                The secondary object with which the relative interaction vector is to be computed
+                
+            Returns
+            -------
+                np.ndarray(8)
+                Relative interaction vector with the current object as reference
         """
         vec = np.zeros(8)
         vec[0] = self.id
         vec[1] = other.id
-        #replaced computeDistanceClosing with generalDistClosing
         if config.USE_DYNS:
             vec[2], vec[3] = common.generalDistClosing(self.id, self.vec[0:2],self.vec[3:5], 
                         self.vec[2], other.id, other.vec[0:2], other.vec[3:5], other.vec[2])
-            vec[4:6], vec[6:8], vec[8:10] = common.relPosVel(self.vec[0:3], self.vec[4:7], self.vec[3], other.vec[0:3], other.vec[4:7])
+            vec[4:6], vec[6:8], vec[8:10] = common.relPosVel(self.vec[0:3], self.vec[4:7], 
+                                                    self.vec[3], other.vec[0:3], other.vec[4:7])
         else:
-            vec[2], vec[3] = common.generalDistClosing(self.id, self.vec[0:2],self.vec[0:2]-self.lastVec[0:2], 
-                        self.vec[2], other.id, other.vec[0:2], other.vec[0:2]-other.lastVec[0:2], other.vec[2])
-#            vec[4:6], vec[6:8], vec[8:10] = common.relPosVel(self.vec[0:2], self.vec[0:2]-self.lastVec[0:2], self.vec[2], other.vec[0:2], other.vec[0:2]-other.lastVec[0:2])  
-            vec[4:6], tmp, vec[6:8] = common.relPosVel(self.vec[0:2], self.vec[0:2]-self.lastVec[0:2], self.vec[2], other.vec[0:2], other.vec[0:2]-other.lastVec[0:2])                    
+            vec[2], vec[3] = common.generalDistClosing(self.id, self.vec[0:2],
+                                self.vec[0:2]-self.lastVec[0:2], self.vec[2], other.id, 
+                                other.vec[0:2], other.vec[0:2]-other.lastVec[0:2], other.vec[2])
+            vec[4:6], tmp, vec[6:8] = common.relPosVel(self.vec[0:2], 
+                                        self.vec[0:2]-self.lastVec[0:2], 
+                                        self.vec[2], other.vec[0:2], 
+                                        other.vec[0:2]-other.lastVec[0:2])                    
         return vec
         
     def getRelObjectVec(self, other):
+        """
+            Transforms the vector of the other object so that is represented with respect to the
+            current object's coordinate frame
+            
+            Parameters
+            ---------
+            other : Object
+                The object whose vector is to be transformed
+                
+            Returns
+            -------
+                np.ndarray(3)
+                Transformed object vector of the other object
+        """
         vec = np.zeros(len(self.vec))
         vec[0:2] = common.relPos(self.vec[0:2], self.vec[2], other.vec[0:2])
         vec[2] = other.vec[2]-self.vec[2]
         return vec
         
     def getGlobalPosVel(self, localPos, localVel):
+        """
+            Computes the global position and velocity based on a local position and velocity
+            that are given with respect to the current object's reference frame
+            
+            Parameters
+            ----------
+            localPos : np.ndarray(2)
+                Position vector in local coordinates
+            localVel: np.ndarra(2)
+                Velocity vector in local coordinates
+                
+            Returns
+            -------
+            globPos: np.array(2)/np.array(3)
+                Global position 
+            globVel: np.array(2)/np.array(3)
+                Global velocity
+        """
         return common.globalPosVel(self.vec[0:2], self.vec[2], localPos, localVel)
                 
     def getLocalChangeVec(self, post):
+        """
+            Computes the change vector relative to the current object's reference frame
+            
+            Parameters
+            ---------
+            post : Object
+                The changed object
+                
+            Returns
+            -------
+                np.ndarray(3)
+                Change vector in local coordinates
+        """
         res = np.copy(post.vec)
         res -= self.vec
         if config.USE_DYNS:
@@ -83,21 +140,43 @@ class Object(object):
         return res
 
     def predict(self, predictor, other):
+        """
+            Uses the provided predictor in order to make predictions about the next state after
+            an interaction with the other object.
+            
+            Parameters
+            ----------
+            predictor : AITM
+                Trained predictor for the current object
+            other : Object
+                The object that is interacting with the current object
+            
+            Returns
+            -------
+                Object
+                Predicted object
+        """
         resO = copy.deepcopy(self)
         pred = predictor.test(self.getRelVec(other), testMode=config.predictorTestMode)
-#        pred = predictor.test(self.getRelVec(other))
         if config.USE_DYNS:
             pred[0:2], pred[3:5] = common.globalPosVelChange(self.vec[2], pred[0:2], pred[3:5])
         else:
             pred[0:2], v = common.globalPosVelChange(self.vec[2], pred[0:2], np.zeros(2))
-#        print "prediction for o: {}: {}".format(self.id, pred)
         self.predVec = self.vec + pred*config.predictionBoost 
-        resO.vec = self.predVec #np.round(self.predVec, config.NUMDEC)
+        resO.vec = self.predVec
         resO.lastVec = np.copy(self.vec)
         return resO
         
         
     def update(self, newO):
+        """
+            Updates the current object to the new object state
+            
+            Parameters
+            ----------
+            newO : Object
+                Object containing the new state of the current object
+        """
         self.lastVec = np.copy(self.vec)
         self.vec = np.copy(newO.vec)
         
@@ -109,8 +188,13 @@ class Object(object):
             Parameters
             ----------
             otherObject: Object
+                Influencing object. Usually the actuator
+            direction : np.ndarray, optional
+                Relative direction of the object towards the target position
             
-            returns: np.ndarray
+            Returns
+            -------
+                np.ndarray
                 Action vector for the actuator for the next step
         """
         
@@ -127,32 +211,42 @@ class Object(object):
                 angAct = np.arctan2(relVec[5],relVec[4])
                 angTarget = np.arctan2(direction[1],direction[0])
                 angDif = angTarget+np.pi - (angAct+np.pi)
-                print "angDif: ", angDif
                 if angDif > 0:
                     if abs(angDif) < np.pi:
-                        print "circling pos"
                         return 0.4*tangent/np.linalg.norm(tangent)
                     else:
-                        print "circling neg"
                         return -0.4*tangent/np.linalg.norm(tangent)
                 else:
                     if abs(angDif) < np.pi:
-                        print "circling neg"
                         return -0.4*tangent/np.linalg.norm(tangent)
                     else:
-                        print "circling pos"
                         return 0.4*tangent/np.linalg.norm(tangent)
             else:
                 return 0.4*tangent/np.linalg.norm(tangent)
-        
         return np.array([0.0,0.0])
         
     def __repr__(self):
+        """
+            Provides string representation of the object. Currently only the identifer is returned.
+            
+            Returns
+            -------
+                String
+                String representation of the current object
+        """
         return "{}".format(self.id)
         
     def getKeyPoints(self):
-        WIDTH = {27: 0.25, 15: 0.25, 8: 0.025} #Width from the middle point
-        DEPTH = {27: 0.25, 15: 0.05, 8: 0.025} #Height from the middle point
+        """
+            Computes the position of two edges of the object.
+            
+            Returns
+            -------
+                np.ndarray(3x2)
+                Matrix containing the 2d positions of the center as well as the two keypoints.
+        """
+        WIDTH = {27: 0.15, 15: 0.25, 8: 0.025} #Width from the middle point
+        DEPTH = {27: 0.15, 15: 0.05, 8: 0.025} #Height from the middle point
         p1x = WIDTH[self.id]
         p2x = -p1x
         p1y = DEPTH[self.id]
@@ -169,34 +263,47 @@ class Object(object):
         
     @classmethod
     def parse(cls, m):
+        """
+            Classmethod that parses a protobuf modelstate to get an Object
+            
+            Paramters
+            ---------
+            m : Protobuf.ModelState
+            
+            Returns
+            -------
+                Object
+                The parsed object
+        """
         res = cls()
         res.id = m.id 
         if config.USE_DYNS:
             res.vec = np.zeros(5)
-#            res.vec[0] = m.id
             res.vec[0] = npround(m.pose.position.x, config.NUMDEC) #posX
             res.vec[1] = npround(m.pose.position.y, config.NUMDEC) #posY
-            res.vec[2] = npround(common.quaternionToEuler(np.array([m.pose.orientation.x,m.pose.orientation.y,
-                                                m.pose.orientation.z,m.pose.orientation.w])), config.NUMDEC)[2] #ori
+            res.vec[2] = npround(common.quaternionToEuler(np.array([m.pose.orientation.x,
+                                    m.pose.orientation.y, m.pose.orientation.z,
+                                    m.pose.orientation.w])), config.NUMDEC)[2] #ori
             res.vec[3] = npround(m.linVel.x, config.NUMDEC) #linVelX
             res.vec[4] = npround(m.linVel.y, config.NUMDEC) #linVelY
-        
-#            res.vec[8] = npround(m.angVel.z, NUMDEC) #angVel
         else:
             res.vec = np.zeros(3)
-#            res.vec[0] = m.id
             res.vec[0] = npround(m.pose.position.x, config.NUMDEC) #posX
             res.vec[1] = npround(m.pose.position.y, config.NUMDEC) #posY
-            res.vec[2] = npround(common.quaternionToEuler(np.array([m.pose.orientation.x,m.pose.orientation.y,
-                                                m.pose.orientation.z,m.pose.orientation.w])), config.NUMDEC)[2] #ori
+            res.vec[2] = npround(common.quaternionToEuler(np.array([m.pose.orientation.x,
+                                    m.pose.orientation.y, m.pose.orientation.z,
+                                    m.pose.orientation.w])), config.NUMDEC)[2] #ori
         res.lastVec = np.copy(res.vec)
         return res
 
 class Actuator(Object):
+    """
+        Dedicated representation of the actuator as special kind of object.
+    """
     
     def __init__(self):
         Object.__init__(self)
-        self.predictor = ITM()
+        self.predictor = AITM()
         if config.USE_DYNS:
             self.vec = np.zeros(5)
         else:
@@ -204,34 +311,54 @@ class Actuator(Object):
         pass
     
     def predict(self, action):
-#        res = copy.deepcopy(self)
+        """
+            Predict the next actuator state given an action primitive.
+            
+            Parameters
+            ----------
+            action : np.ndarray(2)
+                Action primitive used
+            
+            Returns
+            -------
+                Actuator
+                Predicted actuator representation.
+        """
         res = Actuator()
         res.id = self.id
         self.predVec = np.copy(self.vec)
         #Hardcorded version
         if config.HARDCODEDACTUATOR:
-#            res.vec[1:4] += 0.01*action
             self.predVec[0:2] += 0.01*action
         else:
             #Only predict position
             p = self.predictor.test(action, testMode=config.actuatorTestMode)
-            print "predicting actuator change: ", p
             self.predVec += p
-#            res.vec[1:4] += p
         res.lastVec = np.copy(self.vec)
         res.vec = np.round(self.predVec, config.NUMDEC)
         res.predictor = self.predictor
         return res
             
     def update(self, newAc, action, training = True):
+        """
+            Updates the actuator. Always updates the current state of the actuator. If training
+            is given, also updates the local forward model.
+            
+            Parameters
+            ----------
+            newAc : Actuator
+                New actuator state whose information is taken
+            action : np.ndarray(2)
+                Action primitive used to reach the current state
+            training : bool
+                Updates the local forward model if true, otherwise only the state is updated
+        """
         self.lastVec = self.vec
-#        self.predictor = newAc.predictor
         if training:
             if config.HARDCODEDACTUATOR:
                 pass
             else:
                 pdif = newAc.vec-self.vec
-#                self.predictor.train(Node(0, wIn=action, wOut=pdif))
                 self.predictor.update(action, pdif, 
                                       etaIn= config.actuatorEtaIn, 
                                       etaOut=config.actuatorEtaOut, 
@@ -241,25 +368,46 @@ class Actuator(Object):
         
     @classmethod
     def parse(cls, protoModel):
+        """
+            Classmethod to parse an actuator from a protobuf ModelState
+            
+            Parameters
+            ----------
+            protoModel : Protobuf.ModelState
+                Protobuf message containing the object's information
+                
+            Returns
+            -------
+                Actuator
+                Extracted actuator object.
+        """
         res = super(Actuator, cls).parse(protoModel)
         res.vec[2] = 0 # Fix orientation
-#        res.vec[8] = 0.0 #Fix angular velocity
         return res
     
 class WorldState(object):
+    """
+        Container class for all the object states.
+    """
     
     def __init__(self):
         self.actuator = Actuator()
         self.objectStates = {}
         
     def parseModels(self, models):
+        """
+            Parses a protobuf ModelState_V 
+            
+            Parameters
+            ----------
+            models : Protobuf.ModelState_V
+                Vector message containing all the ModelStates 
+        """
         for m in models:
-#            print "name: ", m.name
-#            print "id: ", m.id
             if m.name == "ground_plane" or "wall" in m.name or "Shadow" in m.name:
                 continue
             else:
-                if m.name == "gripper":
+                if m.name == "actuator":
                     ac = Actuator.parse(m)
                     self.actuator = ac
                 else:
@@ -267,97 +415,153 @@ class WorldState(object):
                     self.objectStates[tmp.id] = tmp
         
     def parse(self, gzWS):
+        """
+            Parses a protobuf WorldState message
+            
+            Parameters
+            ---------
+            gzWS : Protobuf.WorldState
+                Worldstate message provided by the simulation
+        """
         self.parseModels(gzWS.model_v.models)                
     
 class Classifier(object):
+    """
+        Wrapper class for the ATIM as classifier to allow hardcoded gating function.
+
+    """
     
     def __init__(self):
-        self.clas = ITM()
+        self.clas = AITM()
         self.isTrained = False
         
-    def train(self, o1vec, avec, label): #Consider removing avec here since it is not used, action already in the o1vec
+    def train(self, inVec, label): 
+        """
+            Trains the classifier. If hardcoded, no training is done. Otherwise the used AITM is
+            updated.
+            
+            Parameters
+            ----------
+            inVec: np.ndarray
+                Input vector
+            label: int
+                Desired output label for the input
+                
+        """
         if config.HARDCODEDGATE:
             pass
         else:
-#            print "training gate with: ", o1vec[config.gateMask]
-            self.clas.update(o1vec[config.gateMask], np.array([label]), 
+            self.clas.update(inVec[config.gateMask], np.array([label]), 
                              etaIn=config.gateClassifierEtaIn, 
                              etaOut=config.gateClassifierEtaOut, 
                              etaA=config.gateClassifierEtaA, 
                              testMode=config.gateClassifierTestMode)
             self.isTrained = True
     
-    def test(self, ovec, avec):
+    def test(self, inVec):
+        """
+            Tests the classifier with the input vector.
+            
+            Parameters
+            ----------
+            inVec : np.ndarray
+                Input vector that is to be tested
+            
+            Returns
+            -------
+                int
+                The predicted class label for the input
+        """
         
         if config.HARDCODEDGATE:
-            if ovec[3] <= -ovec[2]:
-#                print "Change: closing: {}, dist: {}, relVel: {}".format(ovec[3], ovec[2], ovec[6:8])
+            if inVec[3] <= -inVec[2]:
                 return 1
             else:
-                if ovec[3] == 0 and np.linalg.norm(ovec[6:8]) < 0.001 and ovec[2] < 0.05: #Todo remove distance from this
-#                    print "Change: closing: {}, dist: {}, relVel: {}".format(ovec[3], ovec[2], ovec[6:8])
+                #Todo remove distance from this
+                if inVec[3] == 0 and np.linalg.norm(inVec[6:8]) < 0.001 and inVec[2] < 0.05: 
                     return 1    
                 else:
-#                    print "no Change: closing: {}, dist: {}, relVel: {}".format(ovec[3], ovec[2], ovec[6:8])
                     return 0
         else:
-#            print "testing with gate itm"
             if self.isTrained:
-#                print "Gate number of nodes: ", len(self.clas.nodes)
-                pred = int(self.clas.test(ovec[config.gateMask], testMode=config.gateClassifierTestMode)[0])
-#                print "gate prediction: ", pred
+                pred = int(self.clas.test(inVec[config.gateMask], testMode=config.gateClassifierTestMode)[0])
                 return pred
             else:
                 return 0
     
     
 class GateFunction(object):
+    """
+        Implementation of the gating function that checks for changes and tries to learn when
+        an object influences another.
+    """
     
     def __init__(self):
         self.classifier = Classifier()
-#        self.classifier2 = {}
-        
         pass
     
-    def test(self, o1, o2, action):
+    def test(self, o1, o2):
+        """
+            Queries to classifier if o2 influences o1.
+            
+            Parameters
+            ----------
+            o1 : Object
+                Object that might be influenced
+            o2 : Object
+                The acting object that might influence
+                
+            Returns
+            -------
+                int (0,1)
+                1 If an influence is predicted, 0 otherwise
+        """
         vec = o1.getRelVec(o2)
-#        if o1.id in self.classifier2:
-#            p= self.classifier2[o1.id].test(vec,action)
-#            if o1.id == 27:
-#                print "prediction for gate: ", p
-#                print "nodes in clas: ", [(w.inp, w.out) for w in self.classifier2[o1.id].clas.nodes.values()]
-#            return p
-#        else:
-#            return 0
-#        print "testing gate with relVec: ", vec[config.gateMask]
-        return self.classifier.test(vec, action)
+        return self.classifier.test(vec)
         
     def checkChange(self, pre, post):
+        """
+            Computes and checks the local change vector in order to determine if the object changed
+            in the last update step.
+            
+            Parameters
+            ---------
+            pre : Object
+                Object state before the update
+            post : Object
+                Object state after the update
+                
+            Returns
+            -------
+            changed : bool
+                True if the object changed, False otherwise
+            dif : np.ndarray
+                The local difference vector                            
+        """
         dif = pre.getLocalChangeVec(post)
         if np.linalg.norm(dif) > 0.0:    
             return True, dif
         return False, dif
         
         
-    def update(self, o1Pre, o1Post, o2Post, action):
+    def update(self, o1Pre, o1Post, o2Post):
         """
-        Parameters
-        ----------
-        o1Pre: Object
-        o1Post: Object
-        o2Post: Object
-        action: np.ndarray
+            Updates the gating function. Trains the classifier with the appropriate label depending
+            on whether the object changed or not.
+            Parameters
+            ----------
+            o1Pre: Object
+                Object state before the update
+            o1Post: Object
+                Object state after the update
+            o2Post: Object
+                Object state of the potentially influencing object after the update
         """
         #TODO For multiple objects: Causal determination, make hypothesis and test these!
         vec = o1Pre.getRelVec(o2Post)
         hasChanged, dif = self.checkChange(o1Pre, o1Post)
         
-
-#        if not o1Pre.id in self.classifier2:
-#            self.classifier2[o1Pre.id] = Classifier()
-#        self.classifier2[o1Pre.id].train(vec, action, int(hasChanged))
-        
-        self.classifier.train(vec, action, int(hasChanged))
+        self.classifier.train(vec, int(hasChanged))
         if hasChanged:
             return True, dif
         else:
@@ -366,19 +570,53 @@ class GateFunction(object):
         
             
 class Predictor(object):
+    """
+        Implementation of the predictor. Contains local forward and inverse models for each
+        object group.
+    """
     
     def __init__(self):
         self.predictors = {}
         self.inverseModel = {}
     
-    def predict(self, o1, o2, action):
+    def predict(self, o1, o2):
+        """
+            Makes predictions about the next state of o1 given the actuating object o2
+            
+            Paramters
+            ---------
+            o1 : Object
+                Object whose next state is to be predicted
+            o2 : Object
+                Influencing object
+                
+            Returns
+                Object
+                Predicted object state of o1
+        """        
+        
         if o1.id in self.predictors:
-            print "num nodes in local itm: ", len(self.predictors[o1.id].nodes)
             return o1.predict(self.predictors[o1.id], o2)
         else:
             return o1
             
     def getAction(self,targetId, dif):
+        """
+            Queries to local inverse model for the object group specified by the targetId for
+            preconditions.
+            
+            Parameters
+            ----------
+            targetId : int
+                Identifier of the object group of the target object
+            difs : np.ndarray
+                The current difference vector
+                
+            Returns
+            -------
+            preconditions: np.ndarray
+                Preconditions suited to reduce the distance if target known. None otherwise.
+        """
         if targetId in self.inverseModel:
             return self.inverseModel[targetId].getPreconditions(dif)
         else:
@@ -386,28 +624,56 @@ class Predictor(object):
             return None
             
     def getExplorationPreconditions(self, objectId):
+        """
+            EXPERIMENTAL
+            Queries the inverse model responsible for the given objectId for preconditions that 
+            increase the model's knowledge.
+            
+            Parameters
+            ----------
+            objectId : int
+                Identifier of the object that is to explored.
+                
+            Returns
+            -------
+            preconditions : np.ndarray
+                Preconditions that might increase the knowledge about the given object
+        """
         if objectId in self.inverseModel:
-            return self.inverseModel[objectId].tobeNamed()
+            return self.inverseModel[objectId].getPreconsToTry()
         else:
             print "No inverse model for objectId {}".format(objectId)
     
-    def update(self, intState, action, dif): #TODO: consider removing action here since it is not used
-        if not intState[0] in self.predictors:
+    def update(self, objectId, intVec, dif):
+        """
+            Updates the local forward model responsible for the given objectId.
+            
+            Parameters
+            ---------
+            objectId : int
+                Identifier of the object whose object group is to be updated
+            intVec : np.ndarray
+                Relative interaction features that influenced the object
+            dif : np.ndarray
+                Difference/Change vector of the object
+        """
+        if not objectId in self.predictors:
             #TODO check for close ones that can be used
-            self.predictors[intState[0]] = ITM()
-            self.inverseModel[intState[0]] = MetaNetwork()
-        if np.linalg.norm(dif) == 0.0:
-            print "training with zero dif: ", dif
-            raise NotImplementedError
-        self.predictors[intState[0]].update(intState, dif, 
+            self.predictors[objectId] = AITM()
+            self.inverseModel[objectId] = MetaNetwork()
+            
+        self.predictors[objectId].update(intVec, dif, 
                                             etaIn= config.predictorEtaIn, 
                                             etaOut= config.predictorEtaOut, 
                                             etaA= config.predictorEtaA, 
                                             testMode=config.predictorTestMode)
-        self.inverseModel[intState[0]].train(intState, dif)
+        self.inverseModel[objectId].train(intVec, dif)
 
 
 class ModelGate(object):
+    """
+        Implementation of the object state with gating function model.
+    """
     
     def __init__(self):
         self.gate = GateFunction()
@@ -419,6 +685,14 @@ class ModelGate(object):
                             # just update it's objects features
         
     def getITMInformation(self):
+        """
+            Helper function to record the state of the included AITMs.
+            
+            Returns
+            -------
+                String
+                Information about the number of nodes and update calls of each AITM
+        """
         if config.HARDCODEDGATE:
             gateString = "Gate has been hardcoded.\n"
         else:
@@ -429,29 +703,40 @@ class ModelGate(object):
         if config.HARDCODEDACTUATOR:
             actString = "Actuator has been hardcoded.\n"
         else:
-            actString = "Actuator ITM: UpdateCalls: {}, Insertions: {}, final Number of nodes: {}\n"\
+            actString = "Actuator ITM: UpdateCalls: {}, Insertions: {}, \
+                        final Number of nodes: {}\n"\
                         .format(self.actuator.predictor.updateCalls,
                                 self.actuator.predictor.inserts, 
                                 len(self.actuator.predictor.nodes))
         predString = ""
         for oId, predItm in self.predictor.predictors.items():
-            predString += "Object predictor ITM for object {}: UpdateCalls: {}, Insertions: {}, final Number of nodes: {}\n"\
-                        .format(oId, predItm.updateCalls,
-                                predItm.inserts, len(predItm.nodes))
+            predString += "Object predictor ITM for object {}: UpdateCalls: {}, \
+                            Insertions: {}, final Number of nodes: {}\n"\
+                            .format(oId, predItm.updateCalls, predItm.inserts, len(predItm.nodes))
         return actString + gateString + predString
         
         
     def setTarget(self, target):
         """
             Sets a target that is to be reached.
-            Target is an object (maybe partially described)
+            Target is an object
+            
             Parameters
             ----------
             target : Object
+                Object state that is to be reached.
         """
         self.target = target
         
     def isTargetReached(self):
+        """
+            Helper function to check if the current target has already been reached.
+            
+            Returns
+            ------
+                bool
+                True if the target has been reached, False otherwise
+        """
         targetO = self.curObjects[self.target.id]
 #        print "targetO.vec: ", targetO.vec
         difVec = targetO.vec-self.target.vec
@@ -463,6 +748,7 @@ class ModelGate(object):
         
     def explore(self):
         """
+            EXPERIMENTAL!!
             Returns an action in order to increase the knowledge of the model.
             
             Returns: np.ndarray
@@ -481,66 +767,38 @@ class ModelGate(object):
         else:
             targetO = self.curObjects[oId]
             relTargetPos = preCons[4:6]
-            print "rel target pos: ", relTargetPos
-            relTargetVel = preCons[8:10]
-            print "relTargetVel: ", relTargetVel
+            relTargetVel = preCons[6:8]
             
             pos, vel = targetO.getGlobalPosVel(relTargetPos, relTargetVel)
-            print "target vel: ", vel
-            print "target pos: ", pos
-            print "cur pos: ", self.actuator.vec[0:2]
             difPos = pos-self.actuator.vec[0:2]
-            print "difpos norm: ", np.linalg.norm(difPos)
-            relVec = targetO.getRelVec(self.actuator)
             
-#                relVec = targetO.getRelObjectVec(self.actuator)
-            relPos = relVec[4:6]
-            # Determine Actuator position that allows action in good direction
-            wrongSides = relPos*relTargetPos < 0
-            if np.any(wrongSides):
-                if max(abs(relTargetPos[wrongSides]-relPos[wrongSides])) > 0.05:
-                 # Bring actuator into position so that it influences targetobject
-                    print "try circlying"
-                    return targetO.circle(self.actuator)
-                    
+            if np.linalg.norm(difPos) > 0.1:
+                return targetO.circle(self.actuator, relTargetPos)
             if np.linalg.norm(difPos) > 0.01:
-                action = 0.5*difPos/np.linalg.norm(difPos)
-                print "difpos action: ", action
-                tmpAc = self.actuator.predict(action)
-                return action
-
-            print "using vel"
-            normVel = np.linalg.norm(vel)
-            if normVel == 0.0:
-                pass
-            else:
-                vel = 0.5*vel/normVel
-            tmpAc = self.actuator.predict(vel)
-            if not self.gate.test(targetO, tmpAc, vel):
-                print "looking for different vel"
-                for i in xrange(len(vel)):
-                    tmpVel = relTargetVel
-                    tmpVel[i] *= -1
-                    pos, tmpVel = targetO.getGlobalPosVel(relTargetPos, relTargetVel)
-                    normVel = np.linalg.norm(tmpVel)
-                    if normVel == 0.0:
-                        pass
+                difPosAction = 0.3*difPos/np.linalg.norm(difPos)
+                tmpAc = self.actuator.predict(difPosAction)
+                if not self.gate.test(targetO, tmpAc):
+#                        print "doing difpos"
+                    return difPosAction
+                else:
+                    predRes = self.predictor.predict(targetO, tmpAc)
+                    if np.linalg.norm(predRes.vec-self.target.vec) > np.linalg.norm(targetO.vec-self.target.vec):
+                        return targetO.circle(self.actuator, relTargetPos)
                     else:
-                        tmpVel = 0.5*tmpVel/normVel
-                    tmpAc = self.actuator.predict(tmpVel)
-                    
-                    if self.gate.test(targetO, tmpAc, tmpVel):
-                        vel = tmpVel
-                        print "found new vel: ", vel
-                        break
-            return vel
+                        return difPosAction
+
+            normVel = np.linalg.norm(vel)
+            if normVel == 0.0 or (normVel > 0.01 and normVel < 0.2):
+                return vel
+            else:
+                return 0.3*vel/normVel
                 
 
         
     def getAction(self):
         """
             Returns an action, that is to be performed, trying to get closer to the
-            target if one is set.
+            target if one is set. If no target is set, returns the 0 action.
             
             Returns: np.ndarray
                 Action vector for the actuator
@@ -556,72 +814,62 @@ class ModelGate(object):
             else:
                 targetO = self.curObjects[self.target.id]
                 # Determine difference vector, the object should follow
-#                print "global dif vec: ", self.target.vec-targetO.vec
                 difVec = targetO.getLocalChangeVec(self.target)
-#                difNorm = np.linalg.norm(difVec)
-#                print "difVec: ", difVec[:5]
                 pre = self.predictor.getAction(self.target.id, difVec)
                 if pre == None:
-                    return self.explore()
+#                    return self.explore()
+                    randAction = (targetO.vec[:2]-self.actuator.vec[:2]) + (np.random.rand(2)-0.5)
+                    norm = np.linalg.norm(randAction)
+                    if norm > 0:
+                        return 0.3*randAction/norm
+                    else:
+                        return randAction
                 relTargetPos = pre[4:6]
-#                print "rel target pos: ", relTargetPos
                 relTargetVel = pre[6:8]
-#                print "relTargetVel: ", relTargetVel
-                
                 pos, vel = targetO.getGlobalPosVel(relTargetPos, relTargetVel)
-#                print "target vel: ", vel
-#                print "target pos: ", pos
-#                print "cur pos: ", self.actuator.vec[0:2]
                 difPos = pos-self.actuator.vec[0:2]
-#                print "difpos norm: ", np.linalg.norm(difPos)
-                relVec = targetO.getRelVec(self.actuator)
                 
-#                relVec = targetO.getRelObjectVec(self.actuator)
-                relPos = relVec[4:6]
-#                print "relPos: ", relPos
-                # Determine Actuator position that allows action in good direction
-#                wrongSides = relPos*relTargetPos < 0
-#                if np.any(wrongSides):
-#                    if max(abs(relTargetPos[wrongSides]-relPos[wrongSides])) > 0.05:
-#                     # Bring actuator into position so that it influences targetobject
-#                        print "try circlying"
-#                        return targetO.circle(self.actuator, 2*relTargetPos-relPos)
                 if np.linalg.norm(difPos) > 0.1:
-#                    print "circling, too far"
                     return targetO.circle(self.actuator, relTargetPos)
                 if np.linalg.norm(difPos) > 0.01:
                     difPosAction = 0.3*difPos/np.linalg.norm(difPos)
-#                    print "difpos action: ", difPosAction
                     tmpAc = self.actuator.predict(difPosAction)
-                    if not self.gate.test(targetO, tmpAc, difPosAction):
-#                        print "doing difpos"
+                    if not self.gate.test(targetO, tmpAc):
                         return difPosAction
                     else:
-                        predRes = self.predictor.predict(targetO, tmpAc, difPosAction)
-                        if np.linalg.norm(predRes.vec-self.target.vec) > np.linalg.norm(targetO.vec-self.target.vec):
-#                            print "circlying since can't do difpos"
+                        predRes = self.predictor.predict(targetO, tmpAc)
+                        if np.linalg.norm(predRes.vec-self.target.vec) > \
+                                np.linalg.norm(targetO.vec-self.target.vec):
                             return targetO.circle(self.actuator, relTargetPos)
                         else:
-#                            print "doing difpos anyways"
                             return difPosAction
 
-#                print "using vel"
                 normVel = np.linalg.norm(vel)
                 if normVel == 0.0 or (normVel > 0.01 and normVel < 0.2):
                     return vel
                 else:
                     return 0.3*vel/normVel
-#                
 #                #TODO!
 #                # Work in open loop: Compare result of previous action with expected result
 #                pass
-            
-        pass
     
     def predict(self, ws, action):
-        #TODO Remove ws from here since it is not needed at all. Not true if online learning is tested in new prediction task
+        """
+            Predicts the next worldstate given a current worldstate and an action primitive.
+            
+            Parameters
+            ----------
+            ws : WorldState
+                Current worldstate
+            action : np.ndarray(2)
+                Action primitive that is to be used.
+                
+            Returns
+            -------
+                WorldState
+                Worldstate containing the predicted states of all objects in ws
+        """
         newWS = WorldState()
-#        newWS.actuator = self.actuator.predict(action)
         #Necessary when using the newly parsed ws since otherwise a not learned itm is used
         if self.actuator != None:
             ws.actuator.predictor = self.actuator.predictor 
@@ -630,8 +878,8 @@ class ModelGate(object):
         newWS.actuator = ws.actuator.predict(action)
         for o in ws.objectStates.values():
 #        for o in self.curObjects.values():
-            if self.gate.test(o, newWS.actuator, action):
-                newO = self.predictor.predict(o, newWS.actuator, action)
+            if self.gate.test(o, newWS.actuator):
+                newO = self.predictor.predict(o, newWS.actuator)
                 newWS.objectStates[o.id] = newO
                 
             else:
@@ -644,6 +892,15 @@ class ModelGate(object):
         
         
     def resetObjects(self, curWS):
+        """
+            Updates the known object positions. Required for resetting a run, without loosing
+            what is already learned.
+            
+            Parameters
+            ---------
+            curWS : WorldState
+                Current worldstate whose object states represent the new values
+        """
         for o in curWS.objectStates.values():
             if o.id in self.curObjects:
                 self.curObjects[o.id].update(o)
@@ -655,17 +912,29 @@ class ModelGate(object):
         self.actuator.update(curWS.actuator, np.array([0.0,0.0]), training = False)
         
     def update(self, curWS, action):
+        """
+            Updates the model. First updates the actuator, afterwards the gating function and
+            any object predictor if necessary.
+            
+            Parameters
+            ----------
+            curWS : WorldState
+                Current worldState which is used to update
+            action : np.ndarray(2)
+                Action primitive used to produce the current worldstate
+        """
         if self.actuator == None:
             self.actuator = curWS.actuator
         self.actuator.update(curWS.actuator, action, self.training)
         for o in curWS.objectStates.values():
-            #TODO extent to more objects
+            #TODO extent to object-object interaction, i.e. use predicted objects as potential
+            #new actuators
             if o.id in self.curObjects:
-#                hasChanged, dif = self.gate.update(self.curObjects[o.id], o, self.actuator, action)
                 if self.training:
-                    hasChanged, dif = self.gate.update(self.curObjects[o.id], o, self.actuator, action)
+                    hasChanged, dif = self.gate.update(self.curObjects[o.id], o, self.actuator)
                     if hasChanged:
-                        self.predictor.update(self.curObjects[o.id].getRelVec(self.actuator), action, dif)
+                        relVec = self.curObjects[o.id].getRelVec(self.actuator)
+                        self.predictor.update(o.id, relVec, dif)
                 self.curObjects[o.id].update(curWS.objectStates[o.id])
             else:
                 self.curObjects[o.id] = o

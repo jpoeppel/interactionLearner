@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Fri Sep  4 19:15:35 2015
-Simple script to read collected data and produce suitable plots.
+Simple scripts to read collected data and produce suitable plots.
 @author: jpoeppel
 """
 #
@@ -36,7 +36,6 @@ class PushTaskExperiment(object):
         self.combinedError = {}
 
 directory = "../evalData/"
-#directory = "./"
 
 fileList = [f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory,f))]
 
@@ -46,9 +45,6 @@ errorsPos = []
 errorsOri = []
 
 ABSOLUT_ORIS = True
-
-
-#testPosValues = {}
 
 
 def readMoveTaskData():
@@ -166,7 +162,6 @@ def readPushTaskData():
                 currentExperiment.name = experimentName
                 experiments[experimentName] = currentExperiment
             
-    #    trainRunOrder.append(numTrainRuns)
         currentExperiment.trainRunOrder.append(numTrainRuns)
         #load data
         print "filename: ", directory+f
@@ -176,42 +171,41 @@ def readPushTaskData():
         
         trainData = data[trainrows,:]
         firstTrainFrames = trainData[:,3] == 0
-    #    startingTrainPositionsX = trainData[firstTrainFrames,12]
-#        currentExperiment.trainStartPosX[numTrainRuns] = np.copy(trainData[firstTrainFrames,12])
-        currentExperiment.trainStartPosX[numTrainRuns] = np.copy(trainData[firstTrainFrames,20])
+        
+        #Starting pos for 1 object
+        currentExperiment.trainStartPosX[numTrainRuns] = np.copy(trainData[firstTrainFrames,12])
+        #Starting pos for 2 objects
+#        currentExperiment.trainStartPosX[numTrainRuns] = np.copy(trainData[firstTrainFrames,20])
         
         testrows = np.invert(trainrows)
         testData = data[testrows,:]
-#        testDifs = np.copy(testData[:,:14])
-#        testDifs[:,5:14] -= testData[:,15:]
+        #Difs for 1 object
+        testDifs = np.copy(testData[:,:14])
+        testDifs[:,5:14] -= testData[:,15:]
         
-        testDifs = np.copy(testData[:,:22])
-        testDifs[:,4:] -= testData[:,22:]
+        #Difs for 2 objects
+#        testDifs = np.copy(testData[:,:22])
+#        testDifs[:,4:] -= testData[:,22:]
         
         firstFrames = testData[:,3] == 0
         
-        lastFrames = np.roll(firstFrames, -1) #TODO Test if this is always correct!    
+        lastFrames = np.roll(firstFrames, -1) 
     
-    #    startingPositionsX = testData[firstFrames,12]    
-    #    currentExperiment.testStartPosX[numTrainRuns] = testData[firstFrames,12] 
+        currentExperiment.testStartPosX[numTrainRuns] = testData[firstFrames,12] 
         
         #Consider filtering, i.e. only last frame
+        #Difs if only 1 object is present
         actDifs = testDifs[lastFrames,12:14]
         oriDifs = testDifs[lastFrames,11]
         posDifs = testDifs[lastFrames,5:7]
         
-        actDifs = testDifs[lastFrames,20:22]
-        
-        actDifsnorms = np.linalg.norm(actDifs, axis=1)
-#        print actDifsnorms
-#        print "len norms: ", len(actDifsnorms)
-#        print sum(actDifsnorms < 0.1)
-#        lastFrames[lastFrames] = np.logical_and(lastFrames[lastFrames], actDifsnorms < 0.1)
-        
-        oriDifs = testDifs[lastFrames,11]
-        posDifs = testDifs[lastFrames,5:7]
-        oriDifs2 = testDifs[lastFrames,19]
-        posDifs2 = testDifs[lastFrames,13:15]
+
+        #Difs if two objects are present
+#        actDifs = testDifs[lastFrames,20:22]        
+#        oriDifs = testDifs[lastFrames,11]
+#        posDifs = testDifs[lastFrames,5:7]
+#        oriDifs2 = testDifs[lastFrames,19]
+#        posDifs2 = testDifs[lastFrames,13:15]
         
         
         numTestRuns = int(np.max(testData[:,2]))+1
@@ -223,22 +217,22 @@ def readPushTaskData():
         for i in xrange(numTestRuns):
             iMask = testData[lastFrames,2] == i
             posDifsTmp = posDifs[iMask]
-            posDifsTmp2 = posDifs2[iMask]
+#            posDifsTmp2 = posDifs2[iMask]
             if ABSOLUT_ORIS:
                 oriDifsTmp = np.abs(oriDifs[iMask])
-                oriDifsTmp2 = np.abs(oriDifs2[iMask])
+#                oriDifsTmp2 = np.abs(oriDifs2[iMask])
             else:
                 oriDifsTmp = oriDifs[iMask]
-                oriDifsTmp2 = oriDifs2[iMask]
+#                oriDifsTmp2 = oriDifs2[iMask]
             testPosRes[i] = (np.mean(np.linalg.norm(posDifsTmp, axis=1)), np.mean(oriDifsTmp), 
                             np.std(np.linalg.norm(posDifsTmp, axis=1)), np.std(oriDifsTmp))
             
-            testPosRes2[i] = (np.mean(np.linalg.norm(posDifsTmp2, axis=1)), np.mean(oriDifsTmp2), 
-                            np.std(np.linalg.norm(posDifsTmp2, axis=1)), np.std(oriDifsTmp2))
+#            testPosRes2[i] = (np.mean(np.linalg.norm(posDifsTmp2, axis=1)), np.mean(oriDifsTmp2), 
+#                            np.std(np.linalg.norm(posDifsTmp2, axis=1)), np.std(oriDifsTmp2))
             tmpActDifs[i] = (np.mean(np.linalg.norm(actDifs[iMask],axis=1)), np.std(np.linalg.norm(actDifs[iMask],axis=1)))
             startPosMask = testData[:,2] == i
-#            startingTestPos[i] = np.mean(testData[firstFrames*startPosMask,12])
-            startingTestPos[i] = np.mean(testData[firstFrames*startPosMask,20])
+            startingTestPos[i] = np.mean(testData[firstFrames*startPosMask,12])
+#            startingTestPos[i] = np.mean(testData[firstFrames*startPosMask,20])
             
 
         currentExperiment.testPosValues2[numTrainRuns] = testPosRes2       
@@ -247,31 +241,8 @@ def readPushTaskData():
         currentExperiment.testActValues[numTrainRuns] = tmpActDifs
         
     return experiments
-#    ysPos.append(np.mean(np.linalg.norm(posDifs, axis=1)))
-#    ysOri.append(np.mean(oriDifs))
-#    errorsPos.append(np.std(np.linalg.norm(posDifs, axis=1)))
-#    errorsOri.append(np.std(oriDifs))
-    
-#    print "Starting pos: ", startingTrainPositionsX
     
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_pdf import PdfPages
-
-#pp = PdfPages("../gateEvaConfig12.pdf")
-#
-#
-#fig, (ax0, ax1) = plt.subplots(nrows=2, sharex=True, figsize=(15,6))
-#ax0.axhline(y=0, color ='lightgrey')
-#ax0.errorbar(xs,ysOri, yerr=errorsOri, fmt='o')
-#ax0.set_title('Mean orientational differences at the end of a run and their standard deviation.')
-#ax1.axhline(y=0, color ='lightgrey')
-#ax1.errorbar(xs,ysPos, yerr=errorsPos, fmt='o')
-#ax1.set_title('Mean positional differences at the end of a run and their standard deviation.')
-#ax1.set_xlim([0,35])
-
-#pp.savefig()
-#pp.close()
-
 
 def plotRow(e, row, rowI):
     
@@ -309,7 +280,6 @@ def plotRow(e, row, rowI):
     
     row[0].axvspan(-0.75, -0.45, -0.045, -0.065, color='r', clip_on=False)
     row[0].axvspan(-0.25, 0.25, -0.045, -0.065, color='b', clip_on=False)
-#    row[0].hlines(0.32, -0.25, 0.25, colors='b', linewidth='5')
     plt.legend(bbox_to_anchor=(0, 2.2,1, .0))
     print e.name
     print "ysPos: ", ysPos
@@ -448,13 +418,9 @@ def analyseMoveToTarget():
         tmpOri = np.zeros(5)
         tmpTotal = np.zeros(5)
         for k in e.numSteps.keys():
-#            print "number of steps in fold {}: {}".format(k, e.numSteps[k])
             tmpSteps[k]=e.numSteps[k]
-#            print "remaining error pos: {}".format(np.linalg.norm(e.positionalErros[k][-1]))
             tmpPos[k] =np.linalg.norm(e.positionalErros[k][-1])
-#            print "remaining error ori: {}".format(np.linalg.norm(e.orientationErros[k][-1]))
             tmpOri[k] = np.abs(e.orientationErros[k][-1])
-#            print "remaining total error: {}".format(e.combinedError[k][-1])
             tmpTotal[k] = e.combinedError[k][-1]
         print "Steps: ", tmpSteps
         print "pos errors: ", tmpPos
@@ -493,11 +459,6 @@ def analyseMoveToTarget():
         plt.xlabel("Number of interaction steps")
         plt.legend(bbox_to_anchor=(0.0, 3.6,1, .0), loc="center",
            ncol=5, mode="expand", borderaxespad=0.)
-        
-#        fig.text(0.05, 0.5, 'Combined error of position and orientation',
-#            horizontalalignment='right',
-#            verticalalignment='center',
-#            rotation='vertical')
         
         plt.savefig("../pdfs/MoveToTargetInteractionT1Detail.pdf", 
                 #This is simple recomendation for publication plots

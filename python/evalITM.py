@@ -25,7 +25,7 @@ def readITMInformatin():
         if fn.startswith(".") or "_config" in fn or not "ITMInformation" in fn:
             continue        
         
-        if not "gate" in fn:
+        if "gate" in fn:
             continue
         
         if not "Mode2_Configuration_8" in fn:

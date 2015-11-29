@@ -87,8 +87,10 @@ class Config(object):
         self.trainSeed = 1234
         self.startRunRange = 0.5
         #Each pos 2 Objects: np.arange(-0.8, 0.41, 0.06) 
-        #Each pos 1 object: np.arange(-0.35,0.351,0.035)
-        self.testPositions = np.arange(-0.8, 0.41, 0.06) #np.arange(-0.35,0.351,0.035)
+        #Each pos blue object: np.arange(-0.35,0.351,0.035)
+        #Each pos red object: np.arange(-0.25, 0.251, 0.005)
+        #PushTaskSimulaton2: [-0.25,0.25]
+        self.testPositions = np.arange(-0.35,0.351,0.035)
         self.fixedFirstThreeTrains = False
         self.perfectTrainRuns = False
         
@@ -120,13 +122,15 @@ class Config(object):
         s += "Used testing seed: {}\n".format(self.testSeed)
         s += "Using fixed trainingSeed: {}\n".format(self.fixedTrainSeed)
         s += "Used train seed: {}\n".format(self.trainSeed)
-        s += "Used test starting postions: {}\n".format(self.testPositions if self.testPositions != None else "Random")
+        s += "Used test starting postions: {}\n".format(self.testPositions \
+                                                    if self.testPositions != None else "Random")
         s += "Fixed first three training runs: {}\n".format(self.fixedFirstThreeTrains)
         s += "Perfect train runs: {}\n".format(self.perfectTrainRuns)
         s += "Number of times too slow during whole experiment: {}\n".format(self.numTooSlow)
         s += "Number of reset errors: {}\n".format(self.resetErrors)
-        s += "###Move to target###\"
+        s += "###Move to target###\n"
         s += "Close threshold: {}\n".format(self.close)
+        s += "Close enough threshold: {}\n".format(self.closeEnough)
         if usedGate:
             s+= "###Gate configuration###\n"
             s+= "Gating configurations: \n"

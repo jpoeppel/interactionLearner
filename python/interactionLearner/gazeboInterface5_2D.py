@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 """
 Created on Wed Oct  7 18:32:53 2015
-Adaption from interface5 in order to work with 2D coordinates
+Python interface to communicate with gazebo.
+Adapted to better suit the 2d case.
 @author: jpoeppel
 """
 
@@ -14,13 +15,12 @@ from trollius import From
 import pygazebo
 from pygazebo.msg import modelState_pb2
 from pygazebo.msg import modelState_v_pb2
-from pygazebo.msg import gripperCommand_pb2
+from pygazebo.msg import actuatorCommand_pb2
 from pygazebo.msg import worldState_pb2
 from pygazebo.msg import sensor_pb2
 from pygazebo.msg import physics_pb2
 from pygazebo.msg import world_control_pb2
 
-#import yappi
 
 import numpy as np
 np.set_printoptions(precision=6,suppress=True)
@@ -33,6 +33,7 @@ import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
 
+#Use gating or interaction model
 GATE = True
 #GATE = False
 
@@ -50,20 +51,19 @@ from configuration import config
 CONFIGURATION = configuration.FIXFIRSTTHREETRAININGRUNS #| configuration.HARDCODEDACT
 config.switchToConfig(CONFIGURATION)
 
-#config.perfectTrainRuns = True
-
+#If training on perfect test positions, testpositions are shuffeled
 tmpL = range(len(config.testPositions))
 np.random.shuffle(tmpL)
 mapping = {i: tmpL[i] for i in range(len(tmpL))}
 
-FILEEXTENSION = "_E20FoldsSigma005"
+FILEEXTENSION = "DUMMY"
 
-trainRuns = [6]
-NUMBER_FOLDS = 20
-RECORD_SIMULATION = False
+trainRuns = [3]
+NUMBER_FOLDS = 1
+RECORD_SIMULATION = True
 
-TWO_OBJECTS = True
-
+TWO_OBJECTS = False
+BLOCKNAMES = {15: "blockA", 27:"blockB"}
 
 logging.basicConfig()
 
@@ -81,14 +81,15 @@ MODE = PUSHTASKSIMULATION
 #MODE = MOVE_TO_TARGET
 #MODE = DEBUG
 
-
+#Num training runs for move to target
 NUM_TRAIN_RUNS = 8
 if MODE == PUSHTASKSIMULATION:
     NUM_TEST_RUNS = len(config.testPositions)
 elif MODE == PUSHTASKSIMULATION2:
     NUM_TEST_RUNS = len(config.testPositions)
-else:
+elif MODE == MOVE_TO_TARGET:
     NUM_TEST_RUNS = len(config.targets)
+    trainRuns = range(NUM_TEST_RUNS)
 
 class GazeboInterface():
     """
@@ -161,8 +162,8 @@ class GazeboInterface():
                     'gazebo.msgs.Pose'))
                           
         self.cmdPublisher = yield From(
-                self.manager.advertise('/gazebo/default/gripperMsg',
-                    'gazeboPlugins.msgs.GripperCommand'))   
+                self.manager.advertise('/gazebo/default/actuatorMsg',
+                    'gazeboPlugins.msgs.ActuatorCommand'))   
                     
         self.worldControlPublisher = yield From(
                 self.manager.advertise('/gazebo/default/world_control',
@@ -182,14 +183,14 @@ class GazeboInterface():
                           
     def sendCommand(self, action):
         """
-            Function to send a gripperCommand to gazebo
+            Function to send an actuatorCommand to gazebo
             
             Parameters
             ----------
             action: model.Action
                 The action that should be send to gazebo
         """
-        msg = gripperCommand_pb2.GripperCommand()
+        msg = actuatorCommand_pb2.ActuatorCommand()
         msg.cmd = GAZEBOCMDS["MOVE"]
         msg.direction.x = action[0]
         msg.direction.y = action[1]
@@ -198,9 +199,9 @@ class GazeboInterface():
         
     def sendStopCommand(self):
         """
-            Function to send a stop command to gazebo to stop the gripper from moving.
+            Function to send a stop command to gazebo to stop the actuator from moving.
         """
-        msg = gripperCommand_pb2.GripperCommand()
+        msg = actuatorCommand_pb2.ActuatorCommand()
         msg.cmd = GAZEBOCMDS["MOVE"]
         msg.direction.x = 0.0
         msg.direction.y = 0.0
@@ -214,10 +215,10 @@ class GazeboInterface():
             Function to send the last prediction to gazebo. This will move the shadow model
             positions.
         """
-        names = {27: "blockB", 15:"blockA", 8: "gripper"}
+        names = {27: "blockB", 15:"blockA", 8: "actuator"}
         msg = pygazebo.msg.modelState_v_pb2.ModelState_V()
         if GATE:
-            msg.models.extend([self.getModelState("gripperShadow", 
+            msg.models.extend([self.getModelState("actuatorShadow", 
                                                 self.lastPrediction.actuator.vec[0:2], 
                                                 self.lastPrediction.actuator.vec[2])])
         for objectState in self.lastPrediction.objectStates.values():
@@ -254,7 +255,7 @@ class GazeboInterface():
         msg.id = 99
         msg.pose.position.x = pos[0]
         msg.pose.position.y = pos[1] 
-        msg.pose.position.z =  0.03 if name == "gripperShadow" else 0.05
+        msg.pose.position.z =  0.03 if name == "actuatorShadow" else 0.05
 
         ori= common.eulerToQuat(ori)
         msg.pose.orientation.x = ori[0]
@@ -293,7 +294,6 @@ class GazeboInterface():
             Afterwards all objects should have their original position and orientation in the 
             simulation.
         """
-        print "reset world"
         self.sendStopCommand()
         msg = world_control_pb2.WorldControl()
         msg.reset.all = True
@@ -305,6 +305,9 @@ class GazeboInterface():
         self.ignore= True
         
     def pauseWorld(self):
+        """
+            Sends a pause command to the simulation.
+        """
         msg = world_control_pb2.WorldControl()
         msg.pause = True
         self.worldControlPublisher.publish(msg)
@@ -312,7 +315,8 @@ class GazeboInterface():
         
     def modelsCallback(self, data):
         """
-            Callback function that registers gazebo model information
+            Callback function that registers gazebo model information.
+            
             
             Parameters
             ----------
@@ -351,7 +355,6 @@ class GazeboInterface():
             elif MODE == PUSHTASKSIMULATION2:
                 self.pushTaskSimulation2(newWS)
             elif MODE == MOVE_TO_TARGET:
-#                self.setTarget()
                 self.moveToTarget(newWS)
             elif MODE == DEBUG:
                 self.sendPose("blockAShadow", config.targets[1][:2], config.targets[1][2])
@@ -361,10 +364,24 @@ class GazeboInterface():
 #        print "Execution took: ", end-start
         if end-start > 2*1.0/config.frequency:
             self.numTooSlow += 1
-#            raise TypeError("Execution took too long")
             
     def checkPositions(self, newWS):
-        print "checking pos"
+        """
+            Function to check the position of all objects at the start of a run.
+            If positions do not match, another sendPose command is used and the check
+            is performed again at the next timestep.
+            
+            Paramters
+            ---------
+            newWS : model.WorldState
+                Current worldstate at the beginning of a run, containing all object information
+            
+            Returns
+            -------
+                bool:
+                    True if all objects have the desired configuration
+                    False otherwise
+        """
         blocks = []
         if GATE:
             act = newWS.actuator
@@ -377,34 +394,62 @@ class GazeboInterface():
                     blocks.append(o)
         if np.linalg.norm(act.vec-self.lastStartConfig[8]) > 0.01:
             self.resetErrors += 1
-            self.sendPose("gripper", np.concatenate((self.lastStartConfig[8][:2],[0.03])), self.lastStartConfig[8][2])
+            self.sendPose("actuator", np.concatenate((self.lastStartConfig[8][:2],[0.03])), self.lastStartConfig[8][2])
             self.startedRun = True
             return False
         for block in blocks:
+            print "checking block: ", block.id
             if np.linalg.norm(block.vec-self.lastStartConfig[block.id]) > 0.01:
                 self.resetErrors += 1
-                self.sendPose("blockA", np.concatenate((self.lastStartConfig[block.id][:2],[0.05])), self.lastStartConfig[block.id][2])
+                self.sendPose(BLOCKNAMES[block.id], np.concatenate((self.lastStartConfig[block.id][:2],[0.05])), self.lastStartConfig[block.id][2])
                 self.startedRun = True
                 return False
         return True
         
 
     def changeUpdateRate(self, rate):
+        """
+            Allows to change the update rate of the contact sensor in the simulation. Basically
+            determines the frequency with which this interface is called.
+            
+            Parameters
+            ----------
+            rate : int
+                Desired update frequency
+        """
         msg = sensor_pb2.Sensor()
-        msg.name = "gripperContact"
+        msg.name = "actuatorContact"
         msg.type = "contact"
-        msg.parent = "gripper::finger"
+        msg.parent = "actuator::finger"
         msg.parent_id = 9
         msg.update_rate = rate
         self.sensorControlPublisher.publish(msg)
 
     def changeRealTimeRate(self, rate):
+        """
+            Allows to change the real time update rate of the simulation. Determines the number of
+            simulation steps performed in one second.
+            
+            Parameters
+            ----------
+            rate : int
+                Desired update rate
+        """
         msg = physics_pb2.Physics()
         msg.type = physics_pb2.Physics.ODE
         msg.real_time_update_rate = rate
         self.physicsControlPublisher.publish(msg)
 
     def recordData(self, newWorldState):
+        """
+            Helper function that records the data of the last prediction and the current 
+            worldstate in order to evaluate it later.
+            
+            Paramters
+            --------
+            newWorldState : model.WorldState
+                The current worldstate received from the simulation.
+        """
 
         #Fold, isTraining, run and timestep number
         if MODE == PUSHTASKSIMULATION:
@@ -474,19 +519,23 @@ class GazeboInterface():
                     
                 s += bS + actS
             else:
-                s += "0.0; 0.0; 0.0; 0.0; 0.0; 0.0; 0.0; 0.0; 0.0; 0.0\n"
+                #In the interaction model, the actuator is part of the object states, therefore
+                #reduce by 1
+                s += "0.0;"*8*(len(newWorldState.objectStates)-1) + "0.0;0.0\n"
 
         self.runString += s
-        return
        
     def writeData(self):
+        """
+            Writes the recorded data in self.runString to the text file specified by
+            self.filename in the folder ../../evalData if RECORD_SIMULATION = True
+        """
         if not RECORD_SIMULATION:
             return
 
         if not os.path.isfile("../../evalData/" + self.fileName + ".txt"):
             self.runString = "#FoldNumber; isTraining; RunNumber; StepNumber; BlockId; px; py; kx1; \
                         ky1; kx2; ky2; ori; actx; acty; PredBlockId; Pred px; py; ...\n" + self.runString
-#            self.writeConfig()
             
         with open("../../evalData/" + self.fileName + ".txt", "a") as f:
             f.write(self.runString)
@@ -494,26 +543,45 @@ class GazeboInterface():
         self.runString = ""
     
     def writeConfig(self):
+        """
+            Writes the configuration string to the file, specified by self.fileName + "_config"
+            in the folder ../../evalData.
+        """
         with open("../../evalData/" + self.fileName + "_config.txt", "w") as f:
             f.write("Configuration for experiment recorded in {}\n".format(self.fileName))
             f.write(config.toString(GATE))
             
     def writeITMInformation(self, info):
+        """
+        Writes the ITM information info to the file, specified by self.fileName + "_ITMInformation"
+            in the folder ../../evalData.
+            
+        Parameters
+        ----------
+        info : String
+            String containing information about the used aitm.
+        """
         with open("../../evalData/" + self.fileName + "_ITMInformation.txt", "a") as f:
             f.write(info)
 
     def runEnded(self, worldState):
         """
         Function to determine if a run has ended. In this case a run has ended, when the
-        gripper did not move more than a threshold compared to the last State.
+        actuator did not move more than a threshold compared to the last State.
         
         Parameters
         ----------
         worldState: model.WorldState
             The current world state.
+        
+        Returns
+        -------
+        bool:
+            True if the actuator has moved at least 1m or the stepCounter passed 150
+            False otherwise
         """
-        gripperOs = worldState.actuator
-        tPos = gripperOs.vec[0:2]
+        actuatorOs = worldState.actuator
+        tPos = actuatorOs.vec[0:2]
         
         if np.linalg.norm(tPos) > 1.0 or self.stepCounter > 150:
             return True
@@ -536,8 +604,14 @@ class GazeboInterface():
         
     def startRun(self, randomRange=0.5):
         """
-        Function to start a new Run. This means that the inital action is set and the first
-        prediction is made.
+        Function to start a new Run. Determines the starting position of the actuator and sets up
+        local variables.
+        
+        Paramters
+        --------
+        randomRange : float, optional
+            Random positions will be drawn from [-randomRange/2, randomRange/2]
+            Default 0.5
 
         """
         
@@ -546,9 +620,11 @@ class GazeboInterface():
         posX = ((np.random.rand()-0.5)*randomRange) #* 0.5
         if config.fixedFirstThreeTrains:
             if self.trainRun == 0:
-                posX = -0.18
+#                posX = -0.18
+                posX = -0.14
             elif self.trainRun == 1:
-                posX = 0.18
+#                posX = 0.18
+                posX = 0.14
             elif self.trainRun == 2:
                 posX = 0
             if TWO_OBJECTS:
@@ -564,41 +640,33 @@ class GazeboInterface():
         if config.perfectTrainRuns:
             posX = config.testPositions[mapping[self.trainRun]]
                 
-        self.lastStartConfig = {8:np.array([posX,0.0,0.0]), 15:np.array([0.0,0.25,0.0]), 27:np.array([-0.6,0.35,0.0])}
+        self.lastStartConfig = {8:np.array([posX,0.0,0.0]), 
+                                15:np.array([0.0,0.25,0.0]), 
+                                27:np.array([-0.6,0.35,0.0])}
             
-        self.sendPose("gripper", np.array([posX,0.0,0.03]), 0.0)
+        self.sendPose("actuator", np.array([posX,0.0,0.03]), 0.0)
         self.stepCounter = 0
         self.ignore = True
         self.startedRun = True
         
     def startTestRun(self):
+        """
+        Function to start a new test run. Determines the starting position of the actuator and sets up
+        local variables.
+        Starting testposition is chosen from the config file.
+        """
         self.runStarted = True
         posX = config.testPositions[self.testRun]
         
-        self.lastStartConfig = {8:np.array([posX,0.0,0.0]), 15:np.array([0.0,0.25,0.0]), 27:np.array([-0.6,0.35,0.0])}
+        self.lastStartConfig = {8:np.array([posX,0.0,0.0]), 
+                                15:np.array([0.0,0.25,0.0]), 
+                                27:np.array([-0.6,0.35,0.0])}
         
-        self.sendPose("gripper", np.array([posX, 0.0,0.03]), 0.0)
+        self.sendPose("actuator", np.array([posX, 0.0,0.03]), 0.0)
         self.stepCounter = 0
         self.ignore = True
         self.startedRun = True
-        
-    def startRun2(self, randomRange=0.5):
-        self.runStarted = True
-         #Set up Starting position
-        posy = ((np.random.rand()-0.5)*randomRange) #* 0.5
-        self.sendPose("gripper", np.array([0.0,posy,0.03]), 0.0)
-        self.sendPose("blockA", np.array([-0.5, 0.0, 0.05]) , 1.0)
-        self.stepCounter = 0
-        self.ignore = True
-        
-    def startRun3(self):
-        self.runStarted = True
-        self.sendPose("gripper", np.array([-0.5, 0.5,0.03]), -1.0)
-        self.stepCounter = 0
-        self.ignore = True
-
-    def pushTask(self, worldState):
-        raise NotImplementedError
+    
         
     def pushTaskSimulation2(self, worldState):
         """
@@ -606,6 +674,12 @@ class GazeboInterface():
             based on the previous prediction the model made.
             The difference to the standard pushTaskSimulation is that the model is still
             being updated after it made the prediction with what actually happened.
+            No training is performed.
+            
+            Paramters
+            ---------
+            worldState : model.WorldState
+                The current worldstate containing the current object information
         """
         if self.runStarted:
             if self.runEnded(worldState):
@@ -624,7 +698,6 @@ class GazeboInterface():
                 else:
                     self.lastPrediction = self.worldModel.predict(self.lastPrediction, self.direction)
                 self.worldModel.update(worldState, self.lastAction)
-                
                 self.lastAction = self.direction
                 self.sendPrediction()
                 self.sendCommand(self.lastAction)
@@ -638,14 +711,22 @@ class GazeboInterface():
             self.pauseWorld()
             
     def pushTaskSimulation(self, worldState):
+        """
+            Method to perform pushTask simulation. This means that predictions are made
+            based on the previous prediction the model made. Model is not updated after
+            training.
+            
+            Paramters
+            ---------
+            worldState : model.WorldState
+                The current worldstate containing the current object information
+        """
         self.stepCounter += 1
-#        print "num cases: " + str(len(self.worldModel.cases))
-#        print "num abstract cases: " + str(len(self.worldModel.abstractCases))
-        print "step counter: ", self.stepCounter
+#        print "step counter: ", self.stepCounter
         
         if self.runStarted:
             if self.runEnded(worldState):
-                self.pauseWorld()
+#                self.pauseWorld()
                 self.resetWorld()
                 self.writeData()
                 self.runStarted = False
@@ -673,9 +754,6 @@ class GazeboInterface():
                         # Set new seed so that all test runs start identically, independent of the number of training runs
                         np.random.seed(config.testSeed) 
                     self.worldModel.training = False
-#                    fileName = ""
-                    
-                    
                     
         elif self.testRun < NUM_TEST_RUNS:
             print "Test run #: ", self.testRun
@@ -683,10 +761,7 @@ class GazeboInterface():
                 self.lastAction = self.direction
                 if self.lastPrediction != None:
                     predictedWorldState = self.lastPrediction
-
-                    
                 else:
-                    print "lastPrediction None"
                     predictedWorldState = worldState
                     self.worldModel.resetObjects(worldState)
                 self.worldModel.update(predictedWorldState, self.lastAction)
@@ -713,13 +788,14 @@ class GazeboInterface():
                             self.writeConfig()
                             self.active = False
                             self.done = True
-                            
-        else:
-#            import sys
-#            sys.exit()
-            pass
+
                 
     def resetExperiment(self):
+        """
+            Function to reset the experiment to start with the next run.
+            The current model is replaced by a new, untrained one and the new filename
+            is setup.
+        """
         self.trainRun = 0
         self.testRun = 0
         if GATE:
@@ -751,41 +827,66 @@ class GazeboInterface():
         if self.lastPrediction != None and worldState != None:
             self.worldModel.update(worldState, self.lastAction)
         else:
-            print "reset objects"
             self.worldModel.resetObjects(worldState)
-        
-#        self.lastState = worldState
+            
         self.lastAction = direction
-        
         self.lastPrediction = self.worldModel.predict(worldState, self.lastAction)
-        
         self.sendPrediction()
         self.sendCommand(self.lastAction)
 
-
-    def randomExploration(self, worldState):
-        raise NotImplementedError
-        
     def startRunTarget(self, run):
-#        print "run: ", run
+        """
+        Function to start a new training run for the moveToTarget task. 
+        Determines the starting position and direction of the actuator and sets up
+        local variables.
+        
+        Paramters
+        --------
+        run : int
+            Number of the current training run.
+
+        """
+        
+#        runmapping = {0:7, 1:7}
+#        run = runmapping[run]
+
+
         startPositions = {0:np.array([0.24,0.0,0.0]), 1: np.array([0.3, 0.25,0.0]),
                           2: np.array([0.24, 0.5, 0.0]), 3: np.array([0.0,0.5,0.0]), 
                           4: np.array([-0.24,0.5,0.0]), 5: np.array([-0.3,0.25,0.0]), 
-                          6: np.array([-0.24,0.0,0.0]), 7: np.array([0.0,0.0,0.0]), 8: np.array([0.0,0.0,0.0])}
-        directions = {0: np.array([0.0,0.5]), 1: np.array([-0.5, 0.0]),
-                      2: np.array([0.0, -0.5]), 3: np.array([0.0,-0.5]), 4: np.array([0.0,-0.5]),
-                      5: np.array([0.5,0.0]), 6: np.array([0.0,0.5]), 7:np.array([0.0,0.5]), 8:np.array([0.0,0.5]) }
+                          6: np.array([-0.24,0.0,0.0]), 7: np.array([0.0,0.0,0.0]), 
+                          8: np.array([0.0,0.0,0.0])}
+                          
+        directions = {0: np.array([0.0,0.5]),   1: np.array([-0.5, 0.0]),
+                      2: np.array([0.0, -0.5]), 3: np.array([0.0,-0.5]), 
+                      4: np.array([0.0,-0.5]),  5: np.array([0.5,0.0]), 
+                      6: np.array([0.0,0.5]),   7:np.array([0.0,0.5]), 
+                      8:np.array([0.0,0.5]) }
                       
-        self.lastStartConfig = {8:startPositions[run], 15:np.array([0.0,0.25,0.0]), 27:np.array([-0.3,0.35,0.0])}
+        self.lastStartConfig = {8:startPositions[run], 
+                                15:np.array([0.0,0.25,0.0]), 
+                                27:np.array([-0.3,0.35,0.0])}
         self.startedRun = True
         self.runStarted = True
-        self.sendPose("gripper", startPositions[run], 0.0)
+        self.sendPose("actuator", startPositions[run], 0.0)
         self.stepCounter = 0
         self.direction = directions[run]
         
     def moveToTarget(self, worldState):
+        """
+            Actual MoveToTarget task handler. First makes sure the model is trained on the provided
+            training positions. Afterwards sets the desired target from the config file.
+            If a target is reached or not is determined by the model.
+            
+            Parameters
+            ----------
+            worldState : model.WorldState
+                Current worldstate provided by the simulation.
+        """
+        #Setup run and check for runEnded
         self.stepCounter += 1
         if self.runStarted:
+            #During training the normal runEnded can be used
             if self.trainRun < NUM_TRAIN_RUNS and self.runEnded(worldState):
                 self.resetWorld()
                 self.writeData()
@@ -794,8 +895,8 @@ class GazeboInterface():
             self.startRunTarget(self.trainRun)
             return
             
+        #Update model during training
         if self.trainRun < NUM_TRAIN_RUNS:
-#            print "trainrun : ", self.trainRun
             if self.runStarted:
                 self.updateModel(worldState, self.direction)
             else:
@@ -807,30 +908,32 @@ class GazeboInterface():
                     else:
                         self.writeITMInformation("####ITM Information for fold: {} after training\n".format(self.foldNumber) 
                                             + self.worldModel.getITMInformation())
+                    #Setup first target after training
                     curTarget = model.Object()
                     curTarget.id = 15
                     curTarget.vec = config.targets[self.runNumber]
                     self.worldModel.setTarget(curTarget)
+                    
         elif self.testRun < NUM_TEST_RUNS:
-#            if self.worldModel.target ==  None:
-#                self.setRandomTarget()
+            #Update model with current information
             if self.lastAction != None and worldState != None:
-#                print "updating with last action: ", self.lastAction
                 self.worldModel.update(worldState, self.lastAction)
             else:
                 self.worldModel.resetObjects(worldState)
+                
+            #Query for action to use
             self.lastAction = self.worldModel.getAction()
-#            print "sending action: ", self.lastAction
             self.sendCommand(self.lastAction)
-#            self.lastPrediction = self.worldModel.predict(worldState, self.lastAction)
-#            self.sendPrediction()
+
             if self.worldModel.target != None and not self.runEndedMoveToTarget():
                 if GATE:
                     target = self.worldModel.target
                 else:
                     target, o2 = model.Object.fromInteractionState(self.worldModel.target)
+                #Project target in gui
                 self.sendPose("blockAShadow", target.vec[0:2], target.vec[2])
             else:
+                #Setup next target
                 self.runStarted = False
                 if not RECORD_SIMULATION:
                     self.pauseWorld()
@@ -860,21 +963,26 @@ class GazeboInterface():
             
         
     def setRandomTarget(self):
+        """
+            Function allowing to set a random target in the valid area.
+        """
         target = model.Object()
         target.id = 15
-#        target.vec = np.array([0.0, 0.7, 0.0])
         target.vec = np.zeros(3)
         target.vec[0:2] = (np.random.rand(2)-0.5)*2.0
         target.vec[2] = (np.random.rand()-0.5)*2*np.pi
         self.worldModel.setTarget(target)
 
     def setTarget(self):
+        """
+            Function to set a fixed target in the valid area.
+        """
         target = model.Object()
         target.id = 15
         if model.USE_DYNS:
             target.vec = np.array([-0.5, 0.4, 1.8 ,0.0,0.0])
         else:
-            target.vec = np.array([0.75, -0.4, -1.0])#, 0.0,0.0,0.0, 0.0])
+            target.vec = np.array([0.75, -0.4, -1.0])
         self.worldModel.setTarget(target)
     
     def stop(self):
@@ -885,9 +993,7 @@ class GazeboInterface():
 
     
 if __name__ == "__main__":
-#    yappi.start()
     loop = trollius.get_event_loop()
     gi = GazeboInterface()
     loop.run_until_complete(gi.loop())
     print "Number of times too slow: ", gi.numTooSlow
-#    yappi.get_func_stats().print_all(columns={0:("name",200), 1:("ncall", 5), 2:("tsub", 8), 3:("ttot", 8), 4:("tavg",8)})

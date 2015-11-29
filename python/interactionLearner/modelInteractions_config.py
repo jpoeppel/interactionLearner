@@ -7,8 +7,6 @@ written in the thesis.
 Already focuses on 2D only
 By reimplementing from scatrch, we can hopefully avoid problems with the legacy components in 
 the old model.
-
-Replace all magic numbers with config lookups
 @author: jpoeppel
 """
 
@@ -16,13 +14,18 @@ import numpy as np
 from numpy import copy as npcopy
 from numpy import round as npround
 import common
-from itm import ITM
+from aitm import AITM
 import copy
 from configuration import config
 from inverseModel import MetaNetwork
 
 
 class Object(object):
+    """
+        Class representing an object in the environment.
+        No really required for the interaction state model, but makes handling more similar to the
+        gating model and allows easier parsing of the interaction states.
+    """
     
     def __init__(self):
         self.id = 0
@@ -35,6 +38,18 @@ class Object(object):
     
     @classmethod
     def parse(cls, m):
+        """
+            Classmethod that parses a protobuf modelstate to get an Object
+            
+            Paramters
+            ---------
+            m : Protobuf.ModelState
+            
+            Returns
+            -------
+                Object
+                The parsed object
+        """
         res = cls()
         res.id = m.id 
         if config.USE_DYNS:
@@ -57,7 +72,23 @@ class Object(object):
         
     @classmethod
     def fromInteractionState(cls, intState):
-        #TODO cannot be used with dynamics as is
+        """
+            Classmethod to extract the two object states from an interaction state.
+            
+            Parameter
+            ----------
+            intState : InteractionState
+                Interactionstate from where the object states are to be extracted.
+                
+            Returns
+            -------
+            o1 : Object
+                Reference object from the interaction state
+            o2 : Object
+                Second object from the interaction state
+                
+        """
+        #TODO cannot be used with dynamics as is. Assumes 2nd object to be the actuator
         o1 = cls()
         o2 = cls()
         o1.id = int(intState.vec[0])
@@ -75,8 +106,16 @@ class Object(object):
         return o1, o2
         
     def getKeyPoints(self):
-        WIDTH = {15: 0.25, 8: 0.025} #Width from the middle point
-        DEPTH = {15: 0.05, 8: 0.025} #Height from the middle point
+        """
+            Computes the position of two edges of the object.
+            
+            Returns
+            -------
+                np.ndarray(3x2)
+                Matrix containing the 2d positions of the center as well as the two keypoints.
+        """
+        WIDTH = {27: 0.15, 15: 0.25, 8: 0.025} #Width from the middle point
+        DEPTH = {27: 0.15, 15: 0.05, 8: 0.025} #Height from the middle point
         p1x = WIDTH[self.id]
         p2x = -p1x
         p1y = DEPTH[self.id]
@@ -91,6 +130,9 @@ class Object(object):
         return np.array([npcopy(self.vec[0:2]), np.array([p1xn,p1yn]), np.array([p2xn,p2yn])])
     
 class InteractionState(object):
+    """
+        Implementation of the interaction state.
+    """
     
     def __init__(self):
         self.id = ""
@@ -102,6 +144,14 @@ class InteractionState(object):
         pass
     
     def update(self, newState):
+        """
+            Updates the interaction state with new information
+            
+            Parameters
+            ----------
+            newState : InteractionState
+                Interaction state whose values should be adopted.
+        """
         self.lastVec = npcopy(self.vec)
         self.vec = npcopy(newState.vec)
         self.ori = newState.ori
@@ -110,6 +160,21 @@ class InteractionState(object):
     
     @classmethod
     def fromObjectStates(cls, o1, o2):
+        """
+            Classmethod to create an interaction state from two object states.
+            
+            Parameters
+            ----------
+            o1 : Object
+                Reference object for the interaction state
+            o2 : Object
+                Secondary object for the interaction state
+                
+            Returns
+            -------
+                InteractionState
+            
+        """
         #TODO Does currently not use dynamics
         res = cls()
         res.id = str(o1.id) + "," + str(o2.id)
@@ -127,6 +192,20 @@ class InteractionState(object):
 
         
     def circle(self, toTarget = None):
+        """
+            Function to return an action that would circle the other object around 
+            itself. 
+            
+            Parameters
+            ----------
+            toTarget : np.ndarray, optional
+                Relative direction of the object towards the target position
+            
+            Returns
+            -------
+                np.ndarray
+                Action vector for the actuator for the next step
+        """
         o1,o2 = Object.fromInteractionState(self)
         dist = common.generalDist(o1.id, o1.vec[0:2], o1.vec[2], o2.id, o2.vec[:2], o2.vec[2])
         relPos = self.vec[5:7]
@@ -161,6 +240,9 @@ class InteractionState(object):
             return 0.4*tangent/np.linalg.norm(tangent)
     
 class WorldState(object):
+    """
+        Container class for all the object and interaction states.
+    """
     
     def __init__(self):
         self.objectStates = {}
@@ -169,6 +251,14 @@ class WorldState(object):
         self.actuator = None
         
     def parseModels(self, models):
+        """
+            Parses a protobuf ModelState_V 
+            
+            Parameters
+            ----------
+            models : Protobuf.ModelState_V
+                Vector message containing all the ModelStates 
+        """
         for m in models:
             if m.name == "ground_plane" or "wall" in m.name or "Shadow" in m.name:
                 continue
@@ -179,6 +269,10 @@ class WorldState(object):
                     self.actuator = tmp
                 
     def parseInteractions(self):
+        """
+            Parses the known object states to interaction states. The actuator is used as secondary
+            object for all interaction states.
+        """
         for n1, os1 in self.objectStates.items():
             if n1 != 8:
                 for n2, os2 in self.objectStates.items():
@@ -187,6 +281,14 @@ class WorldState(object):
                         self.interactionStates[intState.id] = intState
         
     def parse(self, gzWS):
+        """
+            Parses a protobuf WorldState message
+            
+            Parameters
+            ---------
+            gzWS : Protobuf.WorldState
+                Worldstate message provided by the simulation
+        """
         self.parseModels(gzWS.model_v.models)   
         self.parseInteractions()
         
@@ -203,15 +305,28 @@ class WorldState(object):
             
         self.parseInteractions()
     
-class Action(object):
     
-    def __init__(self):
-        self.vec = np.zeros(3)
-        pass
-
 class Episode(object):
+    """
+        Implementation of the Episode container.
+        Stores past experiences and computes the difference vectors.
+    """    
+    
     
     def __init__(self, pre, action, post):
+        """
+            Constructor which sets up the episode. Performs transformation of the post state and
+            computes the difference vector.
+            
+            Parameters
+            ----------
+            pre : InteractionState
+                Interactionstate before the action
+            action : np.ndarray(2)
+                Action primitive that caused the change from pre to post
+            post : InteractionState
+                Interactionstate after the action
+        """
         self.preState = pre
         self.action = action
         self.postState = post
@@ -228,20 +343,49 @@ class Episode(object):
         self.difs = postVec-pre.vec
         
     def getChangingFeatures(self):
+        """
+            Computes the set of changing features.
+            
+            Returns
+            -------
+                np.ndarray
+                List of indices for the feature dimensions that changed
+        """
         return np.where(abs(self.difs)>config.episodeDifThr)[0]
 
         
     
 class AbstractCollection(object):
+    """
+        Implementation of the Abstract Collection. Contains the local forward model.
+        Past episodes are stored for potential local optimizations.
+    """
     
     def __init__(self, identifier, changingFeatures):
+        """
+            Abstract Collection (AC) Constructor
+            Parameters
+            ----------
+            identifier : int
+                Identifier for this AC
+            changingFeatures: np.ndarray
+                List of feature indices that this AC is responsible for
+        """
         self.id = identifier
-        self.predictor = ITM()
+        self.predictor = AITM()
         self.inverseModel = MetaNetwork()
         self.changingFeatures = npcopy(changingFeatures)
         self.storedEpisodes = []
     
     def update(self, episode):
+        """
+            Updates the Abstract Collection with another episode
+            
+            Parameters
+            ----------
+            episode : Episode
+                Current episode from which the AC should learn.
+        """
         #Translation can be ignored since we are dealing with velocity
         transAction = np.dot(episode.preState.invTrans[:-1,:-1], episode.action) 
         vec = np.concatenate((episode.preState.vec, transAction))
@@ -253,7 +397,19 @@ class AbstractCollection(object):
     
     def predict(self, intState, action):
         """
-            Action needs to be transformed to local coordinate system!
+            Predicts the state of the given interactionstate after the given action is performed.
+            Action will to be transformed to local coordinate system.
+            
+            Parameters
+            ---------
+            intState : InteractionState
+                InteractionState whose next state is to be predicted
+            action : np.ndarray
+                Action vector that is to be used
+            
+            Returns
+            -------
+                InteractionState
         """
         res = InteractionState()
         res.id = intState.id
@@ -269,16 +425,49 @@ class AbstractCollection(object):
         return res
         
     def getAction(self, difs):
+        """
+            Queries the local inverse model if used for preconditions that contain 
+            action primitives.
+            
+            Parameters
+            ----------
+            difs : np.ndarray
+                The difference vector that is to be reduced by the preconditions
+            
+            Returns
+            ------
+                np.ndarray
+                Preconditions returned by the inverse model.
+        """
         return self.inverseModel.getPreconditions(difs)
 
     
 class ACSelector(object):
+    """
+        Implementation of the Abstract Collection Selector. Basically a wrapper for the
+        AITM as classifier.
+    """
     
     def __init__(self):
-        self.classifier = ITM()
+        self.classifier = AITM()
         self.isTrained = False
         
     def update(self, intState, action, respACId):
+        """
+            Updates the classifier. The action is first transformed to the local coordinate system
+            of the given interaction state.
+            
+            Parameters
+            ----------
+            intState : InteractionState
+                InteractionState that produced changes that respACId is responsible for with the
+                given action
+            action : np.ndarray
+                Action primitive that produced the changes
+            respACId : int
+                Identifier of the AC that is responsible for the changes produced by intState 
+                and action
+        """
         transAction = np.dot(intState.invTrans[:-1,:-1], action) 
         vec = np.concatenate((intState.vec[config.aCSelectorMask], transAction))
         self.classifier.update(vec, np.array([respACId]), 
@@ -289,10 +478,25 @@ class ACSelector(object):
         self.isTrained = True
     
     def test(self, intState, action):
+        """
+            Queries the classifier for the AC id. Action is first transformed to the local 
+            coordinate system of the interactionstate.
+            
+            Parameters
+            ---------
+            intState : InteractionState
+                Current interactionstate.
+            action : np.ndarray
+                Current action primtive that is to be used.
+            
+            Returns
+                int
+                Identifier of the AC that is most likely responsible for the changes produced by 
+                action.
+        """
         transAction = np.dot(intState.invTrans[:-1,:-1], action) 
         if self.isTrained:
             vec = np.concatenate((intState.vec[config.aCSelectorMask], transAction))
-#            return int(self.classifier.test(vec))
             #Only use winner to make prediction, interpolation does not really
             #make sense when having more then 2 classes
             return int(self.classifier.test(vec, testMode=config.aCSelectorTestMode)) 
@@ -301,6 +505,9 @@ class ACSelector(object):
 
 
 class ModelInteraction(object):
+    """
+        Implementation of the interaction state model.
+    """
 
     def __init__(self):
         self.acSelector = ACSelector()
@@ -315,24 +522,35 @@ class ModelInteraction(object):
     
     
     def getITMInformation(self):
+        """
+            Helper function to record the state of the included AITMs.
+            
+            Returns
+            -------
+                String
+                Information about the number of nodes and update calls of each AITM
+        """
         acSelString = "acSelector ITM: UpdateCalls: {}, Insertions: {}, final Number of nodes: {}\n"\
                                     .format(self.acSelector.classifier.updateCalls,
                                             self.acSelector.classifier.inserts, 
                                             len(self.acSelector.classifier.nodes))
         acString = ""
         for ac in self.abstractCollections.values():
-            acString += "Abstract collection for features: {}, ITM: UpdateCalls: {}, Insertions: {}, final Number of nodes: {}\n"\
+            acString += "Abstract collection for features: {}, ITM: UpdateCalls: {}, \
+                         Insertions: {}, final Number of nodes: {}\n"\
                         .format(ac.changingFeatures, ac.predictor.updateCalls, 
                                 ac.predictor.inserts, len(ac.predictor.nodes))
         return acSelString + acString
         
     def setTarget(self, target):
         """
-            Sets a target that is to be reached.
-            Target is an object (maybe partially described)
+            Sets a target that is to be reached. Constructs an InteractionState as target from
+            the given Object state.
+            
             Parameters
             ----------
             target : Object
+                Object state of the target that is to be reached
         """
         #Create target interaction state from object
         if target.id == 8:
@@ -343,106 +561,96 @@ class ModelInteraction(object):
         self.targetFeatures = [2,3,4]
         
     def isTargetReached(self):
+        """
+            Helper function to check if the current target has already been reached.
+            
+            Returns
+            ------
+                bool
+                True if the target has been reached, False otherwise
+        """
         targetInteraction = self.curInteractionStates[self.target.id]
-        episode = Episode(targetInteraction, Action(), self.target)
+        episode = Episode(targetInteraction, np.zeros(2), self.target)
         if np.linalg.norm(episode.difs[self.targetFeatures]) < 0.01:
             return True
         return False
         
     def getAction(self):
+        """
+            Returns an action, that is to be performed, trying to get closer to the
+            target if one is set. If no target is set, returns the 0 action.
+            
+            Returns: np.ndarray
+                Action vector for the actuator
+        """
         if self.target is None:
-#            return self.explore()
             return np.array([0.0,0.0])
         else:
             if self.isTargetReached():
                 self.target = None
-#                print "Target reached!"
                 return np.zeros(2)
             else:
                 targetInteraction = self.curInteractionStates[self.target.id]
                 #Create desired episode with zero action, in order to get required difference vector
-                desiredEpisode = Episode(targetInteraction, Action(), self.target)
+                desiredEpisode = Episode(targetInteraction, np.zeros(2), self.target)
                 #Only consider target differences
                 
-                targetChangingFeatures = [i for i in desiredEpisode.getChangingFeatures() if i in self.targetFeatures]
-                targetDifs = np.zeros(len(desiredEpisode.difs))#[self.targetFeatures]
+                targetDifs = np.zeros(len(desiredEpisode.difs))
                 targetDifs[self.targetFeatures] = desiredEpisode.difs[self.targetFeatures]
-#                maxIndex = np.argmax(abs(targetDifs))
-#                maxFeature = targetChangingFeatures[maxIndex]
-#                print "maxIndex: ", maxIndex
-#                print "maxFeature: ", maxFeature
-                featuresString = ",".join(map(str,targetChangingFeatures))
-#                print "featuresString: ", featuresString
-#                print "available ACs: ", self.featuresACMapping.keys()
-#                responsibleACs = []
 
-#                for k in self.featuresACMapping.keys():
-#                    if featuresString in k:
-#                        responsibleACs.append(self.abstractCollections[self.featuresACMapping[k]])
-#                    else:
-#                        if str(maxFeature) in k:
-#                            responsibleACs.append(self.abstractCollections[self.featuresACMapping[k]])
-#            
-##                for ac in responsibleACs:
-##                    if str(maxIndex*np.sign(targetDifs[maxIndex])) in ac.inverseModel.nodes:
-#                        
-#                preConditions = None
-##                i=len(responsibleACs)-1
-#                i=0
-#                while preConditions == None:
-#                    preConditions = responsibleACs[i].getAction(targetDifs)
-#                    print "AC features: ", responsibleACs[i].changingFeatures
-#                    i+=1
-                
+                #Use global inverse model to avoid having to select the correct one
                 preConditions = self.inverseModel.getPreconditions(targetDifs)
-#                print "usedAC: ", i-1
-                print "Preconditions: ", preConditions
+                
+                if preConditions == None:
+                    randAction = np.dot(targetInteraction.trans[:2,:2],-targetInteraction.vec[5:7]) + \
+                                        (np.random.rand(2)-0.5)
+                    norm = np.linalg.norm(randAction)
+                    if norm > 0:
+                        return 0.3*randAction/norm
+                    else:
+                        return randAction
                 relTargetPos = preConditions[5:7]
                 globTargetPos = np.ones(3)
                 globTargetPos[:2] = np.copy(relTargetPos)
                 globTargetPos = np.dot(targetInteraction.trans, globTargetPos)[:2]
                 relAction = preConditions[8:10]
-#                print "relAction: ", relAction
                 curRelPos = targetInteraction.vec[5:7]
                 globCurPos = np.ones(3)
                 globCurPos[:2] = np.copy(curRelPos)
                 globCurPos = np.dot(targetInteraction.trans, globCurPos)[:2]
-                print "global Target: ", globTargetPos
-                print "global Current: ", globCurPos
-                print "rel Target: ", relTargetPos
-                print "rel Pos: ", curRelPos
                 
                 difPos = globTargetPos-globCurPos
                 globAction = np.dot(targetInteraction.trans[:2,:2],relAction)
-#                print "global Action: ", globAction
-#                wrongSides = curRelPos*relTargetPos < 0
-#                if np.any(wrongSides):
-#                    if max(abs(relTargetPos[wrongSides]-curRelPos[wrongSides])) > 0.05:
-#                        print "circling"
-#                        return targetInteraction.circle()
-    
                 if np.linalg.norm(difPos) > 0.1:
-#                    print "circling, too far"
                     return targetInteraction.circle(relTargetPos)
                 if np.linalg.norm(difPos) > 0.01:
-#                    print "doing difpos"
                     return 0.3*difPos/np.linalg.norm(difPos)                
-#                print "global action"
                 if np.linalg.norm(globAction) == 0.0:
                     return globAction
                 return  0.3*globAction/np.linalg.norm(globAction)
                 pass
     
     def update(self, curWorldState, usedAction):
+        """
+            Updates the model. For each interaction state in the new worldState an episode
+            is created to compute the difference vector. This is then used together with the old
+            interactionstate to train the ACS and the ACs.
+            
+            Parameters
+            ----------
+            curWS : WorldState
+                Current worldState which is used to update
+            usedAction : np.ndarray(2)
+                Action primitive used to produce the current worldstate
+        """
+        
         for intId, intState in curWorldState.interactionStates.items():
             if intId in self.curInteractionStates:
                 #When training, update the ACs and the selector
                 if self.training:
                     newEpisode = Episode(self.curInteractionStates[intId], usedAction, intState)
-#                    print "newEpisode difs: ", newEpisode.difs
                     changingFeatures = newEpisode.getChangingFeatures()
                     featuresString = ",".join(map(str,changingFeatures))
-#                    print "feature String: ", featuresString
                     #Create AC if not already known
                     if not featuresString in self.featuresACMapping:
                         newAC = AbstractCollection(len(self.abstractCollections),changingFeatures)
@@ -454,31 +662,36 @@ class ModelInteraction(object):
                     transAction = np.dot(self.curInteractionStates[intId].invTrans[:-1,:-1], usedAction) 
                     vec = np.concatenate((self.curInteractionStates[intId].vec, transAction))
                     self.inverseModel.train(vec, newEpisode.difs)
-#                    if not 0 in self.abstractCollections:
-#                        self.abstractCollections[0] = AbstractCollection(0, np.array([2,3,4,5,6,7]))
-#                    self.abstractCollections[0].update(newEpisode)
                     
-                
                 self.curInteractionStates[intId].update(intState)
             else:
                 self.curInteractionStates[intId] = intState
         
     
     def predict(self, curWorldState, curAction):
-        #TODO is curWorldState even needed here?
+        """
+            Predicts the next worldstate given a current worldstate and an action primitive.
+            Predicted worlsState is finalized at the end in order to extract the predicted object
+            states.
+            
+            Parameters
+            ----------
+            ws : WorldState
+                Current worldstate
+            action : np.ndarray(2)
+                Action primitive that is to be used.
+                
+            Returns
+            -------
+                WorldState
+                Worldstate containing the predicted states of all objects in ws
+        """
         newWS = WorldState()
         for intId, intState in curWorldState.interactionStates.items():
-#        for intId, intState in self.curInteractionStates.items():
             acID = self.acSelector.test(intState, curAction)
-#            if 0 in self.abstractCollections:
-#                acID = 0
-#            else:
-#                acID = None
-#            print "acID: ", acID
             if acID == None:
                 newIntState = copy.deepcopy(intState)
             else:
-#                print "changing features: ", self.abstractCollections[acID].changingFeatures
                 newIntState = self.abstractCollections[acID].predict(intState, curAction)
             newWS.interactionStates[intId] = newIntState
         
@@ -488,6 +701,15 @@ class ModelInteraction(object):
         
         
     def resetObjects(self, curWS):
+        """
+            Updates the known object positions. Required for resetting a run, without loosing
+            what is already learned. All interactionstates are updated.
+            
+            Parameters
+            ---------
+            curWS : WorldState
+                Current worldstate whose object states represent the new values
+        """
         self.curInteractionStates = {}
         for i in curWS.interactionStates.values():
             if i.id in self.curInteractionStates:

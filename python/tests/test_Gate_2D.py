@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Tue Oct 20 13:03:55 2015
-
+Tests covering at least most of the static functions in the gateModel2D
 @author: jpoeppel
 """
 

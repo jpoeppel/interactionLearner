@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Tue Sep 29 16:35:34 2015
-
+Test for the common functions
 @author: jpoeppel
 """
 
@@ -86,7 +86,7 @@ class TestCommons:
         v2 = np.array([0.0,0.5])
         ang2 = 0.0
         d, c = generalDistClosing(id1,p1,v1,ang1,id2, p2,v2,ang2)
-        assert np.linalg.norm(d-0.425) < 0.001
+        assert np.linalg.norm(d-0.325) < 0.001
         assert np.linalg.norm(c-(-0.5)) < 0.001
         
         id1 = 15
@@ -97,19 +97,19 @@ class TestCommons:
         id2 = 27
         p2 = np.array([0.0,0.0])
         d, c = generalDistClosing(id1,p1,v1,ang1,id2, p2,v2,ang2)
-        assert np.linalg.norm(d-0.4) < 0.001
+        assert np.linalg.norm(d-0.3) < 0.001
         assert np.linalg.norm(c-(-0.5)) < 0.001
         
         ang1 = np.pi/2.0
         d, c = generalDistClosing(id1,p1,v1,ang1,id2, p2,v2,ang2)
-        assert np.linalg.norm(d-0.2) < 0.001
+        assert np.linalg.norm(d-0.1) < 0.001
         assert np.linalg.norm(c-(-0.5)) < 0.001
         
         ang1 = 0.0
         ang2 = np.pi/2.0
         p2 = np.array([0.0,0.0])
         d, c = generalDistClosing(id1,p1,v1,ang1,id2, p2,v2,ang2)
-        assert np.linalg.norm(d-0.2) < 0.001
+        assert np.linalg.norm(d-0.3) < 0.001
         assert np.linalg.norm(c-(-0.5)) < 0.001
         
     def test_quaternionToEuler(self):

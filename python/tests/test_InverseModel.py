@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 """
 Created on Fri Nov 20 17:27:38 2015
-
+Functions testing most functions in the inverse model.
+TODO: Add test for merging
 @author: jpoeppel
 """
 

@@ -2,19 +2,19 @@
 # -*- coding: utf-8 -*-
 """
 Created on Wed Jun 17 13:22:13 2015
-
+Simple tests for the aitm
 @author: jpoeppel
 """
 
 #from conceptLearner.topoMaps import ITM
-from interactionLearner.itm import Node
-from interactionLearner.itm import ITM
+from interactionLearner.aitm import Node
+from interactionLearner.aitm import AITM
 import numpy as np
 
 class TestITM:
     
     def setup(self):
-        self.itm = ITM()
+        self.itm = AITM()
         self.x1 = np.array([1.0,0.2,0.3,-0.4])
         self.y1 = np.array([0.5])
         self.x2 = np.array([-1.0,0.4,0.1,0.4])

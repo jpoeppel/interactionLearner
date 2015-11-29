@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 """
 Created on Tue Oct  6 15:24:16 2015
-
+Simple tests to test some core functions in the interactionState model.
+Still missing tests for ACs..
 @author: jpoeppel
 """
 
@@ -12,7 +13,6 @@ from interactionLearner.modelInteractions_config import Episode
 import interactionLearner.common as common
 
 import numpy as np
-from sets import Set
 
 class TestObject:
     
@@ -57,14 +57,6 @@ class TestInteraction:
         o2.lastVec = np.array([0.0,0.0,0.0])
         intState = InteractionState.fromObjectStates(o1,o2)
         assert intState.id == "15,8"
-        """
-            Removed dthet for now
-        """
-#                                                # sId, oId, x,y,  thet,dx,dy, dthet
-#        assert np.linalg.norm(intState.vec-np.array([15,8,0.0,0.0,0.0,0.0,-0.5,0.0])) < 0.0001
-#        assert np.linalg.norm(intState.lastVec-np.array([15,8,0.0,0.0,0.0,0.0,-0.5,0.0])) < 0.0001
-        
-                                                        # sId, oId, x,y,  thet,dx,dy
         assert np.linalg.norm(intState.vec[:7]-np.array([15,8,0.0,0.0,0.0,0.0,-0.5])) < 0.0001
         assert np.linalg.norm(intState.lastVec[:7]-np.array([15,8,0.0,0.0,0.0,0.0,-0.5])) < 0.0001
         
@@ -79,13 +71,6 @@ class TestInteraction:
         o1.vec = np.array([0.0,0.5,np.pi/2.0])                                                
         intState = InteractionState.fromObjectStates(o1,o2)
         assert intState.id == "15,8"
-        """
-            Removed dthet for now
-        """
-#                                                # sId, oId, x,y,  thet,dx,dy, dthet
-#        assert np.linalg.norm(intState.vec-np.array([15,8,0.0,0.0,0.0,-0.5,0.0,-np.pi/2.0])) < 0.0001
-#        assert np.linalg.norm(intState.lastVec-np.array([15,8,0.0,0.0,0.0,-0.5,0.0,-np.pi/2.0])) < 0.0001
-                                                        # sId, oId, x,y,  thet,dx,dy
         assert np.linalg.norm(intState.vec[:7]-np.array([15,8,0.0,0.0,0.0,-0.5,0.0])) < 0.0001
         assert np.linalg.norm(intState.lastVec[:7]-np.array([15,8,0.0,0.0,0.0,-0.5,0.0])) < 0.0001
         

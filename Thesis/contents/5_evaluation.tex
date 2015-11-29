@@ -395,12 +395,7 @@ The model was not altered in any way for the results presented in figure \ref{fi
 The gating function often classifies incorrectly for the red object, but the blue object does not seem to be influenced by the new object at all since the results are basically identical to the ones presented in \ref{fig:eachPosGate}. 
 Within the training positions for the red object, the predictions are fairly good (below \m{0.05} +/- \m{0.02} for position and below \rad{0.09} +/- \rad{0.06}).
 
-By introducing a seventh training position in between both objects, the prediction quality of runs that do not interact with the red object improves due to better performance of the gating function as can be seen in figure \ref{fig:eachPosTwoObjects7Trains}. The other predictions remain mostly unchanged through the introduction of the additional training run.
-
-
-As in the experiment before, figure \ref{fig:eachPosTwoObjectsEndPos} shows the predicted and actual configuration for every second testing positions in order to allow for easier interpretation of these results.
-
-\begin{figure}[h]
+\begin{figure}[H]
 \centering
 \includegraphics[width=0.65\textwidth]{EachPosgateModel_C_8E20Folds2Objects.pdf}
 \caption{Prediction errors for the object state model with two objects. The training positions are highlighted by the black lines. Error bars indicate one standard deviation. The red and blue bar in between the blocks visualize the size and position of the red and blue blocks respectively.}
@@ -413,6 +408,13 @@ As in the experiment before, figure \ref{fig:eachPosTwoObjectsEndPos} shows the 
 \caption{Prediction errors for the object state model with two objects with an additional separating training positions. The training positions are highlighted by the black lines. Error bars indicate one standard deviation. The red and blue bar in between the blocks visualize the size and position of the red and blue blocks respectively.}
 \label{fig:eachPosTwoObjects7Trains}
 \end{figure}
+
+By introducing a seventh training position in between both objects, the prediction quality of runs that do not interact with the red object improves due to better performance of the gating function as can be seen in figure \ref{fig:eachPosTwoObjects7Trains}. The other predictions remain mostly unchanged through the introduction of the additional training run.
+
+
+As in the experiment before, figure \ref{fig:eachPosTwoObjectsEndPos} shows the predicted and actual configuration for every second testing positions in order to allow for easier interpretation of these results.
+
+
 
 \begin{figure}[h]
 \centering

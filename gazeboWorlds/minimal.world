@@ -6,14 +6,14 @@
         <real_time_factor>0.1</real_time_factor>
         <real_time_update_rate>500</real_time_update_rate>
     </physics>
-    <plugin name="gripperPlugin" filename="libgripperPluginWorld.so"/>
+    <plugin name="actuatorPlugin" filename="libactuatorPluginWorld.so"/>
     <include>
       <uri>model://ground_plane</uri>
     </include>
     <include>
       <uri>model://sun</uri>
     </include>
-    <model name='gripper'>
+    <model name='actuator'>
       <pose>0.0 0.0 0.03 0 0 0</pose>
       <link name='finger'>
         <inertial>
@@ -59,7 +59,7 @@
           </material>
         </visual>
         <gravity>0</gravity>
-        <sensor name='gripperContact' type='contact'>
+        <sensor name='actuatorContact' type='contact'>
           <contact>
             <collision>collision</collision>
           </contact>
@@ -117,7 +117,7 @@
       </link>
       <static>0</static>
     </model>
-     <model name='gripperShadow'>
+     <model name='actuatorShadow'>
       <pose>0.0 0.0 0.03 0 0 0</pose>
       <link name='finger'>
         <visual name='visual'>
@@ -157,8 +157,8 @@
       </link>
       <static>0</static>
     </model>
-    <!-- uncomment for two objects<model name='blockB'>
-      <pose>-0.6 0.35 0.05 0 0 0</pose>
+    <!-- uncomment for 2nd object<model name='blockB'>
+      <pose>-6 0.35 0.05 0 0 0</pose>
       <link name='link'>
         <inertial>
           <mass>1</mass>
@@ -207,7 +207,7 @@
       <static>0</static>
     </model>
     <model name='blockBShadow'>
-      <pose>-0.6 0.35 0.05 0 0 0</pose>
+      <pose>-6 0.35 0.05 0 0 0</pose>
       <link name='link'>
         <visual name='visual'>
           <geometry>
@@ -225,6 +225,6 @@
         <gravity>0</gravity>
       </link>
       <static>0</static>
-    </model> -->
+    </model>-->
   </world>
 </sdf>

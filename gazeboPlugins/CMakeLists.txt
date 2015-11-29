@@ -16,10 +16,6 @@ link_directories(${GAZEBO_LIBRARY_DIRS} ${CMAKE_CURRENT_BINARY_DIR}/msgs)
 add_subdirectory(msgs)
 
 
-add_library(gripperPlugin SHARED gripperPlugin.cc)
-target_link_libraries(gripperPlugin gripperCommand ${GAZEBO_LIBRARIES} ${Boost_LIBRARIES} ${PROTOBUF_LIBRARIES} pthread)
-add_dependencies(gripperPlugin gripperCommand)
-
-add_library(gripperPluginWorld SHARED gripperPluginWorld.cc)
-target_link_libraries(gripperPluginWorld gripperCommand ${GAZEBO_LIBRARIES} ${Boost_LIBRARIES} ${PROTOBUF_LIBRARIES} pthread)
-add_dependencies(gripperPluginWorld gripperCommand)
+add_library(actuatorPluginWorld SHARED actuatorPluginWorld.cc)
+target_link_libraries(actuatorPluginWorld actuatorCommand ${GAZEBO_LIBRARIES} ${Boost_LIBRARIES} ${PROTOBUF_LIBRARIES} pthread)
+add_dependencies(actuatorPluginWorld actuatorCommand)

@@ -9,7 +9,7 @@ foreach(ITR ${GAZEBO_INCLUDE_DIRS})
 endforeach()
 
 set (msgs
-  $ENV{masterPath}/masterThesis/gazeboPlugins/msgs/gripperCommand.proto
+  $ENV{masterPath}/masterThesis/gazeboPlugins/msgs/actuatorCommand.proto
   $ENV{masterPath}/masterThesis/gazeboPlugins/msgs/modelState.proto
   $ENV{masterPath}/masterThesis/gazeboPlugins/msgs/modelState_v.proto
   $ENV{masterPath}/masterThesis/gazeboPlugins/msgs/worldState.proto
@@ -30,5 +30,5 @@ PROTOBUF_GENERATE_CPP(PROTO_SRCS PROTO_HDRS ${msgs})
 execute_process(COMMAND protoc -I=$ENV{masterPath}/masterThesis/gazeboPlugins/msgs/ --proto_path=/usr/include/gazebo-2.2/gazebo/msgs/proto --python_out=$ENV{masterPath}/pygazebo/pygazebo/msg/ ${msgs})
 
 
-add_library(gripperCommand SHARED ${PROTO_SRCS})
-target_link_libraries(gripperCommand ${PROTOBUF_LIBRARY})
+add_library(actuatorCommand SHARED ${PROTO_SRCS})
+target_link_libraries(actuatorCommand ${PROTOBUF_LIBRARY})

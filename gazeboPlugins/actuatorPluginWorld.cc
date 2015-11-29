@@ -4,7 +4,7 @@
 #include <gazebo/transport/transport.hh>
 #include <gazebo/msgs/msgs.hh>
 #include <gazebo/gazebo.hh>
-#include "gripperCommand.pb.h"
+#include "actuatorCommand.pb.h"
 #include "modelState_v.pb.h"
 #include "modelState.pb.h"
 #include "worldState.pb.h"
@@ -15,17 +15,19 @@
 
 namespace gazebo
 {
-  class GripperPlugin : public WorldPlugin
+  class ActuatorPlugin : public WorldPlugin
   {
+    /* Custom world plugin for the simulation in order to publish the required 
+       information for each object as well as react to the acutator commands. */
 
-    // Pointer to the gripper
-    private: physics::ModelPtr gripper;
+    // Pointer to the actuator
+    private: physics::ModelPtr actuator;
     //Pointer to the world
     private: physics::WorldPtr world;
     // Pointer to the target
     private: physics::ModelPtr target;
 
-    private: gazeboPlugins::msgs::GripperCommand::Command curCmd;
+    private: gazeboPlugins::msgs::ActuatorCommand::Command curCmd;
     private: math::Vector3 curDir;
 
     private: sensors::ContactSensorPtr contactSensor;
@@ -40,13 +42,11 @@ namespace gazebo
     private: bool hasTarget;
     private: bool targetReached;
 
-    typedef const boost::shared_ptr<const gazeboPlugins::msgs::GripperCommand> CmdPtr;
+    typedef const boost::shared_ptr<const gazeboPlugins::msgs::ActuatorCommand> CmdPtr;
     void cb(CmdPtr &_msg)
     {
-      // Dump the message contents to stdout.
       this->curCmd = _msg->cmd();
       this->curDir = math::Vector3(_msg->direction().x(),_msg->direction().y(),_msg->direction().z());
-      //std::cout << gazeboPlugins::msgs::GripperCommand::Command_Name(_msg->cmd()) << ": " << curDir << std::endl;
     }
 
     typedef const boost::shared_ptr<const gazeboPlugins::msgs::ModelState_V> ModelSVPtr;
@@ -54,7 +54,6 @@ namespace gazebo
     {
 
         for (unsigned int i=0; i<_msg->models_size();i++) {
-            //std::cout << "Moving " << _msg->models(i).name()<<" to " << msgs::Convert(_msg->models(i).pose())<< "\n";
             physics::ModelPtr m = this->world->GetModel(_msg->models(i).name());
             m->SetWorldPose(msgs::Convert(_msg->models(i).pose()));
         }
@@ -73,25 +72,25 @@ namespace gazebo
 
       // Store the pointer to the model
       this->world = _parent;
-      this->gripper = this->world->GetModel("gripper");
-      this->contactSensor = boost::dynamic_pointer_cast<sensors::ContactSensor>(sensors::get_sensor("gripperContact"));
+      this->actuator = this->world->GetModel("actuator");
+      this->contactSensor = boost::dynamic_pointer_cast<sensors::ContactSensor>(sensors::get_sensor("actuatorContact"));
       this->hasTarget = false;
       // Create our node for communication
       gazebo::transport::NodePtr node(new gazebo::transport::Node());
       node->Init("default");
 
       // Listen to custom topic
-      this->msgSubscriber = node->Subscribe("/gazebo/default/gripperMsg", &GripperPlugin::cb, this);
-      this->predictionSubscriber = node->Subscribe("/gazebo/default/poses", &GripperPlugin::poseCB, this);
-      this->sensorSubscriber = node->Subscribe("~/sensor", &GripperPlugin::sensorCB, this);
+      this->msgSubscriber = node->Subscribe("/gazebo/default/actuatorMsg", &ActuatorPlugin::cb, this);
+      this->predictionSubscriber = node->Subscribe("/gazebo/default/poses", &ActuatorPlugin::poseCB, this);
+      this->sensorSubscriber = node->Subscribe("~/sensor", &ActuatorPlugin::sensorCB, this);
 
       this->worldStatePub = node->Advertise<gazeboPlugins::msgs::WorldState>("~/worldstate");
       // Listen to the update event. This event is broadcast every
       // simulation iteration.
       this->updateConnection = event::Events::ConnectWorldUpdateBegin(
-          boost::bind(&GripperPlugin::OnUpdate, this, _1));
+          boost::bind(&ActuatorPlugin::OnUpdate, this, _1));
       this->contactConnection = this->contactSensor->ConnectUpdated(
-      boost::bind(&GripperPlugin::OnContact, this));
+      boost::bind(&ActuatorPlugin::OnContact, this));
       // Make sure the parent sensor is active.
       this->contactSensor->SetActive(true);
       std::cout << "loaded plugin" << std::endl;
@@ -103,17 +102,17 @@ namespace gazebo
     public: void OnUpdate(const common::UpdateInfo & /*_info*/)
     {
       // Apply a small linear velocity to the model.
-      if (not this->isGripperMovementOk()) {
-        std::cout << "Gripper OFB" << std::endl;
+      if (not this->isActuatorMovementOk()) {
+        std::cout << "Actuator OFB" << std::endl;
         this->curDir = math::Vector3(0.0,0.0,0.0);
-        this->gripper->SetLinearVel(math::Vector3(0.0,0.0,0.0));
+        this->actuator->SetLinearVel(math::Vector3(0.0,0.0,0.0));
       }
-      this->gripper->SetAngularVel(math::Vector3(0.0,0.0,0.0));
-      if (this->curCmd == gazeboPlugins::msgs::GripperCommand::MOVE)
+      this->actuator->SetAngularVel(math::Vector3(0.0,0.0,0.0));
+      if (this->curCmd == gazeboPlugins::msgs::ActuatorCommand::MOVE)
       {
-        this->gripper->SetLinearVel(this->curDir);
-        math::Pose p = this->gripper->GetWorldPose();
-        this->gripper->SetWorldPose(math::Pose(math::Vector3(p.pos.x,p.pos.y,0.03), p.rot));
+        this->actuator->SetLinearVel(this->curDir);
+        math::Pose p = this->actuator->GetWorldPose();
+        this->actuator->SetWorldPose(math::Pose(math::Vector3(p.pos.x,p.pos.y,0.03), p.rot));
       }
     }
 
@@ -131,7 +130,6 @@ namespace gazebo
         tmp->set_name(m->GetName());
         tmp->set_id(m->GetId());
         tmp->set_is_static(m->IsStatic());
-  //      tmp->set_type(m->GetChildCollision("collision")->GetShapeType());
         msgs::Pose* p = tmp->mutable_pose();
         msgs::Set(p, m->GetWorldPose());
         msgs::Vector3d* linvel = tmp->mutable_linvel();
@@ -152,9 +150,9 @@ namespace gazebo
     }
 
 
-    private: bool isGripperMovementOk()
+    private: bool isActuatorMovementOk()
     {
-        return ((this->gripper->GetWorldPose().pos+this->curDir).Distance(0.0,0.0,1.0) <= 2.5);
+        return ((this->actuator->GetWorldPose().pos+this->curDir).Distance(0.0,0.0,1.0) <= 2.5);
     }
 
 
@@ -162,5 +160,5 @@ namespace gazebo
   };
 
   // Register this plugin with the simulator
-  GZ_REGISTER_WORLD_PLUGIN(GripperPlugin)
+  GZ_REGISTER_WORLD_PLUGIN(ActuatorPlugin)
 }

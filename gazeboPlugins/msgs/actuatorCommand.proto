@@ -2,11 +2,11 @@ package gazeboPlugins.msgs;
 import "vector3d.proto";
 
 /// \ingroup gazebo_msgs
-/// \interface GripperCommand
+/// \interface ActuatorCommand
 /// \brief Controls the actuator, only MOVE is used so far.
 
 
-message GripperCommand
+message ActuatorCommand
 {
   enum Command {
     NOTHING = 0;

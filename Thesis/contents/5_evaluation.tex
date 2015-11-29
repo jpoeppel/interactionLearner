@@ -71,7 +71,7 @@ The information for all objects is packed into a custom Protobuf message, which 
 Furthermore, the plug-in receives custom control messages. These messages allow the Python interface to influence the simulation.
 While the exact messages are explained in the Appendix \ref{sec:protobufMessages}, table \ref{tab:commands} gives an overview about the possible commands, that can be send to the simulation.
 
-On the Python side, an interface was written with the help of the module  pygazebo\footnote{Pygazebo is a Python module developed by Josh Pieper: \url{https://github.com/jpieper/pygazebo} (Accessed November 2015).}, which provides Python bindings for the message passing system used by gazebo. This interface handles the messages that are received from and send to the simulation. 
+On the Python side, an interface was written with the help of the module  pygazebo\footnote{Pygazebo is a Python module developed by Josh Pieper: \url{https://github.com/jpieper/pygazebo} (Last accessed November 2015).}, which provides Python bindings for the message passing system used by gazebo. This interface handles the messages that are received from and send to the simulation. 
 At each update step, the interface performs four to five actions:
 \begin{enumerate}
 \item Construct a suitable worldstate from the provided information
@@ -146,7 +146,7 @@ Furthermore, the predicted states of both the actuator and the object are send t
 	\centering
 	\includegraphics[width=0.8\textwidth]{PushTaskSim.png}
 	\caption{Exemplary start and end configuration of a \textit{Push Task Simulation} run. The left side shows the start configuration, while on the right the corresponding end configuration can be seen.
-		The solid objects (dark blue and black) represent the actual block and actuator, while the transparent objects symbolize the predicted states of the objects.}
+		The opaque objects (dark blue and black) represent the actual block and actuator, while the transparent objects symbolize the predicted states of the objects.}
 	\label{fig:pushTaskSim}
 \end{figure}
 
@@ -359,11 +359,15 @@ In order to be able to interpret these results, figure \ref{fig:EachPosEndPos} s
 The number of required nodes for this experiment is slightly lower then when learning on random data and show hardly any variance. The interaction model consistently trains eight \glspl{ac} of which the biggest one contains around 6 nodes. The \gls{acs} requires 3.5 nodes on average. 
 The object state model constantly requires 9 nodes in the gating function and around 58 nodes for the local forward model of the block.
 
-\textbf{Generalization in the open loop:}
+\textbf{Generalization with constant feedback:}
 
 While the previous scenarios test the accumulated prediction error, it is often not required to make accurate predictions 150 steps into the future. Instead it is more important to adapt to changes in the environment quickly. For that reason, a variation of the \textit{Push Task Simulation} was also evaluated. In this variation, the models are not trained before testing, but will instead continuously receive updates from the environment. That way the models online learning capabilities are evaluated. The models will still make consecutive predictions based on their last prediction. Their last predictions are not corrected based on the actual environment and the models do not get or compute any feedback as to how good their last prediction was. 
 
-A qualitative evaluation is provided in figure \ref{fig:pushTaskSim2}. The figure shows images of consecutive interactions of the object state model with the environment. The transparent object represent the last predictions, while the darker objects represent the actual states of the objects. In order to be able to actually see meaningful differences between consecutive interactions, these images where taken in a setting where the model is only updated every 10Hz, meaning that the model was updated and queried every 0.1 seconds in simulation time instead of the 0.01 seconds used for all the other evaluations. No other adaptation to the model was made. The top row shows the first run the model performs while the second row shows the following run. The testing positions were predefined.
+A qualitative evaluation is provided in figure \ref{fig:pushTaskSim2}. Each row in the figure represents one run as described before. The leftmost images show the initial configuration at the start of the run. The rightmost images show the interaction step where the block prediction changed for the last time. 
+The first row shows the first run as performed the object state model. An image sequence for the interaction state model looks almost identical and was therefore omitted. The second row shows the second run performed by the object state model, while the third row shows the same run performed by the interaction state model.
+
+The transparent object represent the last predictions, while the opaque objects represent the actual states of the objects. 
+In order to be able to actually see meaningful differences between consecutive interactions, these images where taken in a setting where the model is only updated every 10Hz, meaning that the model was updated and queried every 0.1 seconds in simulation time instead of the 0.01 seconds used for all the other evaluations. No other adaptation to the models was made. 
 
 \begin{figure}
 \centering
@@ -372,40 +376,40 @@ A qualitative evaluation is provided in figure \ref{fig:pushTaskSim2}. The figur
 \label{fig:pushTaskSim2}
 \end{figure}
 
-The leftmost images show the initial configuration at the start of both runs. While no prediction is made for the actuator in the 2nd image of the top row, the actuator is predicted correctly in the 2nd run. The top row continues to lag one frame behind with its predictions. The final block predictions are accurate again.
-In the 2nd run, the actuator predictions are good. However, the model predicts the same rotation as in the first run once the actuator comes close to the object. After a few other frames, the predictions start turning in the other direction, but do not catch up to the actual object.
-
-%TODO interaction model?
+While no prediction is made for the actuator in the 2nd image of the top row, the actuator is predicted correctly in the 2nd run. The top row continues to lag one frame behind with its predictions. The final block predictions are accurate again.
+In the 2nd run, the actuator predictions are good. However, the model predicts the same rotation as in the first run once the actuator comes close to the object. After a few other frames, the predictions start turning in the other direction, but do not catch up to the actual object. The object state model does not change its prediction for the block anymore after the actual actuator passed the actual block. However, the interaction state model continues to make predictions until it reaches the point shown in the image which leads to a better prediction at the end of the run.
 
 \subsection{Extension to multiple objects \label{sec:multipleObjects}}
 
 Environments rarely only contain a single object, however, so far in this thesis, only one object was considered. While it is difficult for the interaction model to handle multiple objects due to the reasons explained in section \ref{sec:interactionTheory}, the object state model handles objects separately anyways. In this evaluation the red block described in table \ref{tab:environmentObjects} is added to the scene and six fixed training positions (three interacting with each object) are used. The blue block remains at the same position as in the previous experiments, while the red block is located left of it with a center position of \m{-0.6} in x direction and \m{0.35} in y direction. This position ensures that the distance from the starting line remains the same compared to the blue object.
 The object is then tested on a fixed set of 21 testing positions ranging from \m{-0.8} to \m{0.4} in intervals of \m{0.06}.
 
-The model was not altered in any way for the results presented in figure \ref{fig:eachPosTwoObjects}.
 
-\begin{figure}
-\centering
-\includegraphics[width=0.7\textwidth]{EachPosgateModel_C_8E20Folds2Objects.pdf}
-\caption{Prediction errors for the object state model with two objects. The training positions are highlighted by the black lines. Error bars indicate one standard deviation. The red and blue bar in between the blocks visualize the size and position of the red and blue blocks respectively.}
-\label{fig:eachPosTwoObjects}
-\end{figure}
+The model was not altered in any way for the results presented in figure \ref{fig:eachPosTwoObjects}.
 
 The gating function often classifies incorrectly for the red object, but the blue object does not seem to be influenced by the new object at all since the results are basically identical to the ones presented in \ref{fig:eachPosGate}. 
 Within the training positions for the red object, the predictions are fairly good (below \m{0.05} +/- \m{0.02} for position and below \rad{0.09} +/- \rad{0.06}).
 
 By introducing a seventh training position in between both objects, the prediction quality of runs that do not interact with the red object improves due to better performance of the gating function as can be seen in figure \ref{fig:eachPosTwoObjects7Trains}. The other predictions remain mostly unchanged through the introduction of the additional training run.
 
-\begin{figure}
+
+As in the experiment before, figure \ref{fig:eachPosTwoObjectsEndPos} shows the predicted and actual configuration for every second testing positions in order to allow for easier interpretation of these results.
+
+\begin{figure}[h]
 \centering
-\includegraphics[width=0.7\textwidth]{EachPosgateModel_C_8E20Folds2Objects7TrainV2.pdf}
+\includegraphics[width=0.65\textwidth]{EachPosgateModel_C_8E20Folds2Objects.pdf}
+\caption{Prediction errors for the object state model with two objects. The training positions are highlighted by the black lines. Error bars indicate one standard deviation. The red and blue bar in between the blocks visualize the size and position of the red and blue blocks respectively.}
+\label{fig:eachPosTwoObjects}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.65\textwidth]{EachPosgateModel_C_8E20Folds2Objects7TrainV2.pdf}
 \caption{Prediction errors for the object state model with two objects with an additional separating training positions. The training positions are highlighted by the black lines. Error bars indicate one standard deviation. The red and blue bar in between the blocks visualize the size and position of the red and blue blocks respectively.}
 \label{fig:eachPosTwoObjects7Trains}
 \end{figure}
 
-As in the experiment before, figure \ref{fig:eachPosTwoObjectsEndPos} shows the predicted and actual configuration for every second testing positions in order to allow for easier interpretation of these results.
-
-\begin{figure}
+\begin{figure}[h]
 \centering
 \includegraphics[width=\textwidth]{EachPos2ObjectsEndPos.png}
 \caption{Predicted and actual end positions for the two object scenario. Transparent objects represent the predictions. The top row shows the results after having seen six training runs. The bottom row shows the results for the experiment adding a seventh training run in between both objects. Every 2nd of the 21 testing positions is shown.}
@@ -415,7 +419,8 @@ As in the experiment before, figure \ref{fig:eachPosTwoObjectsEndPos} shows the 
 
 \section{Move to Target \label{sec:moveToTarget}}
 
-The \textit{Move to Target} task is designed to evaluate the concept's ability to reach a given target configuration incrementally. 
+The \textit{Move to Target} task is designed to evaluate the concept's ability to reach a given target configuration incrementally. AS mentioned in the 
+realization chapters of both models, this thesis assumes that the inverse model has been sufficiently trained, i.e. it has seen all required changes in feature dimensions, before a target is specified. 
 
 \subsection{Scenario description}
 
@@ -511,12 +516,24 @@ The object state with gating function reaches the targets in most cases within t
 No target is never reached, but the interaction model had a few problems reaching the first and fourth targets. Looking at the combined error of position and orientation for the runs that did not reach the first and fourth target in detail revealed that in both cases, the model was not able to push the object straight without changing its orientation. The 2 runs that did not reach Target 1 as well as an exemplary third run that did reach can be seen in figure \ref{fig:moveToTargetInteractionT1Detail}.
 In both failed runs, the model first reduces the difference in orientation successfully. However afterwards, it only manages to reduce the positional difference rotating the object away from the target orientation.
 
+Snapshots of a successful run towards Target 1 performed by the object state model can be seen in figure \ref{fig:moveToTargetRun}. The image shows how the model first turns the object in the correct orientation. Afterwards the model pushes the object upwards and then towards the right. Finally some minor adjustments regarding the orientation and the position are made.
+
 \begin{figure}
 \centering
 \includegraphics[width=0.8\textwidth]{MoveToTargetInteractionT1Detail.pdf}
 \caption{Detailed view of three runs towards Target 1 performed by the interaction state model. The two runs that did not reach the target as well as one successful one are presented. The errors in position and orientation as well as the combined error over the interaction steps are shown.}
 \label{fig:moveToTargetInteractionT1Detail}
 \end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[width=\textwidth]{MoveToTargetRun.png}
+\caption{Several snapshots from a run towards Target 1 by the object state model.
+The run started at the image at the top left and finished at the bottom right.
+There are around 50-150 updates in between two frames. The transparent block represents the target configuration.}
+\label{fig:moveToTargetRun}
+\end{figure}
+
 
 %Two runs, including the one that did not quite reach the target for the object state model are visualized in figure \ref{fig:moveToTargetGateT1Detail}.
 %

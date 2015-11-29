@@ -42,15 +42,22 @@ The most reasonable explanation for this phenomenon is that the selected trainin
 
 
 \subsection{Generalization with constant feedback} 
-%TODO second model?
-The images in figure \ref{fig:pushTaskSim2} showcase the one-shot learning capabilities of the memory-based regression and classification models. While the object state model lags one timestep behind in the first run, they successfully predict changes in the actuator correctly in the second run. 
-The predictions for the block are already quite good in the first run because the model reach the block in the predictions only after it was already updated by the actual interaction. While the rotations are predicted one frame later then in reality due to the late start for the actuator, the actual block predictions are accurate.
 
-The interaction in the 2nd row is interesting. Since the actuator prediction is accurate, the model has never seen the interaction at this side before it comes to predicting it. Therefore, it predicts the rotation from the situation that is closest to the current situation. In this case, this results in the wrong prediction for orientation.
-Furthermore, an impossible configuration of actuator and block is predicted where the actuator is located within the block. The model does not know about physical laws and performs no checks for such situations.
-In the next frames, the model adapts its forward model to the new information that it is being provided and starts rotating the prediction in the other direction. The relatively big error cannot be corrected completely since the predicted actuator quickly reaches a position where the gating function does not predict any more influence on the predicted block. 
+The images in figure \ref{fig:pushTaskSim2} showcase the one-shot learning capabilities of the memory-based regression and classification models. While both models lag one timestep behind in the first run, they predict changes in the actuator in the second run correctly.
+The predictions for the block are already quite good in the first run because the models reach the block in the predictions only after it was already updated by the actual interaction. Despite the fact that the rotations are predicted one frame later then in reality due to the late start for the actuator, the actual block predictions are accurate.
 
-Nevertheless, the images show the one-shot capabilities one would expect from memory-based approaches. If a higher update rate is used, such as 100Hz as in the other experiments, smaller prediction errors will be made. In that case the currently predicted situation remains close to the actual situation, which means that the model can still apply what it has just learned for its next prediction.
+The interactions in the 2nd row are interesting.
+Since the actuator predictions for both models are accurate, the models have never seen the interaction at the right side of the block before it comes to predicting it. Therefore, it predicts the rotation from the situation that is closest to the current situation. In this case, this results in the wrong prediction for orientation.
+Furthermore, an impossible configuration of actuator and block is predicted where the actuator is located within the block. 
+The models do not know about physical laws and perform no checks for such situations.
+However, in the interaction state model the actuator is predicted to be slightly further outside, resulting in less overlap with the block prediction. 
+In the next frames, the models adapt their forward models to the new information that is being provided and start rotating the prediction in the other direction. The object state model cannot completely compensate the relatively big error.
+This is because the gating function stops to predict an influence of the predicted actuator on the predicted block.
+In the interaction state model, the predicted block keeps turning for additional update steps before the \gls{acs} starts selecting an \gls{ac} that does not change the block anymore.
+While the final prediction of the interaction state model might be closer to the actual block, the object state model managed to learn the interaction more precisely. This is because the gating function correctly predicted that the predicted actuator should not influence the predicted block anymore in the rightmost image of the second row.
+The already mentioned difference in complexity between the gating function and the \gls{acs} is also apparent in this evaluation.
+
+Nevertheless, the images show the one-shot capabilities one would expect from memory-based approaches for both models. If a higher update rate is used, such as 100Hz as in the other experiments, smaller prediction errors will be made. In that case the currently predicted situation remains close to the actual situation, which means that the models can still apply what they have just learned for its next prediction.
 
 
 \subsection{Extension two multiple objects}

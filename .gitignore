@@ -20,6 +20,7 @@ pip-*
 *.glo
 *.glsdefs
 *.ist
+*.snm
 
 
 # C extensions

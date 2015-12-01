@@ -76,9 +76,9 @@ PUSHTASKSIMULATION2 = 3
 MOVE_TO_TARGET = 4
 DEBUG = 5
 
-MODE = PUSHTASKSIMULATION
+#MODE = PUSHTASKSIMULATION
 #MODE = FREE_EXPLORATION
-#MODE = MOVE_TO_TARGET
+MODE = MOVE_TO_TARGET
 #MODE = DEBUG
 
 #Num training runs for move to target
@@ -398,7 +398,6 @@ class GazeboInterface():
             self.startedRun = True
             return False
         for block in blocks:
-            print "checking block: ", block.id
             if np.linalg.norm(block.vec-self.lastStartConfig[block.id]) > 0.01:
                 self.resetErrors += 1
                 self.sendPose(BLOCKNAMES[block.id], np.concatenate((self.lastStartConfig[block.id][:2],[0.05])), self.lastStartConfig[block.id][2])
